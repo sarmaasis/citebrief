@@ -30,7 +30,7 @@ export async function acceptInviteForUser(
       id: crypto.randomUUID(),
       workspaceId: invite.workspaceId,
       userId: user.id,
-      role: invite.role === "owner" ? "owner" : "member",
+      role: "member", // invites never grant owner
       createdAt: new Date(),
     });
   }
@@ -40,7 +40,7 @@ export async function acceptInviteForUser(
     .set({ acceptedAt: new Date() })
     .where(eq(workspaceInvites.id, invite.id));
 
-  return { ok: true, workspaceId: invite.workspaceId, role: invite.role };
+  return { ok: true, workspaceId: invite.workspaceId, role: "member" };
 }
 
 /**

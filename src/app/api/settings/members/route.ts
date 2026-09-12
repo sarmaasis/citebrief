@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { workspaceInvites, workspaceMembers } from "@/db/schema";
 import { planAllowsMembers } from "@/lib/billing";
@@ -27,6 +27,21 @@ export async function POST(request: Request) {
   const ctx = await getAppContext();
   if (!ctx) return jsonError("Sign in required.", 401);
 
+  const [ownerMembership] = await ctx.db
+    .select({ id: workspaceMembers.id })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, ctx.workspace.id),
+        eq(workspaceMembers.userId, ctx.user.id),
+        eq(workspaceMembers.role, "owner"),
+      ),
+    )
+    .limit(1);
+  if (!ownerMembership) {
+    return jsonError("Only workspace owners can invite members.", 403);
+  }
+
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   if (!planAllowsMembers(sub?.plan || "agency")) {
     return jsonError("Member invites require Agency or Studio.", 402);
@@ -37,7 +52,8 @@ export async function POST(request: Request) {
   if (!email || !email.includes("@")) {
     return jsonError("A valid email is required.");
   }
-  const role = body.role === "owner" ? "owner" : "member";
+  // v1: invites are member-only (ignore client role; never invite as owner).
+  const role = "member";
   const token = crypto.randomUUID().replaceAll("-", "");
   const now = new Date();
 
