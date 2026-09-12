@@ -57,7 +57,7 @@
     "binding": "BROWSER"
   },
   "vars": {
-    "BETTER_AUTH_URL": "http://localhost:3000",
+    "BETTER_AUTH_URL": "https://citebrief.sarmaasis.workers.dev",
     "DODO_PAYMENTS_ENVIRONMENT": "test_mode"
   },
   "triggers": {
