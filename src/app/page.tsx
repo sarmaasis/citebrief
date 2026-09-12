@@ -30,7 +30,7 @@ export default function HomePage() {
                 <Link href="/signup">Start the first report</Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <a href="#sample">View a sample</a>
+                <Link href="/report">View a sample</Link>
               </Button>
             </div>
           </div>

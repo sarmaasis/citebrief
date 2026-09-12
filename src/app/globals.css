@@ -15,6 +15,9 @@
   --color-cb-accent-subtle: var(--cb-accent-subtle);
   --color-cb-danger: var(--cb-danger);
   --color-cb-on-accent: var(--cb-on-accent);
+  --color-cb-missing-subtle: var(--cb-missing-subtle);
+  --color-cb-pending-subtle: var(--cb-pending-subtle);
+  --color-cb-muted-bg: var(--cb-muted-bg);
 
   --radius-cb-control: var(--cb-radius-control);
   --radius-cb-card: var(--cb-radius-card);
@@ -36,7 +39,7 @@
   --color-primary-foreground: var(--cb-on-accent);
   --color-secondary: var(--cb-accent-subtle);
   --color-secondary-foreground: var(--cb-accent);
-  --color-muted: var(--cb-accent-subtle);
+  --color-muted: var(--cb-muted-bg);
   --color-muted-foreground: var(--cb-muted);
   --color-accent: var(--cb-accent-subtle);
   --color-accent-foreground: var(--cb-accent);

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BrandFields, emptyBrandFields, type BrandFieldValues } from "@/components/brands/brand-fields";
 import { PromptEditor } from "@/components/prompts/prompt-editor";
@@ -14,7 +13,6 @@ import { Logo } from "@/components/brand/logo";
 const steps = ["Brand", "Prompts", "Report"] as const;
 
 export function OnboardingFlow() {
-  const router = useRouter();
   const [step, setStep] = useState(1);
   const [fields, setFields] = useState<BrandFieldValues>(emptyBrandFields);
   const [brandId, setBrandId] = useState<string | null>(null);
@@ -222,10 +220,7 @@ export function OnboardingFlow() {
           {reportReady && brandId ? (
             <div className="mt-8 flex gap-2">
               <Button asChild>
-                <Link href={`/app/brands/${brandId}`}>Open report</Link>
-              </Button>
-              <Button type="button" variant="outline" onClick={() => router.push(`/app/brands/${brandId}`)}>
-                Brand home
+                <Link href={`/app/brands/${brandId}`}>Brand home</Link>
               </Button>
             </div>
           ) : (

@@ -17,6 +17,9 @@ export const colors = {
   accentSubtle: "#E8F0EC",
   danger: "#9A3412",
   onAccent: "#FFFFFF",
+  missingSubtle: "#F4E7E0",
+  pendingSubtle: "#F6EAD4",
+  mutedBg: "#F3F2EE",
 } as const;
 
 export const radius = {
@@ -93,6 +96,9 @@ export const cssVars = {
   accentSubtle: "--cb-accent-subtle",
   danger: "--cb-danger",
   onAccent: "--cb-on-accent",
+  missingSubtle: "--cb-missing-subtle",
+  pendingSubtle: "--cb-pending-subtle",
+  mutedBg: "--cb-muted-bg",
   radiusControl: "--cb-radius-control",
   radiusCard: "--cb-radius-card",
   radiusPanel: "--cb-radius-panel",
