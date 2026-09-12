@@ -80,36 +80,36 @@ export const pdf = {
 } as const;
 
 export const cssVars = {
-  bg: "--nw-bg",
-  surface: "--nw-surface",
-  line: "--nw-line",
-  text: "--nw-text",
-  muted: "--nw-muted",
-  accent: "--nw-accent",
-  named: "--nw-named",
-  missing: "--nw-missing",
-  pending: "--nw-pending",
-  accentHover: "--nw-accent-hover",
-  accentSubtle: "--nw-accent-subtle",
-  danger: "--nw-danger",
-  onAccent: "--nw-on-accent",
-  radiusControl: "--nw-radius-control",
-  radiusCard: "--nw-radius-card",
-  radiusPanel: "--nw-radius-panel",
-  shadowMenu: "--nw-shadow-menu",
-  duration: "--nw-duration",
-  ease: "--nw-ease",
-  fontSans: "--nw-font-sans",
-  fontSerif: "--nw-font-serif",
-  fontMono: "--nw-font-mono",
-  sidebarWidth: "--nw-sidebar-width",
-  tableRowHeight: "--nw-table-row-height",
+  bg: "--cb-bg",
+  surface: "--cb-surface",
+  line: "--cb-line",
+  text: "--cb-text",
+  muted: "--cb-muted",
+  accent: "--cb-accent",
+  named: "--cb-named",
+  missing: "--cb-missing",
+  pending: "--cb-pending",
+  accentHover: "--cb-accent-hover",
+  accentSubtle: "--cb-accent-subtle",
+  danger: "--cb-danger",
+  onAccent: "--cb-on-accent",
+  radiusControl: "--cb-radius-control",
+  radiusCard: "--cb-radius-card",
+  radiusPanel: "--cb-radius-panel",
+  shadowMenu: "--cb-shadow-menu",
+  duration: "--cb-duration",
+  ease: "--cb-ease",
+  fontSans: "--cb-font-sans",
+  fontSerif: "--cb-font-serif",
+  fontMono: "--cb-font-mono",
+  sidebarWidth: "--cb-sidebar-width",
+  tableRowHeight: "--cb-table-row-height",
 } as const;
 
-export type NwColor = keyof typeof colors;
-export type NwStatus = "named" | "missing" | "pending" | "failed";
+export type CbColor = keyof typeof colors;
+export type CbStatus = "named" | "missing" | "pending" | "failed";
 
-export const statusColor: Record<NwStatus, string> = {
+export const statusColor: Record<CbStatus, string> = {
   named: colors.named,
   missing: colors.missing,
   pending: colors.pending,
