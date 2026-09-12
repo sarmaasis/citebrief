@@ -1,5 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getDb } from "@/db";
+import { requireInternalSecret } from "@/lib/internal-auth";
 import { processRun } from "@/lib/run-processor";
 import { jsonError, jsonOk } from "@/server/json";
 
@@ -7,9 +8,15 @@ export const dynamic = "force-dynamic";
 
 /**
  * Queue consumer stand-in. POST { runId }.
- * When a dedicated Worker consumer exists, point RUNS_QUEUE here or call processRun directly.
+ * Protected by INTERNAL_PROCESS_SECRET (required outside development).
  */
 export async function POST(request: Request) {
+  const { env } = await getCloudflareContext({ async: true });
+  const denied = requireInternalSecret(request, env, "INTERNAL_PROCESS_SECRET");
+  if (denied) {
+    return denied;
+  }
+
   let body: { runId?: string; notifyEmail?: string };
   try {
     body = (await request.json()) as { runId?: string; notifyEmail?: string };
@@ -21,7 +28,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { env } = await getCloudflareContext({ async: true });
     const db = await getDb();
     const result = await processRun(db, env, body.runId, { notifyEmail: body.notifyEmail });
     return jsonOk(result);

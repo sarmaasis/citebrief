@@ -17,3 +17,7 @@ RESEND_FROM=CiteBrief <auth@getcitebrief.com>
 DODO_PAYMENTS_API_KEY=stub
 DODO_PAYMENTS_WEBHOOK_KEY=stub
 DODO_PAYMENTS_ENVIRONMENT=test_mode
+
+# Internal workers / cron (required outside development)
+INTERNAL_PROCESS_SECRET=stub
+CRON_SECRET=stub
