@@ -1,0 +1,24 @@
+# dependencies
+node_modules
+.pnp
+.pnp.js
+
+# next
+.next
+out
+
+# opennext / wrangler
+.open-next
+.wrangler
+.dev.vars
+.env
+.env.*
+!.env.example
+!.dev.vars.example
+
+# logs / os
+*.log
+.DS_Store
+
+# typescript
+*.tsbuildinfo

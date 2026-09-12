@@ -1,6 +1,6 @@
 # CiteBrief Design Brief
 
-Version 1.0 · aligned to PRODUCT.md §18–§20 · Domain: citebrief.xyz
+Version 1.0 · aligned to PRODUCT.md §18–§20 · Domain: getcitebrief.com
 
 Quiet instrument for agencies. Paper + ink, not neon cockpit. Show the actual PDF.
 
@@ -21,7 +21,7 @@ CiteBrief is a **paper + ink** product: Linear / Vercel / Swiss editorial, not g
 
 **Marketing** may use a dark option later; **app is light**. Clients print these reports.
 
-**Brand name:** CiteBrief only. Canonical domain `citebrief.xyz`; stretch `citebrief.com`.
+**Brand name:** CiteBrief only. Canonical domain `getcitebrief.com`; optional redirect `citebrief.xyz`.
 
 ---
 
@@ -31,24 +31,24 @@ CSS variables live in `design/tokens.css`. No purple. No gradient mesh. Accent i
 
 | Token | CSS var | Hex | Role |
 |---|---|---|---|
-| bg | `--nw-bg` | `#FAFAF8` | Warm paper page background (not `#FFF`) |
-| surface | `--nw-surface` | `#FFFFFF` | Cards, panels, inputs |
-| line | `--nw-line` | `#E8E6E1` | Hairline borders, dividers, table rules |
-| text | `--nw-text` | `#171717` | Primary copy |
-| muted | `--nw-muted` | `#737373` | Secondary copy, captions, placeholders |
-| accent | `--nw-accent` | `#0B3D2E` | Ink green CTAs, focus, links |
-| named | `--nw-named` | `#0B3D2E` | Status: brand was named |
-| missing | `--nw-missing` | `#9A3412` | Status: not named (rust, not candy red) |
-| pending | `--nw-pending` | `#B45309` | Status: running / waiting |
+| bg | `--cb-bg` | `#FAFAF8` | Warm paper page background (not `#FFF`) |
+| surface | `--cb-surface` | `#FFFFFF` | Cards, panels, inputs |
+| line | `--cb-line` | `#E8E6E1` | Hairline borders, dividers, table rules |
+| text | `--cb-text` | `#171717` | Primary copy |
+| muted | `--cb-muted` | `#737373` | Secondary copy, captions, placeholders |
+| accent | `--cb-accent` | `#0B3D2E` | Ink green CTAs, focus, links |
+| named | `--cb-named` | `#0B3D2E` | Status: brand was named |
+| missing | `--cb-missing` | `#9A3412` | Status: not named (rust, not candy red) |
+| pending | `--cb-pending` | `#B45309` | Status: running / waiting |
 
 Derived (not in PRD table; keep tonal, no new hues):
 
 | Token | CSS var | Value | Role |
 |---|---|---|---|
-| accent-hover | `--nw-accent-hover` | `#0A3428` | Pressed / hover accent |
-| accent-subtle | `--nw-accent-subtle` | `#E8F0EC` | Soft accent wash for pills / selected rows |
-| danger | `--nw-danger` | `#9A3412` | Alias of missing for form errors |
-| shadow-menu | `--nw-shadow-menu` | `0 8px 24px rgba(0,0,0,.06)` | Floating menus only |
+| accent-hover | `--cb-accent-hover` | `#0A3428` | Pressed / hover accent |
+| accent-subtle | `--cb-accent-subtle` | `#E8F0EC` | Soft accent wash for pills / selected rows |
+| danger | `--cb-danger` | `#9A3412` | Alias of missing for form errors |
+| shadow-menu | `--cb-shadow-menu` | `0 8px 24px rgba(0,0,0,.06)` | Floating menus only |
 
 ---
 
@@ -73,9 +73,9 @@ Stack: `next/font` with **Geist + Newsreader**. Mono for scores only.
 ### Radius
 | Element | Value | Token |
 |---|---|---|
-| Controls (inputs, buttons) | 8px | `--nw-radius-control` |
-| Cards | 12px | `--nw-radius-card` |
-| Marketing panels | 16px | `--nw-radius-panel` |
+| Controls (inputs, buttons) | 8px | `--cb-radius-control` |
+| Cards | 12px | `--cb-radius-card` |
+| Marketing panels | 16px | `--cb-radius-panel` |
 
 Not 24px pills everywhere.
 
@@ -96,7 +96,7 @@ Not 24px pills everywhere.
 - No bounce, no page-wide parallax
 
 ### Elevation
-- Prefer **hairline borders** (`1px solid var(--nw-line)`) over shadows
+- Prefer **hairline borders** (`1px solid var(--cb-line)`) over shadows
 - Shadow only on floating menus: `0 8px 24px rgba(0,0,0,.06)`
 
 ---
@@ -224,42 +224,42 @@ Use CSS-first `@theme` (Tailwind v4) so utilities reference CiteBrief vars.
 @import "./design/tokens.css";
 
 @theme {
-  --color-nw-bg: var(--nw-bg);
-  --color-nw-surface: var(--nw-surface);
-  --color-nw-line: var(--nw-line);
-  --color-nw-text: var(--nw-text);
-  --color-nw-muted: var(--nw-muted);
-  --color-nw-accent: var(--nw-accent);
-  --color-nw-named: var(--nw-named);
-  --color-nw-missing: var(--nw-missing);
-  --color-nw-pending: var(--nw-pending);
+  --color-cb-bg: var(--cb-bg);
+  --color-cb-surface: var(--cb-surface);
+  --color-cb-line: var(--cb-line);
+  --color-cb-text: var(--cb-text);
+  --color-cb-muted: var(--cb-muted);
+  --color-cb-accent: var(--cb-accent);
+  --color-cb-named: var(--cb-named);
+  --color-cb-missing: var(--cb-missing);
+  --color-cb-pending: var(--cb-pending);
 
-  --radius-nw-control: var(--nw-radius-control);
-  --radius-nw-card: var(--nw-radius-card);
-  --radius-nw-panel: var(--nw-radius-panel);
+  --radius-cb-control: var(--cb-radius-control);
+  --radius-cb-card: var(--cb-radius-card);
+  --radius-cb-panel: var(--cb-radius-panel);
 
-  --shadow-nw-menu: var(--nw-shadow-menu);
+  --shadow-cb-menu: var(--cb-shadow-menu);
 
-  --font-sans: var(--nw-font-sans);
-  --font-serif: var(--nw-font-serif);
-  --font-mono: var(--nw-font-mono);
+  --font-sans: var(--cb-font-sans);
+  --font-serif: var(--cb-font-serif);
+  --font-mono: var(--cb-font-mono);
 }
 ```
 
 Example utilities:
 
 ```html
-<body class="bg-nw-bg text-nw-text font-sans">
-  <button class="rounded-nw-control bg-nw-accent text-white">
+<body class="bg-cb-bg text-cb-text font-sans">
+  <button class="rounded-cb-control bg-cb-accent text-white">
     Start the first report
   </button>
-  <div class="rounded-nw-card border border-nw-line bg-nw-surface shadow-nw-menu">
+  <div class="rounded-cb-card border border-cb-line bg-cb-surface shadow-cb-menu">
     …
   </div>
 </body>
 ```
 
-shadcn/ui: map `--primary` to `--nw-accent`, `--background` to `--nw-bg`, `--border` to `--nw-line`, `--muted-foreground` to `--nw-muted`. Do not introduce purple shadcn defaults.
+shadcn/ui: map `--primary` to `--cb-accent`, `--background` to `--cb-bg`, `--border` to `--cb-line`, `--muted-foreground` to `--cb-muted`. Do not introduce purple shadcn defaults.
 
 ---
 

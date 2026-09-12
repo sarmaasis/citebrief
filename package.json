@@ -1,0 +1,45 @@
+{
+  "name": "citebrief",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "auth:generate": "npx auth generate --config src/auth/cli.ts --output src/db/auth.schema.ts -y",
+    "db:migrate:local": "wrangler d1 migrations apply citebrief --local",
+    "db:migrate:remote": "wrangler d1 migrations apply citebrief --remote"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.4",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@opennextjs/cloudflare": "1.20.6",
+    "better-auth": "1.7.4",
+    "better-auth-cloudflare": "0.3.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^0.544.0",
+    "next": "16.3.5",
+    "react": "19.1.9",
+    "react-dom": "19.1.9",
+    "tailwind-merge": "^3.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.4",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5",
+    "wrangler": "4.131.1"
+  }
+}

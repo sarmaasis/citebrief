@@ -1,0 +1,47 @@
+import Link from "next/link";
+import { Home, Settings, Tag } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
+import { cn } from "@/lib/utils";
+
+const nav = [
+  { href: "/app", label: "Home", icon: Home },
+  { href: "/app", label: "Brands", icon: Tag },
+  { href: "/app", label: "Settings", icon: Settings },
+] as const;
+
+export function AppSidebar({
+  workspaceName,
+  userLabel,
+}: {
+  workspaceName: string;
+  userLabel: string;
+}) {
+  return (
+    <aside className="flex w-[var(--cb-sidebar-width)] shrink-0 flex-col border-r border-cb-line bg-cb-surface">
+      <div className="flex h-14 items-center px-5">
+        <Logo href="/app" />
+      </div>
+      <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
+        {nav.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={cn(
+                "flex h-10 items-center gap-2 rounded-cb-control px-2 text-sm text-cb-text hover:bg-cb-accent-subtle",
+              )}
+            >
+              <Icon size={16} strokeWidth={1.5} />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="border-t border-cb-line px-4 py-4">
+        <p className="text-sm font-medium text-cb-text">{workspaceName}</p>
+        <p className="mt-1 text-xs text-cb-muted">{userLabel}</p>
+      </div>
+    </aside>
+  );
+}

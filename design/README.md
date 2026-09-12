@@ -7,7 +7,7 @@ Local design deliverable pack for CiteBrief (PRODUCT.md §18–§20). Paper + in
 | Path | What |
 |---|---|
 | [`../DESIGN.md`](../DESIGN.md) | Full design brief: personality, tokens, type, components, copy, screen map, quality bar, Tailwind v4 mapping |
-| [`tokens.css`](./tokens.css) | CSS custom properties (`--nw-*`) |
+| [`tokens.css`](./tokens.css) | CSS custom properties (`--cb-*`) |
 | [`tokens.ts`](./tokens.ts) | Typed token export for app code |
 | [`screens/`](./screens/) | Per-screen layout, components, states, copy |
 
@@ -34,7 +34,7 @@ Local design deliverable pack for CiteBrief (PRODUCT.md §18–§20). Paper + in
 
 ## Tailwind v4
 
-Import `tokens.css`, then map into `@theme` as documented in `DESIGN.md` §9. Point shadcn `--primary` at `--nw-accent`.
+Import `tokens.css`, then map into `@theme` as documented in `DESIGN.md` §9. Point shadcn `--primary` at `--cb-accent`.
 
 ## Ownership
 

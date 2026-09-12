@@ -1,0 +1,278 @@
+import { relations, sql } from "drizzle-orm";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { users } from "./auth.schema";
+
+const createdAt = () =>
+  integer("created_at", { mode: "timestamp_ms" })
+    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+    .notNull();
+
+const updatedAt = () =>
+  integer("updated_at", { mode: "timestamp_ms" })
+    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+    .$onUpdate(() => new Date())
+    .notNull();
+
+export const workspaces = sqliteTable("workspaces", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug"),
+  timezone: text("timezone").notNull().default("America/New_York"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const workspaceMembers = sqliteTable(
+  "workspace_members",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role").notNull().default("owner"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("workspace_members_workspace_user_idx").on(table.workspaceId, table.userId),
+    index("workspace_members_user_idx").on(table.userId),
+  ],
+);
+
+export const brands = sqliteTable(
+  "brands",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    siteUrl: text("site_url"),
+    logoUrl: text("logo_url"),
+    vertical: text("vertical"),
+    category: text("category"),
+    buyer: text("buyer"),
+    job: text("job"),
+    incumbent: text("incumbent"),
+    constraintNote: text("constraint_note"),
+    archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("brands_workspace_idx").on(table.workspaceId)],
+);
+
+export const competitors = sqliteTable(
+  "competitors",
+  {
+    id: text("id").primaryKey(),
+    brandId: text("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [index("competitors_brand_idx").on(table.brandId)],
+);
+
+export const prompts = sqliteTable(
+  "prompts",
+  {
+    id: text("id").primaryKey(),
+    brandId: text("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    mix: text("mix").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("prompts_brand_idx").on(table.brandId)],
+);
+
+export const runs = sqliteTable(
+  "runs",
+  {
+    id: text("id").primaryKey(),
+    brandId: text("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("queued"),
+    periodStart: text("period_start"),
+    periodEnd: text("period_end"),
+    createdAt: createdAt(),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    index("runs_brand_idx").on(table.brandId),
+    index("runs_status_idx").on(table.status),
+  ],
+);
+
+export const runRows = sqliteTable(
+  "run_rows",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => runs.id, { onDelete: "cascade" }),
+    promptId: text("prompt_id")
+      .notNull()
+      .references(() => prompts.id, { onDelete: "cascade" }),
+    engine: text("engine").notNull(),
+    mentioned: integer("mentioned", { mode: "boolean" }),
+    recommended: integer("recommended", { mode: "boolean" }),
+    rankInShortlist: integer("rank_in_shortlist"),
+    citedUrls: text("cited_urls"),
+    citedBrandUrl: integer("cited_brand_url", { mode: "boolean" }),
+    whoWon: text("who_won"),
+    othersNamed: text("others_named"),
+    sentence: text("sentence"),
+    rawAnswer: text("raw_answer"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("run_rows_run_idx").on(table.runId),
+    index("run_rows_prompt_engine_idx").on(table.promptId, table.engine),
+  ],
+);
+
+export const reports = sqliteTable(
+  "reports",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => runs.id, { onDelete: "cascade" }),
+    brandId: text("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    r2Key: text("r2_key"),
+    scoreMentioned: integer("score_mentioned"),
+    scoreTotal: integer("score_total").notNull().default(20),
+    shareToken: text("share_token").unique(),
+    shareExpiresAt: integer("share_expires_at", { mode: "timestamp_ms" }),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("reports_brand_idx").on(table.brandId), index("reports_run_idx").on(table.runId)],
+);
+
+export const subscriptions = sqliteTable(
+  "subscriptions",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    dodoCustomerId: text("dodo_customer_id"),
+    dodoSubscriptionId: text("dodo_subscription_id"),
+    plan: text("plan").notNull().default("agency"),
+    status: text("status").notNull().default("none"),
+    currentPeriodEnd: integer("current_period_end", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("subscriptions_workspace_idx").on(table.workspaceId),
+    uniqueIndex("subscriptions_dodo_subscription_idx").on(table.dodoSubscriptionId),
+  ],
+);
+
+export const webhookEvents = sqliteTable(
+  "webhook_events",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull().default("dodo"),
+    eventId: text("event_id").notNull(),
+    eventType: text("event_type").notNull(),
+    payload: text("payload"),
+    processedAt: integer("processed_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+  },
+  (table) => [uniqueIndex("webhook_events_event_id_idx").on(table.eventId)],
+);
+
+export const workspacesRelations = relations(workspaces, ({ many }) => ({
+  members: many(workspaceMembers),
+  brands: many(brands),
+  subscriptions: many(subscriptions),
+}));
+
+export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [workspaceMembers.workspaceId],
+    references: [workspaces.id],
+  }),
+  user: one(users, {
+    fields: [workspaceMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const brandsRelations = relations(brands, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [brands.workspaceId],
+    references: [workspaces.id],
+  }),
+  competitors: many(competitors),
+  prompts: many(prompts),
+  runs: many(runs),
+  reports: many(reports),
+}));
+
+export const competitorsRelations = relations(competitors, ({ one }) => ({
+  brand: one(brands, {
+    fields: [competitors.brandId],
+    references: [brands.id],
+  }),
+}));
+
+export const promptsRelations = relations(prompts, ({ one, many }) => ({
+  brand: one(brands, {
+    fields: [prompts.brandId],
+    references: [brands.id],
+  }),
+  runRows: many(runRows),
+}));
+
+export const runsRelations = relations(runs, ({ one, many }) => ({
+  brand: one(brands, {
+    fields: [runs.brandId],
+    references: [brands.id],
+  }),
+  rows: many(runRows),
+  reports: many(reports),
+}));
+
+export const runRowsRelations = relations(runRows, ({ one }) => ({
+  run: one(runs, {
+    fields: [runRows.runId],
+    references: [runs.id],
+  }),
+  prompt: one(prompts, {
+    fields: [runRows.promptId],
+    references: [prompts.id],
+  }),
+}));
+
+export const reportsRelations = relations(reports, ({ one }) => ({
+  run: one(runs, {
+    fields: [reports.runId],
+    references: [runs.id],
+  }),
+  brand: one(brands, {
+    fields: [reports.brandId],
+    references: [brands.id],
+  }),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [subscriptions.workspaceId],
+    references: [workspaces.id],
+  }),
+}));

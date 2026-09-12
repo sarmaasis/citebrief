@@ -1,0 +1,19 @@
+NEXTJS_ENV=development
+
+# Better Auth
+BETTER_AUTH_SECRET=replace-with-32-plus-random-chars
+BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000,https://getcitebrief.com
+
+# Google OAuth (stub until live credentials)
+GOOGLE_CLIENT_ID=stub-google-client-id
+GOOGLE_CLIENT_SECRET=stub-google-client-secret
+
+# Resend (stub logs the magic-link URL when unset or "stub")
+RESEND_API_KEY=stub
+RESEND_FROM=CiteBrief <auth@getcitebrief.com>
+
+# Dodo Payments (Phase 3)
+DODO_PAYMENTS_API_KEY=stub
+DODO_PAYMENTS_WEBHOOK_KEY=stub
+DODO_PAYMENTS_ENVIRONMENT=test_mode
