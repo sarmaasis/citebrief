@@ -43,7 +43,7 @@ npm install
 cp .dev.vars.example .dev.vars
 ```
 
-Edit `.dev.vars` and set at least `BETTER_AUTH_SECRET`. Outside development, also set `INTERNAL_PROCESS_SECRET` and `CRON_SECRET` (Bearer auth for `/api/internal/process-run` and `/api/cron/friday`). (32+ random characters). Stub values are fine for Google, Resend, and Dodo until you have live keys.
+Edit `.dev.vars` and set at least `BETTER_AUTH_SECRET` (32+ random characters). Outside development, also set `INTERNAL_PROCESS_SECRET` and `CRON_SECRET` (Bearer auth for `/api/internal/process-run` and `/api/cron/friday`). Stub values are fine for Google, Resend, and Dodo until you have live keys.
 
 ### Next.js dev (Node)
 

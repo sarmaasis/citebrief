@@ -17,4 +17,7 @@ interface CloudflareEnv {
   DODO_PAYMENTS_API_KEY: string;
   DODO_PAYMENTS_WEBHOOK_KEY: string;
   DODO_PAYMENTS_ENVIRONMENT: "test_mode" | "live_mode" | string;
+  INTERNAL_PROCESS_SECRET?: string;
+  CRON_SECRET?: string;
+  NEXTJS_ENV?: string;
 }
