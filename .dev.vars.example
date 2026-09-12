@@ -13,11 +13,23 @@ GOOGLE_CLIENT_SECRET=stub-google-client-secret
 RESEND_API_KEY=stub
 RESEND_FROM=CiteBrief <auth@getcitebrief.com>
 
-# Dodo Payments (Phase 4)
+# Dodo Payments
 DODO_PAYMENTS_API_KEY=stub
 DODO_PAYMENTS_WEBHOOK_KEY=stub
 DODO_PAYMENTS_ENVIRONMENT=test_mode
+# Optional product IDs from the Dodo dashboard (fallback: citebrief_{plan})
+DODO_PRODUCT_STARTER=
+DODO_PRODUCT_AGENCY=
+DODO_PRODUCT_STUDIO=
 
 # Internal workers / cron (required outside development)
 INTERNAL_PROCESS_SECRET=stub
 CRON_SECRET=stub
+
+# Live engines (unset or stub = deterministic stub adapters)
+OPENAI_API_KEY=stub
+PERPLEXITY_API_KEY=stub
+GEMINI_API_KEY=stub
+# AI Overviews via Cloudflare Browser Rendering REST (optional if BROWSER binding exists)
+CF_ACCOUNT_ID=
+CF_API_TOKEN=

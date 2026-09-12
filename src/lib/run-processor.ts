@@ -124,6 +124,7 @@ export async function processRun(
             brand: bundle.brand.name,
             competitors: competitorNames,
             buyer: bundle.brand.buyer,
+            env,
           });
           rawAnswer = result.rawAnswer;
           extracted = extractFromAnswer({
