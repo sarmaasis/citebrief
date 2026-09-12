@@ -21,7 +21,7 @@ CiteBrief is a **paper + ink** product: Linear / Vercel / Swiss editorial, not g
 
 **Marketing** may use a dark option later; **app is light**. Clients print these reports.
 
-**Brand name:** CiteBrief only. Canonical domain `citebrief.xyz`; stretch `citebrief.com`.
+**Brand name:** CiteBrief only. Canonical domain `getcitebrief.com`; optional redirect `citebrief.xyz`.
 
 ---
 
