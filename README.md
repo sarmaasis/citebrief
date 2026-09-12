@@ -14,7 +14,9 @@ See [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Design tokens use t
 
 **Phase 2 (this work):** Brands CRUD, 20-prompt editor with 4+4+4+4+4 mix and vanity rejection, onboarding (6 fields to generated 20), run enqueue stub + poll UI, brand home (score placeholder, last PDF slot, next Friday).
 
-Later: engine fan-out, PDF, Dodo, white-label, cron.
+**Phase 3:** Engine fan-out (stub adapters), run_rows, soft-fail ≥3/4, HTML+PDF to R2 (filesystem mock locally), in-app report viewer.
+
+Later: Dodo, white-label, cron, history.
 
 ### Phase 2 routes
 

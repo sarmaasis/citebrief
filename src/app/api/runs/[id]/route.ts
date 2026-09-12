@@ -1,5 +1,7 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq } from "drizzle-orm";
-import { advanceEngineStub, parseEngineStatus } from "@/lib/engines";
+import { parseEngineStatus } from "@/lib/engines";
+import { processRun } from "@/lib/run-processor";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
 import { brands, reports, runs } from "@/db/schema";
@@ -32,41 +34,24 @@ export async function GET(_request: Request, context: RouteContext) {
   let status = row.run.status;
   let engines = parseEngineStatus(row.run.engineStates);
   let reportId: string | null = null;
+  let scoreMentioned: number | null = null;
 
-  if (status !== "complete" && status !== "failed") {
-    const createdAt = row.run.createdAt instanceof Date ? row.run.createdAt : new Date(row.run.createdAt);
-    const next = advanceEngineStub(createdAt);
-    status = next.status;
-    engines = next.engines;
-    const completedAt = status === "complete" ? new Date() : null;
-    await ctx.db
-      .update(runs)
-      .set({
-        status,
-        engineStates: JSON.stringify(engines),
-        completedAt,
-      })
-      .where(eq(runs.id, id));
-
-    if (status === "complete") {
-      const [existing] = await ctx.db.select().from(reports).where(eq(reports.runId, id)).limit(1);
-      if (existing) {
-        reportId = existing.id;
-      } else {
-        reportId = crypto.randomUUID();
-        await ctx.db.insert(reports).values({
-          id: reportId,
-          runId: id,
-          brandId: row.run.brandId,
-          scoreMentioned: null,
-          scoreTotal: 20,
-          createdAt: new Date(),
-        });
-      }
+  if (status === "queued" || status === "running") {
+    try {
+      const { env } = await getCloudflareContext({ async: true });
+      const result = await processRun(ctx.db, env, id, { notifyEmail: ctx.user.email });
+      status = result.status;
+      engines = result.engines;
+      reportId = result.reportId;
+      scoreMentioned = result.scoreMentioned;
+    } catch (error) {
+      console.error("[api/runs] process failed", error);
+      return jsonError("Could not process this run.", 500);
     }
   } else {
     const [existing] = await ctx.db.select().from(reports).where(eq(reports.runId, id)).limit(1);
     reportId = existing?.id ?? null;
+    scoreMentioned = existing?.scoreMentioned ?? null;
   }
 
   return jsonOk({
@@ -77,5 +62,6 @@ export async function GET(_request: Request, context: RouteContext) {
     periodStart: row.run.periodStart,
     completedAt: row.run.completedAt,
     reportId,
+    scoreMentioned,
   });
 }

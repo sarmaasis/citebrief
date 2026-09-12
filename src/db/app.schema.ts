@@ -132,7 +132,9 @@ export const runRows = sqliteTable(
     whoWon: text("who_won"),
     othersNamed: text("others_named"),
     sentence: text("sentence"),
+    nextAction: text("next_action"),
     rawAnswer: text("raw_answer"),
+    status: text("status").default("complete"),
     createdAt: createdAt(),
   },
   (table) => [
@@ -152,6 +154,9 @@ export const reports = sqliteTable(
       .notNull()
       .references(() => brands.id, { onDelete: "cascade" }),
     r2Key: text("r2_key"),
+    htmlKey: text("html_key"),
+    summary: text("summary"),
+    agencyName: text("agency_name"),
     scoreMentioned: integer("score_mentioned"),
     scoreTotal: integer("score_total").notNull().default(20),
     shareToken: text("share_token").unique(),
@@ -195,6 +200,25 @@ export const webhookEvents = sqliteTable(
     createdAt: createdAt(),
   },
   (table) => [uniqueIndex("webhook_events_event_id_idx").on(table.eventId)],
+);
+
+
+export const engineCache = sqliteTable(
+  "engine_cache",
+  {
+    id: text("id").primaryKey(),
+    cacheKey: text("cache_key").notNull().unique(),
+    engine: text("engine").notNull(),
+    promptText: text("prompt_text").notNull(),
+    rawAnswer: text("raw_answer").notNull(),
+    extractedJson: text("extracted_json"),
+    createdAt: createdAt(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("engine_cache_expires_idx").on(table.expiresAt),
+    index("engine_cache_key_idx").on(table.cacheKey),
+  ],
 );
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({

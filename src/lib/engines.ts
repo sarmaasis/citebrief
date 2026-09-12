@@ -31,6 +31,7 @@ export function parseEngineStatus(value: string | null | undefined): EngineStatu
   }
 }
 
+/** @deprecated Phase 2 time-poll stub. Prefer processRun. */
 export function advanceEngineStub(createdAt: Date, now = new Date()): {
   status: "queued" | "running" | "complete" | "partial";
   engines: EngineStatusMap;

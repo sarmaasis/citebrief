@@ -22,3 +22,6 @@ out
 
 # typescript
 *.tsbuildinfo
+
+# Local R2 mock
+.data/

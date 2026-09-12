@@ -56,18 +56,29 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <p className="text-xs text-cb-muted">Last PDF</p>
           <p className="mt-3 text-sm text-cb-text">
-            {latestReport ? "Placeholder PDF slot. Download lands after the report engine." : "No PDF yet."}
+            {latestReport
+              ? latestReport.scoreMentioned == null
+                ? "Report ready."
+                : `Named in ${latestReport.scoreMentioned} of ${latestReport.scoreTotal} questions.`
+              : "No PDF yet."}
           </p>
-          {latestRun ? (
-            <Link href={`/app/brands/${brand.id}/runs/${latestRun.id}`} className="mt-3 inline-block text-sm text-cb-accent">
-              View last run
-            </Link>
-          ) : null}
+          <div className="mt-3 flex flex-wrap gap-3 text-sm">
+            {latestReport ? (
+              <Link href={`/app/brands/${brand.id}/reports/${latestReport.id}`} className="text-cb-accent">
+                Open report
+              </Link>
+            ) : null}
+            {latestRun ? (
+              <Link href={`/app/brands/${brand.id}/runs/${latestRun.id}`} className="text-cb-accent">
+                View last run
+              </Link>
+            ) : null}
+          </div>
         </div>
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <p className="text-xs text-cb-muted">Next Friday</p>
           <p className="mt-3 text-sm text-cb-text">{friday}</p>
-          <p className="mt-2 text-xs text-cb-muted">Cron send is a later phase.</p>
+          <p className="mt-2 text-xs text-cb-muted">Friday cron send lands in a later phase.</p>
         </div>
       </div>
 
