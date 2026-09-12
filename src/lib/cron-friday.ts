@@ -1,10 +1,24 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "@/db";
-import { brands, prompts, runs, workspaces } from "@/db/schema";
+import { brands, prompts, runs, users, workspaceMembers, workspaces } from "@/db/schema";
 import { emptyEngineStatus } from "@/lib/engines";
 import { formatWeekOf } from "@/lib/friday";
 import { isLocalFridaySix } from "@/lib/friday-tz";
 import { sendTransactionalEmail } from "@/lib/email";
+
+const FALLBACK_NOTIFY_EMAIL = "agency@getcitebrief.com";
+
+/** Prefer workspace owner email for Friday notify; fallback only if missing. */
+async function ownerNotifyEmail(db: Database, workspaceId: string): Promise<string> {
+  const [owner] = await db
+    .select({ email: users.email })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
+    .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.role, "owner")))
+    .limit(1);
+  const email = owner?.email?.trim();
+  return email || FALLBACK_NOTIFY_EMAIL;
+}
 
 export type FridayCronOptions = {
   /** When true, ignore local Friday 06:00 window (manual / local testing). */
@@ -28,6 +42,8 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
       skipped.push({ workspaceId: workspace.id, reason: `not Friday 06:00 in ${tz}` });
       continue;
     }
+
+    const notifyTo = await ownerNotifyEmail(db, workspace.id);
 
     const activeBrands = await db
       .select()
@@ -86,7 +102,7 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
       }
 
       await sendTransactionalEmail({
-        to: "agency@getcitebrief.com",
+        to: notifyTo,
         subject: `${brand.name} Friday report queued`,
         html: `<p>Friday 06:00 (${tz}) enqueued ${brand.name} for ${workspace.name}.</p><p>runId=${runId}</p>`,
         env,
