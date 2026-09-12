@@ -19,6 +19,9 @@
   /* Derived (tonal; no new hues) */
   --cb-accent-hover: #0a3428;
   --cb-accent-subtle: #e8f0ec;
+  --cb-missing-subtle: #f4e7e0;
+  --cb-pending-subtle: #f6ead4;
+  --cb-muted-subtle: #f3f2ef;
   --cb-danger: #9a3412;
   --cb-on-accent: #ffffff;
   --cb-missing-subtle: #f4e7e0;

@@ -48,5 +48,8 @@
   "vars": {
     "BETTER_AUTH_URL": "http://localhost:3000",
     "DODO_PAYMENTS_ENVIRONMENT": "test_mode"
+  },
+  "triggers": {
+    "crons": ["0 10 * * 5"]
   }
 }

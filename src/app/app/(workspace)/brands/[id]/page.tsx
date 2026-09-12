@@ -106,6 +106,9 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
             {prompts.length ? "Edit prompts" : "Generate 20 prompts"}
           </Link>
         </Button>
+        <Button asChild variant="outline">
+          <Link href={`/app/brands/${brand.id}/history`}>History</Link>
+        </Button>
         {latestRun ? (
           <StatusPill status={latestRun.status === "complete" ? "complete" : "running"}>
             {latestRun.status}

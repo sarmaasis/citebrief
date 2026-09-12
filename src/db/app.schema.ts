@@ -202,12 +202,35 @@ export const webhookEvents = sqliteTable(
     eventType: text("event_type").notNull(),
     payload: text("payload"),
     processedAt: integer("processed_at", { mode: "timestamp_ms" }),
+    replayedAt: integer("replayed_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
   },
   (table) => [uniqueIndex("webhook_events_event_id_idx").on(table.eventId)],
 );
 
 
+
+
+export const workspaceInvites = sqliteTable(
+  "workspace_invites",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role").notNull().default("member"),
+    token: text("token").notNull().unique(),
+    invitedBy: text("invited_by").references(() => users.id, { onDelete: "set null" }),
+    acceptedAt: integer("accepted_at", { mode: "timestamp_ms" }),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("workspace_invites_workspace_idx").on(table.workspaceId),
+    index("workspace_invites_email_idx").on(table.email),
+  ],
+);
 
 export const brandKits = sqliteTable("brand_kits", {
   id: text("id").primaryKey(),
