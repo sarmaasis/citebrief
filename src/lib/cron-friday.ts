@@ -3,18 +3,32 @@ import type { Database } from "@/db";
 import { brands, prompts, runs, workspaces } from "@/db/schema";
 import { emptyEngineStatus } from "@/lib/engines";
 import { formatWeekOf } from "@/lib/friday";
+import { isLocalFridaySix } from "@/lib/friday-tz";
 import { sendTransactionalEmail } from "@/lib/email";
-import { processRun } from "@/lib/run-processor";
+
+export type FridayCronOptions = {
+  /** When true, ignore local Friday 06:00 window (manual / local testing). */
+  force?: boolean;
+  now?: Date;
+};
 
 /**
- * Friday cron stub: enqueue/process one run per active brand.
- * Wrangler cron can hit POST /api/cron/friday.
+ * Friday cron: enqueue one run per active brand whose workspace timezone
+ * is currently Friday 06:00 local (hourly trigger). Not a single UTC stub.
  */
-export async function runFridayCron(db: Database, env: CloudflareEnv) {
+export async function runFridayCron(db: Database, env: CloudflareEnv, options: FridayCronOptions = {}) {
+  const now = options.now ?? new Date();
   const allWorkspaces = await db.select().from(workspaces);
-  const results: Array<{ workspaceId: string; brandId: string; runId: string }> = [];
+  const results: Array<{ workspaceId: string; brandId: string; runId: string; timezone: string }> = [];
+  const skipped: Array<{ workspaceId: string; reason: string }> = [];
 
   for (const workspace of allWorkspaces) {
+    const tz = workspace.timezone || "America/New_York";
+    if (!options.force && !isLocalFridaySix(tz, now)) {
+      skipped.push({ workspaceId: workspace.id, reason: `not Friday 06:00 in ${tz}` });
+      continue;
+    }
+
     const activeBrands = await db
       .select()
       .from(brands)
@@ -22,40 +36,65 @@ export async function runFridayCron(db: Database, env: CloudflareEnv) {
 
     for (const brand of activeBrands) {
       const promptRows = await db.select().from(prompts).where(eq(prompts.brandId, brand.id));
-      if (promptRows.length === 0) continue;
+      if (promptRows.length === 0) {
+        skipped.push({ workspaceId: workspace.id, reason: `brand ${brand.id} has no prompts` });
+        continue;
+      }
+
+      const week = formatWeekOf(now);
+      const [existing] = await db
+        .select()
+        .from(runs)
+        .where(and(eq(runs.brandId, brand.id), eq(runs.periodStart, week)))
+        .limit(1);
+      if (existing && !options.force) {
+        skipped.push({ workspaceId: workspace.id, reason: `brand ${brand.id} already has week ${week}` });
+        continue;
+      }
 
       const runId = crypto.randomUUID();
-      const now = new Date();
       await db.insert(runs).values({
         id: runId,
         brandId: brand.id,
         status: "queued",
-        periodStart: formatWeekOf(now),
-        periodEnd: formatWeekOf(now),
+        periodStart: week,
+        periodEnd: week,
         engineStates: JSON.stringify(emptyEngineStatus()),
         createdAt: now,
       });
 
+      let queued = false;
       try {
         if (env.RUNS_QUEUE) {
-          await env.RUNS_QUEUE.send({ runId, brandId: brand.id, workspaceId: workspace.id, source: "friday-cron" });
+          await env.RUNS_QUEUE.send({
+            runId,
+            brandId: brand.id,
+            workspaceId: workspace.id,
+            source: "friday-cron",
+          });
+          queued = true;
         }
-      } catch {
-        // continue; process inline
+      } catch (error) {
+        console.info("[friday-cron] queue send failed; caller may process inline", error);
       }
 
-      await processRun(db, env, runId);
+      // Local/dev without a consumer: process via internal path is preferred.
+      // Production consumer picks up the queue message. Avoid double-process when queued.
+      if (!queued) {
+        const { processRun } = await import("@/lib/run-processor");
+        await processRun(db, env, runId);
+      }
 
       await sendTransactionalEmail({
         to: "agency@getcitebrief.com",
-        subject: `[cron stub] ${brand.name} Friday report`,
-        html: `<p>Friday cron stub processed ${brand.name} for ${workspace.name} (${workspace.timezone}).</p>`,
+        subject: `${brand.name} Friday report queued`,
+        html: `<p>Friday 06:00 (${tz}) enqueued ${brand.name} for ${workspace.name}.</p><p>runId=${runId}</p>`,
         env,
       });
 
-      results.push({ workspaceId: workspace.id, brandId: brand.id, runId });
+      results.push({ workspaceId: workspace.id, brandId: brand.id, runId, timezone: tz });
     }
   }
 
-  return { processed: results.length, results };
+  return { processed: results.length, results, skipped: skipped.slice(0, 50), force: Boolean(options.force) };
 }

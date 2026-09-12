@@ -1,3 +1,5 @@
+import DodoPayments from "dodopayments";
+import { createCheckoutSession } from "@dodopayments/core";
 import { isStubSecret, type PlanId, PLANS } from "@/lib/billing";
 
 export type DodoCheckoutResult =
@@ -6,6 +8,29 @@ export type DodoCheckoutResult =
 
 export function dodoProductLabel(plan: PlanId) {
   return `CiteBrief ${PLANS[plan].name}`;
+}
+
+function dodoEnvironment(env: CloudflareEnv): "test_mode" | "live_mode" {
+  return env.DODO_PAYMENTS_ENVIRONMENT === "live_mode" ? "live_mode" : "test_mode";
+}
+
+export function dodoProductId(env: CloudflareEnv, plan: PlanId): string {
+  const fromEnv =
+    plan === "starter"
+      ? env.DODO_PRODUCT_STARTER
+      : plan === "agency"
+        ? env.DODO_PRODUCT_AGENCY
+        : env.DODO_PRODUCT_STUDIO;
+  if (fromEnv && !isStubSecret(fromEnv)) return fromEnv;
+  return `citebrief_${plan}`;
+}
+
+export function createDodoClient(env: CloudflareEnv) {
+  return new DodoPayments({
+    bearerToken: env.DODO_PAYMENTS_API_KEY,
+    environment: dodoEnvironment(env),
+    webhookKey: isStubSecret(env.DODO_PAYMENTS_WEBHOOK_KEY) ? null : env.DODO_PAYMENTS_WEBHOOK_KEY,
+  });
 }
 
 export async function createDodoCheckout(args: {
@@ -27,48 +52,56 @@ export async function createDodoCheckout(args: {
     };
   }
 
-  // Hosted checkout stub shape when keys exist but full @dodopayments/hono adapter is not wired.
-  // Real integration: swap this body for Dodo SDK / Hono checkout helper.
+  const productId = dodoProductId(args.env, args.plan);
+  const returnUrl = `${args.returnUrl}${successPath}`;
+
   try {
-    const base =
-      args.env.DODO_PAYMENTS_ENVIRONMENT === "live_mode"
-        ? "https://live.dodopayments.com"
-        : "https://test.dodopayments.com";
-    const response = await fetch(`${base}/checkouts`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${args.env.DODO_PAYMENTS_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        product_cart: [
-          {
-            product_id: `citebrief_${args.plan}`,
-            quantity: 1,
-          },
-        ],
+    // Prefer official @dodopayments/core session helper (same stack as @dodopayments/hono).
+    const session = await createCheckoutSession(
+      {
+        product_cart: [{ product_id: productId, quantity: 1 }],
         customer: {
           email: args.customerEmail,
           name: args.customerName,
         },
-        return_url: `${args.returnUrl}${successPath}`,
+        return_url: returnUrl,
         metadata: {
           workspace_id: args.workspaceId,
           plan: args.plan,
         },
-      }),
-    });
+      },
+      {
+        bearerToken: args.env.DODO_PAYMENTS_API_KEY,
+        environment: dodoEnvironment(args.env),
+      },
+    );
 
-    if (!response.ok) {
-      const detail = await response.text();
-      console.info("[dodo] checkout failed, falling back to stub", response.status, detail);
-      return { mode: "stub", url: stubUrl, message: "Dodo checkout failed; stub URL used." };
-    }
-
-    const data = (await response.json()) as { checkout_url?: string; url?: string };
-    const url = data.checkout_url || data.url;
+    const url = session.checkout_url;
     if (!url) {
       return { mode: "stub", url: stubUrl, message: "Dodo response missing URL; stub used." };
+    }
+    return { mode: "redirect", url };
+  } catch (error) {
+    console.info("[dodo] createCheckoutSession failed; trying SDK", error);
+  }
+
+  try {
+    const client = createDodoClient(args.env);
+    const session = await client.checkoutSessions.create({
+      product_cart: [{ product_id: productId, quantity: 1 }],
+      customer: {
+        email: args.customerEmail,
+        name: args.customerName,
+      },
+      return_url: returnUrl,
+      metadata: {
+        workspace_id: args.workspaceId,
+        plan: args.plan,
+      },
+    });
+    const url = session.checkout_url;
+    if (!url) {
+      return { mode: "stub", url: stubUrl, message: "Dodo SDK missing URL; stub used." };
     }
     return { mode: "redirect", url };
   } catch (error) {
@@ -83,14 +116,16 @@ export function verifyDodoWebhookSignature(args: {
   signature: string | null;
 }): boolean {
   if (isStubSecret(args.env.DODO_PAYMENTS_WEBHOOK_KEY)) {
-    // Local/dev: accept payloads so idempotent handling can be tested.
     return true;
   }
   if (!args.signature) {
     return false;
   }
-  // Minimal stub verifier: require matching shared secret header until official SDK is wired.
-  return args.signature === args.env.DODO_PAYMENTS_WEBHOOK_KEY || args.signature.includes(args.env.DODO_PAYMENTS_WEBHOOK_KEY);
+  // Fallback verifier when not using @dodopayments/hono Webhooks middleware.
+  return (
+    args.signature === args.env.DODO_PAYMENTS_WEBHOOK_KEY ||
+    args.signature.includes(args.env.DODO_PAYMENTS_WEBHOOK_KEY)
+  );
 }
 
 export type DodoWebhookEvent = {
@@ -98,6 +133,7 @@ export type DodoWebhookEvent = {
   event_id?: string;
   type?: string;
   event_type?: string;
+  business_id?: string;
   data?: Record<string, unknown>;
   payload?: Record<string, unknown>;
 };

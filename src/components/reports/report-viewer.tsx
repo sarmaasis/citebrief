@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogActions, DialogCloseButton } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function ReportViewer({
   brandId,
@@ -28,6 +31,9 @@ export function ReportViewer({
   partial: boolean;
 }) {
   const [toast, setToast] = useState<string | null>(null);
+  const [ccOpen, setCcOpen] = useState(false);
+  const [ccEmail, setCcEmail] = useState("");
+  const [ccBusy, setCcBusy] = useState(false);
 
   async function copyLink() {
     if (!shareToken) {
@@ -40,22 +46,31 @@ export function ReportViewer({
     window.setTimeout(() => setToast(null), 3000);
   }
 
-  async function ccClient() {
-    const email = window.prompt("Send this report to your client");
+  async function sendCcClient(event: React.FormEvent) {
+    event.preventDefault();
+    const email = ccEmail.trim();
     if (!email) {
+      setToast("Enter a client email.");
       return;
     }
-    const response = await fetch(`/api/reports/${reportId}/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ccClient: email }),
-    });
-    if (!response.ok) {
-      setToast("Could not send. Try again.");
-    } else {
-      setToast("Report queued to client (Resend stub if keys missing).");
+    setCcBusy(true);
+    try {
+      const response = await fetch(`/api/reports/${reportId}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ccClient: email }),
+      });
+      if (!response.ok) {
+        setToast("Could not send. Try again.");
+      } else {
+        setToast("Report queued to client. Resend uses a stub if keys are missing.");
+        setCcOpen(false);
+        setCcEmail("");
+      }
+    } finally {
+      setCcBusy(false);
+      window.setTimeout(() => setToast(null), 3000);
     }
-    window.setTimeout(() => setToast(null), 3000);
   }
 
   return (
@@ -77,7 +92,7 @@ export function ReportViewer({
           <Button type="button" variant="outline" size="sm" onClick={() => void copyLink()}>
             Copy client link
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => void ccClient()}>
+          <Button type="button" variant="outline" size="sm" onClick={() => setCcOpen(true)}>
             CC client
           </Button>
           <Button asChild variant="ghost" size="sm">
@@ -109,6 +124,34 @@ export function ReportViewer({
           )}
         </div>
       </div>
+
+      <Dialog
+        open={ccOpen}
+        onOpenChange={setCcOpen}
+        title="CC this report to your client"
+        description="We email the summary and a read-only client link. Use their work address."
+      >
+        <form onSubmit={(event) => void sendCcClient(event)} className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="cc-client-email">Client email</Label>
+            <Input
+              id="cc-client-email"
+              type="email"
+              autoComplete="email"
+              placeholder="client@company.com"
+              value={ccEmail}
+              onChange={(event) => setCcEmail(event.target.value)}
+              required
+            />
+          </div>
+          <DialogActions>
+            <DialogCloseButton onClick={() => setCcOpen(false)} />
+            <Button type="submit" size="sm" disabled={ccBusy}>
+              {ccBusy ? "Sending…" : "Send to client"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
 
       {toast ? (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-cb-control border border-cb-line bg-cb-surface px-4 py-2 text-sm shadow-cb-menu">

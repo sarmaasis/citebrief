@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "citebrief",
-  "main": ".open-next/worker.js",
+  "main": "worker.ts",
   "compatibility_date": "2026-09-12",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
@@ -43,13 +43,24 @@
         "binding": "RUNS_QUEUE",
         "queue": "citebrief-runs"
       }
+    ],
+    "consumers": [
+      {
+        "queue": "citebrief-runs",
+        "max_batch_size": 5,
+        "max_batch_timeout": 15,
+        "max_retries": 3
+      }
     ]
+  },
+  "browser": {
+    "binding": "BROWSER"
   },
   "vars": {
     "BETTER_AUTH_URL": "http://localhost:3000",
     "DODO_PAYMENTS_ENVIRONMENT": "test_mode"
   },
   "triggers": {
-    "crons": ["0 10 * * 5"]
+    "crons": ["0 * * * *"]
   }
 }
