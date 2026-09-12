@@ -103,6 +103,7 @@ export const runs = sqliteTable(
     status: text("status").notNull().default("queued"),
     periodStart: text("period_start"),
     periodEnd: text("period_end"),
+    engineStates: text("engine_states"),
     createdAt: createdAt(),
     completedAt: integer("completed_at", { mode: "timestamp_ms" }),
   },

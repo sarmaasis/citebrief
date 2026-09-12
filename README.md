@@ -8,19 +8,27 @@ Stack: Next.js App Router on Cloudflare Workers via `@opennextjs/cloudflare` (no
 
 See [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Design tokens use the `--cb-*` prefix.
 
-## Phase 1 (this repo)
+## Phases
 
-Foundation only:
+**Phase 1:** OpenNext Worker, Better Auth, D1 schema, marketing + app shells.
 
-- OpenNext Worker config (`wrangler.jsonc`) with `nodejs_compat`
-- D1 / KV / R2 / Queue binding stubs
-- D1 schema: Better Auth tables plus workspaces, brands, prompts, runs, run_rows, reports, subscriptions, webhook_events
-- Better Auth + `better-auth-cloudflare` initialized per request on D1
-- Email/password, magic link (Resend stub), Google OAuth stub
-- Marketing shell (`/`, `/pricing`) and app shell (`/app`)
-- Auth pages (`/login`, `/signup`) and `/api/auth/*`
+**Phase 2 (this work):** Brands CRUD, 20-prompt editor with 4+4+4+4+4 mix and vanity rejection, onboarding (6 fields to generated 20), run enqueue stub + poll UI, brand home (score placeholder, last PDF slot, next Friday).
 
-Later phases (not in this PR): brands/prompts, engines/PDF, Dodo, white-label/cron.
+Later: engine fan-out, PDF, Dodo, white-label, cron.
+
+### Phase 2 routes
+
+| Route | What |
+|---|---|
+| `/app` | Home with this-week brands or empty state |
+| `/app/brands` | Brand list, archive / restore |
+| `/app/brands/[id]` | Brand home |
+| `/app/brands/[id]/edit` | Edit logo, site, competitors, vertical |
+| `/app/brands/[id]/prompts` | 20-set editor |
+| `/app/brands/[id]/runs/[runId]` | Queue + engine poll |
+| `/app/onboarding` | 3-step first brand |
+
+Prompt generation fills the PRODUCT.md templates when no LLM key is set. Set `OPENAI_API_KEY` to use a live writer.
 
 ## Local setup
 
