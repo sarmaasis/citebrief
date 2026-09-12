@@ -28,6 +28,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://getcitebrief.com",
   },
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
