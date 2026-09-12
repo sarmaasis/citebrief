@@ -5,6 +5,9 @@ import { emptyEngineStatus } from "@/lib/engines";
 import { formatWeekOf } from "@/lib/friday";
 import { isLocalFridaySix } from "@/lib/friday-tz";
 import { sendTransactionalEmail } from "@/lib/email";
+import { planAllowsSlack } from "@/lib/billing";
+import { postSlackIncomingWebhook } from "@/lib/slack";
+import { getWorkspaceSubscription } from "@/lib/usage";
 
 const FALLBACK_NOTIFY_EMAIL = "agency@getcitebrief.com";
 
@@ -107,6 +110,18 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
         html: `<p>Friday 06:00 (${tz}) enqueued ${brand.name} for ${workspace.name}.</p><p>runId=${runId}</p>`,
         env,
       });
+
+      try {
+        const sub = await getWorkspaceSubscription(db, workspace.id);
+        if (planAllowsSlack(sub?.plan) && workspace.slackWebhookUrl) {
+          await postSlackIncomingWebhook({
+            webhookUrl: workspace.slackWebhookUrl,
+            text: `CiteBrief Friday: queued ${brand.name} (${tz}).`,
+          });
+        }
+      } catch (error) {
+        console.info("[friday-cron] slack skipped", error);
+      }
 
       results.push({ workspaceId: workspace.id, brandId: brand.id, runId, timezone: tz });
     }

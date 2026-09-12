@@ -125,7 +125,7 @@ export function PricingView() {
         })}
       </div>
 
-      <p className="mt-6 text-sm text-cb-muted">Add-ons later: extra brand and extra run. Tax handled by Dodo.</p>
+      <p className="mt-6 text-sm text-cb-muted">Add-ons: extra brand and extra run meters. Tax handled by Dodo.</p>
 
       <section className="mt-16 max-w-3xl">
         <h2 className="text-xl font-semibold">Questions agencies actually ask</h2>

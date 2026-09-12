@@ -1,22 +1,37 @@
-export const ENGINES = [
+export const CORE_ENGINES = [
   { id: "chatgpt", label: "ChatGPT" },
   { id: "perplexity", label: "Perplexity" },
   { id: "gemini", label: "Gemini" },
   { id: "aio", label: "AI Overviews" },
 ] as const;
 
+/** Studio plan add-on engines (optional; soft-fail still keyed off core 4). */
+export const STUDIO_ENGINES = [
+  { id: "claude", label: "Claude" },
+  { id: "grok", label: "Grok" },
+] as const;
+
+export const ENGINES = [...CORE_ENGINES, ...STUDIO_ENGINES] as const;
+
+export type CoreEngineId = (typeof CORE_ENGINES)[number]["id"];
+export type StudioEngineId = (typeof STUDIO_ENGINES)[number]["id"];
 export type EngineId = (typeof ENGINES)[number]["id"];
-export type EngineState = "queued" | "running" | "complete" | "failed";
+export type EngineState = "queued" | "running" | "complete" | "failed" | "skipped";
 
-export type EngineStatusMap = Record<EngineId, EngineState>;
+export type EngineStatusMap = Partial<Record<EngineId, EngineState>> & Record<CoreEngineId, EngineState>;
 
-export function emptyEngineStatus(): EngineStatusMap {
-  return {
+export function emptyEngineStatus(includeStudio = false): EngineStatusMap {
+  const base: EngineStatusMap = {
     chatgpt: "queued",
     perplexity: "queued",
     gemini: "queued",
     aio: "queued",
   };
+  if (includeStudio) {
+    base.claude = "queued";
+    base.grok = "queued";
+  }
+  return base;
 }
 
 export function parseEngineStatus(value: string | null | undefined): EngineStatusMap {
@@ -24,12 +39,23 @@ export function parseEngineStatus(value: string | null | undefined): EngineStatu
     return emptyEngineStatus();
   }
   try {
-    const parsed = JSON.parse(value) as Partial<EngineStatusMap>;
-    return { ...emptyEngineStatus(), ...parsed };
+    const parsed = JSON.parse(value) as Partial<Record<EngineId, EngineState>>;
+    return { ...emptyEngineStatus(Boolean(parsed.claude || parsed.grok)), ...parsed };
   } catch {
     return emptyEngineStatus();
   }
 }
+
+export function isStudioEngine(id: string): id is StudioEngineId {
+  return id === "claude" || id === "grok";
+}
+
+export function isCoreEngine(id: string): id is CoreEngineId {
+  return CORE_ENGINES.some((engine) => engine.id === id);
+}
+
+/** Soft-fail threshold: ship PDF when at least this many *core* engines succeed. */
+export const SOFT_FAIL_MIN_CORE = 3;
 
 /** @deprecated Phase 2 time-poll stub. Prefer processRun. */
 export function advanceEngineStub(createdAt: Date, now = new Date()): {
@@ -38,7 +64,7 @@ export function advanceEngineStub(createdAt: Date, now = new Date()): {
 } {
   const elapsed = Math.max(0, now.getTime() - createdAt.getTime());
   const engines = emptyEngineStatus();
-  const order = ENGINES.map((engine) => engine.id);
+  const order = CORE_ENGINES.map((engine) => engine.id);
   const stepMs = 2500;
 
   order.forEach((id, index) => {

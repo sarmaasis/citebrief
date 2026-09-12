@@ -20,7 +20,9 @@ See [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Design tokens use t
 
 **Phase 5:** History/MoM sparkline, members invite stub, workspace settings, Friday cron (tenant timezone), marketing `/report` + legal pages, StatusPill token polish.
 
-**Later follow-ups (this work):** Live engine APIs when keys are set, Queue consumer Worker for `citebrief-runs`, `@dodopayments/hono` Checkout/Webhooks mounts, Friday 06:00 per workspace timezone, CC-client Dialog.
+**Later follow-ups:** Live engine APIs when keys are set, Queue consumer Worker for `citebrief-runs`, `@dodopayments/hono` Checkout/Webhooks mounts, Friday 06:00 per workspace timezone, CC-client Dialog.
+
+**PRD §18 remaining gaps:** Members invite accept, Slack incoming webhook (Agency+), 24h engine cache, Studio Claude/Grok engines, billing depth (extra brand/run, trial caps, dunning, cancel-at-period-end, Dodo portal), internal admin (impersonate, COGS, webhook replay).
 
 ### App routes (summary)
 
@@ -87,6 +89,10 @@ Wrangler triggers an **hourly** cron (`0 * * * *`). The scheduled handler (and `
 
 This is not a single fixed UTC “Friday stub”; each tenant’s Friday morning is respected.
 
+## Studio engines (Claude / Grok)
+
+Optional add-on engines on **Studio**. Soft-fail still requires ≥3 of 4 **core** engines. List `claude` / `grok` in workspace default engines (or set API keys) to include them in a run.
+
 ## Live engines
 
 Adapters live in `src/lib/engine-adapters.ts`. Soft-fail ≥3/4 is unchanged in `processRun`.
@@ -140,7 +146,10 @@ npx wrangler secret put DODO_PAYMENTS_WEBHOOK_KEY
 npx wrangler secret put DODO_PAYMENTS_ENVIRONMENT
 npx wrangler secret put INTERNAL_PROCESS_SECRET
 npx wrangler secret put CRON_SECRET
+npx wrangler secret put INTERNAL_ADMIN_SECRET
 npx wrangler secret put OPENAI_API_KEY
+npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put XAI_API_KEY
 npx wrangler secret put PERPLEXITY_API_KEY
 npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put CF_ACCOUNT_ID
@@ -149,6 +158,8 @@ npx wrangler secret put CF_API_TOKEN
 npx wrangler secret put DODO_PRODUCT_STARTER
 npx wrangler secret put DODO_PRODUCT_AGENCY
 npx wrangler secret put DODO_PRODUCT_STUDIO
+npx wrangler secret put DODO_PRODUCT_EXTRA_BRAND
+npx wrangler secret put DODO_PRODUCT_EXTRA_RUN
 ```
 
 5. Point the Worker route at `getcitebrief.com`. Optionally 301 `citebrief.xyz` to the canonical host in Cloudflare DNS / Redirect Rules.
@@ -178,10 +189,15 @@ npm run deploy
 | `DODO_PRODUCT_*` | Dodo product IDs | Optional; fallback `citebrief_{plan}` |
 | `INTERNAL_PROCESS_SECRET` | Bearer for `/api/internal/process-run` | Required outside development |
 | `CRON_SECRET` | Bearer for `/api/cron/friday` | Required outside development |
+| `INTERNAL_ADMIN_SECRET` | Bearer for `/api/internal/admin/*` | Local: Bearer `dev-admin` when unset |
 | `OPENAI_API_KEY` | ChatGPT engine (+ prompt writer) | Stub adapters when unset |
 | `PERPLEXITY_API_KEY` | Perplexity Sonar | Stub when unset |
 | `GEMINI_API_KEY` | Gemini + Search | Stub when unset |
 | `CF_ACCOUNT_ID` / `CF_API_TOKEN` | Browser Rendering for AIO | Optional if `BROWSER` binding works |
+| `ANTHROPIC_API_KEY` | Studio Claude engine | Stub when unset; Studio plan only |
+| `XAI_API_KEY` | Studio Grok engine | Stub when unset (`GROK_API_KEY` alias) |
+| `DODO_PRODUCT_EXTRA_BRAND` | Extra brand addon product id | Placeholder `citebrief_extra_brand` |
+| `DODO_PRODUCT_EXTRA_RUN` | Extra run meter/product id | Placeholder `citebrief_extra_run` |
 
 Auth is created inside the request from `env.DB`. Do not cache a global D1 binding.
 
@@ -211,3 +227,16 @@ Auth is created inside the request from `env.DB`. Do not cache a global D1 bindi
 ## Design
 
 Tokens live in `design/tokens.css` (`--cb-*`). App CSS maps them into Tailwind v4 `@theme`. Paper `#FAFAF8`, ink `#0B3D2E`. No purple. No gradients.
+
+## Internal admin
+
+Bearer `INTERNAL_ADMIN_SECRET` (or `dev-admin` in local development):
+
+| Route | What |
+|---|---|
+| `POST /api/internal/admin/impersonate` | `{ "workspaceId" }` sets signed act-as cookie |
+| `DELETE /api/internal/admin/impersonate` | Clear act-as |
+| `GET /api/internal/admin/cogs/[runId]` | COGS estimate for a run |
+| `POST /api/internal/admin/webhooks/replay` | Re-apply stored Dodo webhook payload |
+
+UI scratchpad: `/app/admin` (still requires the Bearer secret on each action).

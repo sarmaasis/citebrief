@@ -45,6 +45,7 @@ export async function writeEngineCache(
   const cacheKey = buildCacheKey(args.engine, args.promptText);
   const id = crypto.randomUUID();
   try {
+    await db.delete(engineCache).where(eq(engineCache.cacheKey, cacheKey));
     await db.insert(engineCache).values({
       id,
       cacheKey,

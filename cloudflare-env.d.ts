@@ -22,12 +22,18 @@ interface CloudflareEnv {
   DODO_PRODUCT_STARTER?: string;
   DODO_PRODUCT_AGENCY?: string;
   DODO_PRODUCT_STUDIO?: string;
+  DODO_PRODUCT_EXTRA_BRAND?: string;
+  DODO_PRODUCT_EXTRA_RUN?: string;
   INTERNAL_PROCESS_SECRET?: string;
   CRON_SECRET?: string;
+  INTERNAL_ADMIN_SECRET?: string;
   NEXTJS_ENV?: string;
   OPENAI_API_KEY?: string;
   PERPLEXITY_API_KEY?: string;
   GEMINI_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
+  XAI_API_KEY?: string;
+  GROK_API_KEY?: string;
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
 }

@@ -1,6 +1,6 @@
 import { formatShortDate } from "@/lib/friday";
 import type { EngineId } from "@/lib/engines";
-import { ENGINES } from "@/lib/engines";
+import { CORE_ENGINES, ENGINES } from "@/lib/engines";
 
 export type PromptAgg = {
   promptId: string;
@@ -21,6 +21,11 @@ export type PromptAgg = {
   >;
 };
 
+function enginesForAgg(agg: PromptAgg) {
+  const present = ENGINES.filter((engine) => agg.byEngine[engine.id]);
+  return present.length > 0 ? present : [...CORE_ENGINES];
+}
+
 export type WrittenReport = {
   scoreMentioned: number;
   scoreTotal: number;
@@ -39,11 +44,11 @@ function escapeHtml(value: string) {
 }
 
 function promptNamed(agg: PromptAgg): boolean {
-  return ENGINES.some((engine) => agg.byEngine[engine.id]?.mentioned);
+  return enginesForAgg(agg).some((engine) => agg.byEngine[engine.id]?.mentioned);
 }
 
 function primaryWhoWon(agg: PromptAgg): string {
-  for (const engine of ENGINES) {
+  for (const engine of enginesForAgg(agg)) {
     const row = agg.byEngine[engine.id];
     if (row?.whoWon) {
       return row.whoWon;
@@ -53,7 +58,7 @@ function primaryWhoWon(agg: PromptAgg): string {
 }
 
 function primaryAction(agg: PromptAgg, brand: string): string {
-  for (const engine of ENGINES) {
+  for (const engine of enginesForAgg(agg)) {
     const row = agg.byEngine[engine.id];
     if (row?.nextAction) {
       return row.nextAction;
@@ -106,14 +111,14 @@ export function writeReport(args: {
 
   const promptBlocks = sorted
     .map((row) => {
-      const engines = ENGINES.map((engine) => {
+      const engines = enginesForAgg(row).map((engine) => {
         const cell = row.byEngine[engine.id];
         if (!cell || cell.status === "failed") {
           return `<span>${engine.label}: -</span>`;
         }
         return `<span>${engine.label}: ${cell.mentioned ? "Named" : "Missing"}</span>`;
       }).join(" · ");
-      const urls = ENGINES.flatMap((engine) => row.byEngine[engine.id]?.citedUrls ?? []).slice(0, 2);
+      const urls = enginesForAgg(row).flatMap((engine) => row.byEngine[engine.id]?.citedUrls ?? []).slice(0, 2);
       return `<section class="prompt">
   <h3>${escapeHtml(row.promptText)}</h3>
   <p class="meta">${engines}</p>

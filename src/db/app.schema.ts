@@ -20,6 +20,7 @@ export const workspaces = sqliteTable("workspaces", {
   timezone: text("timezone").notNull().default("America/New_York"),
   senderName: text("sender_name"),
   defaultEngines: text("default_engines"),
+  slackWebhookUrl: text("slack_webhook_url"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -184,6 +185,9 @@ export const subscriptions = sqliteTable(
     trialEndsAt: integer("trial_ends_at", { mode: "timestamp_ms" }),
     brandsUsed: integer("brands_used").notNull().default(0),
     runsUsed: integer("runs_used").notNull().default(0),
+    cancelAtPeriodEnd: integer("cancel_at_period_end", { mode: "boolean" }).notNull().default(false),
+    extraBrands: integer("extra_brands").notNull().default(0),
+    extraRuns: integer("extra_runs").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

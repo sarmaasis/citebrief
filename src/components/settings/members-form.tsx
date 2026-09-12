@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 
 export function MembersForm() {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("member");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -19,14 +18,14 @@ export function MembersForm() {
       const response = await fetch("/api/settings/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify({ email, role: "member" }),
       });
       const data = (await response.json()) as { error?: string; link?: string };
       if (!response.ok) {
         setMessage(data.error ?? "Invite failed.");
         return;
       }
-      setMessage(data.link ? `Invite stubbed. Link: ${data.link}` : "Invite sent.");
+      setMessage(data.link ? `Invite sent. Accept link: ${data.link}` : "Invite sent.");
       setEmail("");
     } finally {
       setBusy(false);
@@ -39,18 +38,7 @@ export function MembersForm() {
         <Label htmlFor="email">Email</Label>
         <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="role">Role</Label>
-        <select
-          id="role"
-          className="flex h-10 w-full rounded-cb-control border border-cb-line bg-cb-surface px-3 text-sm"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        >
-          <option value="member">Member</option>
-          <option value="owner">Owner</option>
-        </select>
-      </div>
+      <p className="text-sm text-cb-muted">Invites join as member. Only workspace owners can send invites.</p>
       <Button type="submit" disabled={busy}>
         {busy ? "Inviting…" : "Send invite"}
       </Button>

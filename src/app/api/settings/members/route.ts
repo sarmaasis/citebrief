@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { workspaceInvites, workspaceMembers } from "@/db/schema";
+import { planAllowsMembers } from "@/lib/billing";
 import { sendTransactionalEmail } from "@/lib/email";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -26,9 +27,23 @@ export async function POST(request: Request) {
   const ctx = await getAppContext();
   if (!ctx) return jsonError("Sign in required.", 401);
 
+  const [ownerMembership] = await ctx.db
+    .select({ id: workspaceMembers.id })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, ctx.workspace.id),
+        eq(workspaceMembers.userId, ctx.user.id),
+        eq(workspaceMembers.role, "owner"),
+      ),
+    )
+    .limit(1);
+  if (!ownerMembership) {
+    return jsonError("Only workspace owners can invite members.", 403);
+  }
+
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
-  const plan = sub?.plan || "agency";
-  if (plan === "starter") {
+  if (!planAllowsMembers(sub?.plan || "agency")) {
     return jsonError("Member invites require Agency or Studio.", 402);
   }
 
@@ -37,7 +52,8 @@ export async function POST(request: Request) {
   if (!email || !email.includes("@")) {
     return jsonError("A valid email is required.");
   }
-  const role = body.role === "owner" ? "owner" : "member";
+  // v1: invites are member-only (ignore client role; never invite as owner).
+  const role = "member";
   const token = crypto.randomUUID().replaceAll("-", "");
   const now = new Date();
 
@@ -53,11 +69,11 @@ export async function POST(request: Request) {
   });
 
   const { env } = await getCloudflareContext({ async: true });
-  const link = `${(env.BETTER_AUTH_URL || "").replace(/\/$/, "")}/signup?invite=${token}`;
+  const link = `${(env.BETTER_AUTH_URL || "").replace(/\/$/, "")}/invite/${token}`;
   await sendTransactionalEmail({
     to: email,
     subject: `Join ${ctx.workspace.name} on CiteBrief`,
-    html: `<p>You were invited as ${role}.</p><p><a href="${link}">Accept invite</a></p><p class="muted">Stub invite until auth accept flow is wired.</p>`,
+    html: `<p>You were invited to <strong>${ctx.workspace.name}</strong> as ${role}.</p><p><a href="${link}">Accept invite</a></p>`,
     env,
   });
 
