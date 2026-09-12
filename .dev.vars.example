@@ -21,10 +21,13 @@ DODO_PAYMENTS_ENVIRONMENT=test_mode
 DODO_PRODUCT_STARTER=
 DODO_PRODUCT_AGENCY=
 DODO_PRODUCT_STUDIO=
+DODO_PRODUCT_EXTRA_BRAND=
+DODO_PRODUCT_EXTRA_RUN=
 
 # Internal workers / cron (required outside development)
 INTERNAL_PROCESS_SECRET=stub
 CRON_SECRET=stub
+INTERNAL_ADMIN_SECRET=stub
 
 # Live engines (unset or stub = deterministic stub adapters)
 OPENAI_API_KEY=stub
@@ -33,3 +36,7 @@ GEMINI_API_KEY=stub
 # AI Overviews via Cloudflare Browser Rendering REST (optional if BROWSER binding exists)
 CF_ACCOUNT_ID=
 CF_API_TOKEN=
+
+# Studio add-on engines
+ANTHROPIC_API_KEY=stub
+XAI_API_KEY=stub

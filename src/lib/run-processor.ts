@@ -12,13 +12,21 @@ import {
 } from "@/db/schema";
 import { queryEngine } from "@/lib/engine-adapters";
 import { readEngineCache, writeEngineCache } from "@/lib/engine-cache";
-import { ENGINES, emptyEngineStatus, type EngineId, type EngineStatusMap } from "@/lib/engines";
+import {
+  CORE_ENGINES,
+  SOFT_FAIL_MIN_CORE,
+  emptyEngineStatus,
+  type EngineId,
+  type EngineStatusMap,
+} from "@/lib/engines";
 import { extractFromAnswer } from "@/lib/extractor";
 import { putReportObject, reportObjectKeys } from "@/lib/r2";
 import { writeReport, type PromptAgg } from "@/lib/report-writer";
 import { sendTransactionalEmail } from "@/lib/email";
-
-const SOFT_FAIL_MIN = 3;
+import { resolveRunEngines } from "@/lib/plan-engines";
+import { postSlackIncomingWebhook } from "@/lib/slack";
+import { planAllowsSlack } from "@/lib/billing";
+import { getWorkspaceSubscription } from "@/lib/usage";
 
 export type ProcessRunResult = {
   runId: string;
@@ -75,7 +83,18 @@ export async function processRun(
     };
   }
 
-  const engines = emptyEngineStatus();
+  const resolved = await resolveRunEngines({
+    db,
+    workspaceId: bundle.workspace.id,
+    defaultEngines: bundle.workspace.defaultEngines,
+    env,
+  });
+  const runEngines = resolved.engines;
+  const engines = emptyEngineStatus(resolved.includeStudio);
+  for (const engine of runEngines) {
+    engines[engine.id] = "queued";
+  }
+
   await db
     .update(runs)
     .set({ status: "running", engineStates: JSON.stringify(engines) })
@@ -102,7 +121,7 @@ export async function processRun(
     });
   }
 
-  for (const engine of ENGINES) {
+  for (const engine of runEngines) {
     engines[engine.id] = "running";
     await db
       .update(runs)
@@ -218,10 +237,10 @@ export async function processRun(
       .where(eq(runs.id, runId));
   }
 
-  const successCount = ENGINES.filter((engine) => engines[engine.id] === "complete").length;
-  const failedEngines = ENGINES.filter((engine) => engines[engine.id] === "failed").map((e) => e.label);
+  const successCount = CORE_ENGINES.filter((engine) => engines[engine.id] === "complete").length;
+  const failedEngines = runEngines.filter((engine) => engines[engine.id] === "failed").map((e) => e.label);
 
-  if (successCount < SOFT_FAIL_MIN) {
+  if (successCount < SOFT_FAIL_MIN_CORE) {
     await db
       .update(runs)
       .set({
@@ -239,7 +258,8 @@ export async function processRun(
     };
   }
 
-  const partial = successCount < ENGINES.length;
+  const coreTotal = CORE_ENGINES.filter((engine) => engines[engine.id] && engines[engine.id] !== "skipped").length || CORE_ENGINES.length;
+  const partial = successCount < coreTotal;
   const written = writeReport({
     agency: agencyName,
     brand: bundle.brand.name,
@@ -312,6 +332,18 @@ export async function processRun(
     } catch (error) {
       console.info("[run-processor] email stub/error", error);
     }
+  }
+
+  try {
+    const sub = await getWorkspaceSubscription(db, bundle.workspace.id);
+    if (planAllowsSlack(sub?.plan) && bundle.workspace.slackWebhookUrl) {
+      await postSlackIncomingWebhook({
+        webhookUrl: bundle.workspace.slackWebhookUrl,
+        text: `CiteBrief: ${bundle.brand.name} report ready (${written.scoreMentioned}/${written.scoreTotal} named). ${written.summary}`,
+      });
+    }
+  } catch (error) {
+    console.info("[run-processor] slack notify skipped", error);
   }
 
   return {

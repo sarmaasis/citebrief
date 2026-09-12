@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
-import { ENGINES, type EngineState } from "@/lib/engines";
+import { CORE_ENGINES, ENGINES, type EngineState } from "@/lib/engines";
 
 export function RunStatus({
   brandId,
@@ -63,18 +63,20 @@ export function RunStatus({
   }, [runId, initialStatus]);
 
   const done = status === "complete" || status === "partial";
-  const completeCount = ENGINES.filter((engine) => engines[engine.id] === "complete").length;
+  const visible = ENGINES.filter((engine) => engines[engine.id] !== undefined);
+  const list = visible.length > 0 ? visible : [...CORE_ENGINES];
+  const coreComplete = CORE_ENGINES.filter((engine) => engines[engine.id] === "complete").length;
 
   return (
     <div className="max-w-xl">
       <h1 className="text-xl font-semibold tracking-tight">
         {done ? "CiteBrief finished this week's report." : "Running this week's report"}
       </h1>
-      {status === "partial" || completeCount === 3 ? (
-        <p className="mt-3 text-sm text-cb-pending">3 of 4 engines returned. PDF still ships.</p>
+      {status === "partial" || coreComplete === 3 ? (
+        <p className="mt-3 text-sm text-cb-pending">3 of 4 core engines returned. PDF still ships.</p>
       ) : null}
       <div className="mt-6 space-y-3">
-        {ENGINES.map((engine) => {
+        {list.map((engine) => {
           const state = engines[engine.id] ?? "queued";
           const pill =
             state === "complete"

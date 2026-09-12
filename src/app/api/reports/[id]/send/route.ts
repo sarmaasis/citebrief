@@ -1,8 +1,11 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq } from "drizzle-orm";
-import { brands, reports } from "@/db/schema";
+import { brands, reports, workspaces } from "@/db/schema";
+import { planAllowsSlack } from "@/lib/billing";
 import { sendTransactionalEmail } from "@/lib/email";
 import { getAppContext } from "@/lib/session";
+import { postSlackIncomingWebhook } from "@/lib/slack";
+import { getWorkspaceSubscription } from "@/lib/usage";
 import { jsonError, jsonOk } from "@/server/json";
 
 export const dynamic = "force-dynamic";
@@ -51,5 +54,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   await ctx.db.update(reports).set({ sentAt: new Date() }).where(eq(reports.id, id));
+
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+  const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
+  if (planAllowsSlack(sub?.plan) && workspace?.slackWebhookUrl) {
+    await postSlackIncomingWebhook({
+      webhookUrl: workspace.slackWebhookUrl,
+      text: `CiteBrief Friday send: ${row.brandName} emailed to ${to}${body.ccClient ? ` (CC ${body.ccClient})` : ""}.`,
+    });
+  }
+
   return jsonOk({ ok: true, to, ccClient: body.ccClient?.trim() || null });
 }

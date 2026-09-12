@@ -21,6 +21,8 @@ const SYSTEM_HINTS: Record<EngineId, string> = {
   perplexity: "Perplexity Sonar",
   gemini: "Gemini + Search grounding",
   aio: "Google AI Overviews browser",
+  claude: "Anthropic Claude",
+  grok: "xAI Grok",
 };
 
 const USER_WRAPPER = (buyer: string, prompt: string) =>
@@ -41,6 +43,9 @@ const ENGINE_SYSTEM: Record<Exclude<EngineId, "aio">, string> = {
     "You are a buying advisor. Use web search. Prefer current vendor pages, G2, and recent roundups. Return the shortlist and any URLs you used.",
   perplexity: "Give a sourced shortlist for this purchase question. Cite URLs. Rank recommendations.",
   gemini: "Use Google Search grounding. Return who you would shortlist and which pages support that.",
+  claude:
+    "You are a buying advisor with web-aware knowledge. Return a ranked shortlist of products and any source URLs you can cite.",
+  grok: "You are a buying advisor. Return a ranked shortlist of products with brief reasons and URLs when known.",
 };
 
 function hashSeed(input: string): number {
@@ -68,6 +73,14 @@ function geminiKey(env?: CloudflareEnv) {
   return env?.GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 }
 
+function anthropicKey(env?: CloudflareEnv) {
+  return env?.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+}
+
+function xaiKey(env?: CloudflareEnv) {
+  return env?.XAI_API_KEY || process.env.XAI_API_KEY || env?.GROK_API_KEY || process.env.GROK_API_KEY;
+}
+
 function aioConfigured(env?: CloudflareEnv) {
   if (!env) return false;
   if (env.BROWSER) return true;
@@ -86,6 +99,10 @@ export function isEngineApiConfigured(engine: EngineId, env?: CloudflareEnv): bo
       return !isStubSecret(geminiKey(env));
     case "aio":
       return aioConfigured(env);
+    case "claude":
+      return !isStubSecret(anthropicKey(env));
+    case "grok":
+      return !isStubSecret(xaiKey(env));
     default:
       return false;
   }
@@ -215,6 +232,66 @@ async function queryGemini(input: EngineQueryInput, key: string): Promise<string
   return text;
 }
 
+async function queryClaude(input: EngineQueryInput, key: string): Promise<string> {
+  const buyer = input.buyer || "a buyer";
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      system: ENGINE_SYSTEM.claude,
+      messages: [{ role: "user", content: USER_WRAPPER(buyer, input.prompt) }],
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Anthropic ${response.status}: ${detail.slice(0, 400)}`);
+  }
+  const data = (await response.json()) as {
+    content?: Array<{ type?: string; text?: string }>;
+  };
+  const text = (data.content || [])
+    .filter((part) => part.type === "text" && part.text)
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
+  if (!text) throw new Error("Anthropic response missing text");
+  return text;
+}
+
+async function queryGrok(input: EngineQueryInput, key: string): Promise<string> {
+  const buyer = input.buyer || "a buyer";
+  const response = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "grok-3-mini",
+      messages: [
+        { role: "system", content: ENGINE_SYSTEM.grok },
+        { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
+      ],
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`xAI ${response.status}: ${detail.slice(0, 400)}`);
+  }
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const text = data.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error("xAI response missing text");
+  return text;
+}
+
 async function queryAio(input: EngineQueryInput, env: CloudflareEnv): Promise<string> {
   const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(input.prompt)}&hl=en&gl=us`;
   const account = env.CF_ACCOUNT_ID || process.env.CF_ACCOUNT_ID;
@@ -269,6 +346,16 @@ async function liveAnswer(input: EngineQueryInput): Promise<string> {
       const key = geminiKey(env);
       if (!key || isStubSecret(key)) throw new Error("GEMINI_API_KEY missing");
       return queryGemini(input, key);
+    }
+    case "claude": {
+      const key = anthropicKey(env);
+      if (!key || isStubSecret(key)) throw new Error("ANTHROPIC_API_KEY missing");
+      return queryClaude(input, key);
+    }
+    case "grok": {
+      const key = xaiKey(env);
+      if (!key || isStubSecret(key)) throw new Error("XAI_API_KEY missing");
+      return queryGrok(input, key);
     }
     case "aio": {
       if (!env) throw new Error("env required for AIO");

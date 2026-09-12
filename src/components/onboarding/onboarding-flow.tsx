@@ -6,7 +6,7 @@ import { BrandFields, emptyBrandFields, type BrandFieldValues } from "@/componen
 import { PromptEditor } from "@/components/prompts/prompt-editor";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
-import { ENGINES, type EngineState } from "@/lib/engines";
+import { CORE_ENGINES, ENGINES, type EngineState } from "@/lib/engines";
 import { type PromptDraft, validatePromptSet } from "@/lib/prompts";
 import { Logo } from "@/components/brand/logo";
 
@@ -202,7 +202,10 @@ export function OnboardingFlow() {
             {reportReady ? "CiteBrief finished the first PDF." : "Running this week's report"}
           </h1>
           <div className="mt-8 space-y-3">
-            {ENGINES.map((engine) => {
+            {(engines && ENGINES.filter((e) => engines[e.id] !== undefined).length
+              ? ENGINES.filter((e) => engines![e.id] !== undefined)
+              : CORE_ENGINES
+            ).map((engine) => {
               const state = engines?.[engine.id] ?? "queued";
               const pill =
                 state === "complete" ? "complete" : state === "failed" ? "failed" : state === "running" ? "running" : "queued";

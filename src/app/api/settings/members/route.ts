@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { workspaceInvites, workspaceMembers } from "@/db/schema";
+import { planAllowsMembers } from "@/lib/billing";
 import { sendTransactionalEmail } from "@/lib/email";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -27,8 +28,7 @@ export async function POST(request: Request) {
   if (!ctx) return jsonError("Sign in required.", 401);
 
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
-  const plan = sub?.plan || "agency";
-  if (plan === "starter") {
+  if (!planAllowsMembers(sub?.plan || "agency")) {
     return jsonError("Member invites require Agency or Studio.", 402);
   }
 
@@ -53,11 +53,11 @@ export async function POST(request: Request) {
   });
 
   const { env } = await getCloudflareContext({ async: true });
-  const link = `${(env.BETTER_AUTH_URL || "").replace(/\/$/, "")}/signup?invite=${token}`;
+  const link = `${(env.BETTER_AUTH_URL || "").replace(/\/$/, "")}/invite/${token}`;
   await sendTransactionalEmail({
     to: email,
     subject: `Join ${ctx.workspace.name} on CiteBrief`,
-    html: `<p>You were invited as ${role}.</p><p><a href="${link}">Accept invite</a></p><p class="muted">Stub invite until auth accept flow is wired.</p>`,
+    html: `<p>You were invited to <strong>${ctx.workspace.name}</strong> as ${role}.</p><p><a href="${link}">Accept invite</a></p>`,
     env,
   });
 

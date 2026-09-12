@@ -35,6 +35,6 @@ export async function POST(request: Request) {
     return jsonError("Invalid JSON.");
   }
 
-  const result = await applyDodoWebhookPayload(db, event as Record<string, unknown>);
+  const result = await applyDodoWebhookPayload(db, event as Record<string, unknown>, env);
   return jsonOk(result);
 }

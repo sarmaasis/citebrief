@@ -36,15 +36,29 @@ export const PLANS = {
 
 export type PlanId = keyof typeof PLANS;
 
+/** Extra brand addon list prices (Dodo product IDs come from env). */
+export const EXTRA_BRAND_USD: Record<PlanId, number> = {
+  starter: 25,
+  agency: 25,
+  studio: 39,
+};
+
+/** Extra run meter list prices. */
+export const EXTRA_RUN_USD: Record<PlanId, number> = {
+  starter: 6,
+  agency: 6,
+  studio: 9,
+};
+
 export function parsePlanId(value: string | null | undefined): PlanId | null {
   if (!value) return null;
   const key = value.toLowerCase() as PlanId;
   return key in PLANS ? key : null;
 }
 
-export function planBrandLimit(plan: PlanId | string | null | undefined): number {
+export function planBrandLimit(plan: PlanId | string | null | undefined, extraBrands = 0): number {
   const id = parsePlanId(plan ?? "agency") ?? "agency";
-  return PLANS[id].brands;
+  return PLANS[id].brands + Math.max(0, extraBrands);
 }
 
 export function planManualRerunCap(plan: PlanId | string | null | undefined): number {
@@ -63,3 +77,18 @@ export function isStubSecret(value: string | undefined) {
 }
 
 export const TRIAL_DAYS = 14;
+export const TRIAL_BRAND_CAP = 1;
+export const TRIAL_RUN_CAP = 1;
+
+export function planAllowsMembers(plan: PlanId | string | null | undefined) {
+  const id = parsePlanId(plan ?? "agency") ?? "agency";
+  return id === "agency" || id === "studio";
+}
+
+export function planAllowsSlack(plan: PlanId | string | null | undefined) {
+  return planAllowsMembers(plan);
+}
+
+export function planAllowsStudioEngines(plan: PlanId | string | null | undefined) {
+  return parsePlanId(plan ?? "") === "studio";
+}

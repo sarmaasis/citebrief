@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { BillingPanel } from "@/components/billing/billing-panel";
+import { subscriptions } from "@/db/schema";
 import { planBrandLimit } from "@/lib/billing";
 import { formatShortDate } from "@/lib/friday";
 import { getAppContext } from "@/lib/session";
 import { listWorkspaceBrands } from "@/server/workspace-data";
-import { subscriptions } from "@/db/schema";
 
 export default async function BillingSettingsPage() {
   const ctx = await getAppContext();
@@ -20,6 +20,7 @@ export default async function BillingSettingsPage() {
     .limit(1);
   const brands = await listWorkspaceBrands(ctx);
   const plan = sub?.plan || "agency";
+  const extraBrands = sub?.extraBrands || 0;
 
   return (
     <div>
@@ -33,8 +34,12 @@ export default async function BillingSettingsPage() {
           status={sub?.status || "none"}
           brandsUsed={brands.length}
           runsUsed={sub?.runsUsed || 0}
-          brandLimit={planBrandLimit(plan)}
+          brandLimit={planBrandLimit(plan, extraBrands)}
           trialEndsAt={sub?.trialEndsAt ? formatShortDate(new Date(sub.trialEndsAt)) : null}
+          cancelAtPeriodEnd={Boolean(sub?.cancelAtPeriodEnd)}
+          extraBrands={extraBrands}
+          extraRuns={sub?.extraRuns || 0}
+          currentPeriodEnd={sub?.currentPeriodEnd ? formatShortDate(new Date(sub.currentPeriodEnd)) : null}
         />
       </div>
     </div>

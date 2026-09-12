@@ -26,7 +26,7 @@ export function MembersForm() {
         setMessage(data.error ?? "Invite failed.");
         return;
       }
-      setMessage(data.link ? `Invite stubbed. Link: ${data.link}` : "Invite sent.");
+      setMessage(data.link ? `Invite sent. Accept link: ${data.link}` : "Invite sent.");
       setEmail("");
     } finally {
       setBusy(false);

@@ -7,18 +7,22 @@ import { Label } from "@/components/ui/label";
 
 export function WorkspaceForm({
   initial,
+  slackAllowed,
 }: {
   initial: {
     name: string;
     timezone: string;
     senderName: string;
     defaultEngines: string;
+    slackWebhookUrl: string;
   };
+  slackAllowed: boolean;
 }) {
   const [name, setName] = useState(initial.name);
   const [timezone, setTimezone] = useState(initial.timezone);
   const [senderName, setSenderName] = useState(initial.senderName);
   const [defaultEngines, setDefaultEngines] = useState(initial.defaultEngines);
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState(initial.slackWebhookUrl);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -30,7 +34,7 @@ export function WorkspaceForm({
       const response = await fetch("/api/settings/workspace", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, timezone, senderName, defaultEngines }),
+        body: JSON.stringify({ name, timezone, senderName, defaultEngines, slackWebhookUrl }),
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -65,6 +69,22 @@ export function WorkspaceForm({
           onChange={(e) => setDefaultEngines(e.target.value)}
           placeholder="chatgpt,perplexity,gemini,aio"
         />
+        <p className="text-xs text-cb-muted">Studio can add claude,grok when keys and plan allow.</p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="slackWebhookUrl">Slack incoming webhook (Agency+)</Label>
+        <Input
+          id="slackWebhookUrl"
+          value={slackWebhookUrl}
+          onChange={(e) => setSlackWebhookUrl(e.target.value)}
+          placeholder="https://hooks.slack.com/services/..."
+          disabled={!slackAllowed}
+        />
+        {!slackAllowed ? (
+          <p className="text-xs text-cb-muted">Upgrade to Agency or Studio to post report-ready notices to Slack.</p>
+        ) : (
+          <p className="text-xs text-cb-muted">Posts a short message when a report is ready or Friday send runs.</p>
+        )}
       </div>
       <Button type="submit" disabled={busy}>
         {busy ? "Saving…" : "Save workspace"}

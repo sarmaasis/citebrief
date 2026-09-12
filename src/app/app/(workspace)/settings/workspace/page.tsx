@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { WorkspaceForm } from "@/components/settings/workspace-form";
-import { getAppContext } from "@/lib/session";
 import { workspaces } from "@/db/schema";
+import { planAllowsSlack } from "@/lib/billing";
+import { getAppContext } from "@/lib/session";
+import { getWorkspaceSubscription } from "@/lib/usage";
 
 export default async function WorkspaceSettingsPage() {
   const ctx = await getAppContext();
@@ -13,6 +15,7 @@ export default async function WorkspaceSettingsPage() {
     .where(eq(workspaces.id, ctx.workspace.id))
     .limit(1);
   if (!workspace) notFound();
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
 
   return (
     <div>
@@ -22,11 +25,13 @@ export default async function WorkspaceSettingsPage() {
       </p>
       <div className="mt-8">
         <WorkspaceForm
+          slackAllowed={planAllowsSlack(sub?.plan || "agency")}
           initial={{
             name: workspace.name,
             timezone: workspace.timezone,
             senderName: workspace.senderName || "",
             defaultEngines: workspace.defaultEngines || "chatgpt,perplexity,gemini,aio",
+            slackWebhookUrl: workspace.slackWebhookUrl || "",
           }}
         />
       </div>

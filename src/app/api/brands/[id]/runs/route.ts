@@ -1,12 +1,14 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { eq } from "drizzle-orm";
 import { emptyEngineStatus } from "@/lib/engines";
-import { assertRunCap, bumpRunsUsed } from "@/lib/usage";
+import { assertRunCap, bumpRunsUsed, getWorkspaceSubscription } from "@/lib/usage";
+import { recordDodoExtraRunUsage } from "@/lib/dodo";
 import { formatWeekOf } from "@/lib/friday";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
 import { getWorkspaceBrand } from "@/server/workspace-data";
-import { prompts, runs } from "@/db/schema";
+import { prompts, runs, workspaces } from "@/db/schema";
+import { resolveRunEngines } from "@/lib/plan-engines";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +33,10 @@ export async function POST(_request: Request, context: RouteContext) {
     return jsonError("Generate twenty buyer questions before you run.");
   }
 
+  let extraRun = false;
   try {
     const cap = await assertRunCap(ctx.db, ctx.workspace.id, id);
+    extraRun = Boolean(cap.extraRun);
     if (cap.warning) {
       console.info("[runs] cap warning", cap.warning);
     }
@@ -50,8 +54,8 @@ export async function POST(_request: Request, context: RouteContext) {
   };
 
   let queue = "placeholder";
+  const { env } = await getCloudflareContext({ async: true });
   try {
-    const { env } = await getCloudflareContext({ async: true });
     if (env.RUNS_QUEUE) {
       await env.RUNS_QUEUE.send(payload);
       queue = "sent";
@@ -60,17 +64,38 @@ export async function POST(_request: Request, context: RouteContext) {
     queue = "placeholder";
   }
 
+  const [workspaceRow] = await ctx.db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, ctx.workspace.id))
+    .limit(1);
+  const resolved = await resolveRunEngines({
+    db: ctx.db,
+    workspaceId: ctx.workspace.id,
+    defaultEngines: workspaceRow?.defaultEngines,
+    env,
+  });
+
   await ctx.db.insert(runs).values({
     id: runId,
     brandId: id,
     status: "queued",
     periodStart: formatWeekOf(now),
     periodEnd: formatWeekOf(now),
-    engineStates: JSON.stringify(emptyEngineStatus()),
+    engineStates: JSON.stringify(emptyEngineStatus(resolved.includeStudio)),
     createdAt: now,
   });
 
-  await bumpRunsUsed(ctx.db, ctx.workspace.id);
+  await bumpRunsUsed(ctx.db, ctx.workspace.id, extraRun);
+  if (extraRun) {
+    const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+    await recordDodoExtraRunUsage({
+      env,
+      customerId: sub?.dodoCustomerId,
+      workspaceId: ctx.workspace.id,
+      runId,
+    });
+  }
 
-  return jsonOk({ runId, queue, payload }, 201);
+  return jsonOk({ runId, queue, payload, extraRun }, 201);
 }
