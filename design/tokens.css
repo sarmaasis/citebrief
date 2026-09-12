@@ -1,0 +1,76 @@
+/**
+ * CiteBrief design tokens
+ * Source: PRODUCT.md §20.3–20.4
+ * Hard rules: no purple, no gradients, no glass.
+ */
+
+:root {
+  /* Color - §20.3 */
+  --nw-bg: #fafaf8;
+  --nw-surface: #ffffff;
+  --nw-line: #e8e6e1;
+  --nw-text: #171717;
+  --nw-muted: #737373;
+  --nw-accent: #0b3d2e;
+  --nw-named: #0b3d2e;
+  --nw-missing: #9a3412;
+  --nw-pending: #b45309;
+
+  /* Derived (tonal; no new hues) */
+  --nw-accent-hover: #0a3428;
+  --nw-accent-subtle: #e8f0ec;
+  --nw-danger: #9a3412;
+  --nw-on-accent: #ffffff;
+
+  /* Radius - §20.4 */
+  --nw-radius-control: 8px;
+  --nw-radius-card: 12px;
+  --nw-radius-panel: 16px;
+
+  /* Space - 8px grid */
+  --nw-space-1: 8px;
+  --nw-space-2: 16px;
+  --nw-space-3: 24px;
+  --nw-space-4: 32px;
+  --nw-space-5: 64px;
+  --nw-space-6: 96px;
+
+  /* App chrome */
+  --nw-sidebar-width: 240px;
+  --nw-table-row-height: 48px;
+
+  /* Elevation - hairlines first; shadow for menus only */
+  --nw-shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.06);
+
+  /* Motion - 150–200ms ease-out; opacity + 4px */
+  --nw-duration: 180ms;
+  --nw-ease: ease-out;
+  --nw-motion-y: 4px;
+
+  /* Type - faces wired via next/font; families as fallbacks */
+  --nw-font-sans: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --nw-font-serif: "Newsreader", "Instrument Serif", ui-serif, Georgia, serif;
+  --nw-font-mono: "Geist Mono", "IBM Plex Mono", ui-monospace, monospace;
+  --nw-tracking-ui: -0.2px;
+
+  /* PDF */
+  --nw-pdf-margin: 0.7in;
+  --nw-pdf-logo-height: 24px;
+  --nw-pdf-body-size: 11px;
+}
+
+/* Optional dark marketing shell - app stays light (§20.1) */
+[data-theme="marketing-dark"] {
+  --nw-bg: #0f1412;
+  --nw-surface: #171c19;
+  --nw-line: #2a322e;
+  --nw-text: #f5f5f4;
+  --nw-muted: #a3a3a3;
+  --nw-accent: #c8e6d9;
+  --nw-named: #c8e6d9;
+  --nw-missing: #fdba74;
+  --nw-pending: #fbbf24;
+  --nw-accent-hover: #e8f0ec;
+  --nw-accent-subtle: #1a2822;
+  --nw-on-accent: #0b3d2e;
+}
