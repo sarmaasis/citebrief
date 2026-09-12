@@ -1,22 +1,20 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getDb } from "@/db";
 import { runFridayCron } from "@/lib/cron-friday";
+import { requireInternalSecret } from "@/lib/internal-auth";
 import { jsonError, jsonOk } from "@/server/json";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Friday 06:00 tenant TZ cron trigger stub.
- * Protect with CRON_SECRET when set; otherwise allow in stub/dev.
+ * Friday cron trigger.
+ * Protected by CRON_SECRET (required outside development).
  */
 export async function POST(request: Request) {
   const { env } = await getCloudflareContext({ async: true });
-  const secret = (env as CloudflareEnv & { CRON_SECRET?: string }).CRON_SECRET;
-  if (secret && secret !== "stub") {
-    const header = request.headers.get("authorization");
-    if (header !== `Bearer ${secret}`) {
-      return jsonError("Unauthorized cron call.", 401);
-    }
+  const denied = requireInternalSecret(request, env, "CRON_SECRET");
+  if (denied) {
+    return denied;
   }
 
   try {
