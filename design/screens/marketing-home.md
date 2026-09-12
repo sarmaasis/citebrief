@@ -18,7 +18,7 @@ Main
   Short proof strip (one metric line or quote, optional)
   CTA band → pricing / trial
 Footer
-  Legal · Status · citebrief.xyz
+  Legal · Status · getcitebrief.com
 ```
 
 Section padding: 64–96px. Panel radius 16px. Hairline borders on `#FAFAF8`.

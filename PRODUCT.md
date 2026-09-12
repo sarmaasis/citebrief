@@ -1,10 +1,10 @@
 # PRD: CiteBrief
 **AI-search visibility report for agencies**  
-Version 2.0 · 12 Sep 2026 · Domain: citebrief.xyz · Next.js on Cloudflare Workers (OpenNext) · Better Auth · Dodo Payments
+Version 2.0 · 12 Sep 2026 · Domain: getcitebrief.com · Next.js on Cloudflare Workers (OpenNext) · Better Auth · Dodo Payments
 
 ---
 
-**Canonical domain:** `citebrief.xyz` (Porkbun ~$2.04 yr1; renew ~$14). Optional: `citebrief.online` ~$1.96 (renew high). `.com` inquire/taken.
+**Canonical domain:** `getcitebrief.com` (~$11.08 Porkbun at-cost). `citebrief.com` is taken. Optional redirect: `citebrief.xyz` (~$2.04).
 
 ## 1. One-liner
 Agencies enter a brand + 20 buyer questions. CiteBrief asks ChatGPT, Perplexity, Gemini, and Google AI Overviews. Every Friday it emails a white-label PDF the client can read.
