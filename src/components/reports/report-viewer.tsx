@@ -40,8 +40,21 @@ export function ReportViewer({
     window.setTimeout(() => setToast(null), 3000);
   }
 
-  function ccClient() {
-    setToast("CC client is stubbed. Email send lands with Resend keys.");
+  async function ccClient() {
+    const email = window.prompt("Send this report to your client");
+    if (!email) {
+      return;
+    }
+    const response = await fetch(`/api/reports/${reportId}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ccClient: email }),
+    });
+    if (!response.ok) {
+      setToast("Could not send. Try again.");
+    } else {
+      setToast("Report queued to client (Resend stub if keys missing).");
+    }
     window.setTimeout(() => setToast(null), 3000);
   }
 
@@ -64,7 +77,7 @@ export function ReportViewer({
           <Button type="button" variant="outline" size="sm" onClick={() => void copyLink()}>
             Copy client link
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={ccClient}>
+          <Button type="button" variant="outline" size="sm" onClick={() => void ccClient()}>
             CC client
           </Button>
           <Button asChild variant="ghost" size="sm">

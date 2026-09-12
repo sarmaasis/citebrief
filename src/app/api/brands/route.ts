@@ -1,4 +1,5 @@
 import { getAppContext } from "@/lib/session";
+import { assertBrandCap } from "@/lib/usage";
 import { splitNames } from "@/lib/split";
 import { jsonError, jsonOk } from "@/server/json";
 import { listWorkspaceBrands } from "@/server/workspace-data";
@@ -26,6 +27,12 @@ export async function POST(request: Request) {
   const name = body.name?.trim();
   if (!name) {
     return jsonError("Brand name is required.");
+  }
+
+  try {
+    await assertBrandCap(ctx.db, ctx.workspace.id);
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "Brand cap reached.", 402);
   }
 
   const now = new Date();
