@@ -2,12 +2,12 @@ import { cn } from "@/lib/utils";
 
 const styles = {
   named: "bg-cb-accent-subtle text-cb-named",
-  missing: "bg-[#f4e7e0] text-cb-missing",
-  running: "bg-[#f6ead4] text-cb-pending",
-  queued: "bg-cb-accent-subtle text-cb-muted",
-  failed: "bg-[#f4e7e0] text-cb-missing",
+  missing: "bg-cb-missing-subtle text-cb-missing",
+  running: "bg-cb-pending-subtle text-cb-pending",
+  queued: "bg-cb-muted-bg text-cb-muted",
+  failed: "bg-cb-missing-subtle text-cb-missing",
   complete: "bg-cb-accent-subtle text-cb-named",
-  partial: "bg-[#f6ead4] text-cb-pending",
+  partial: "bg-cb-pending-subtle text-cb-pending",
 } as const;
 
 export function StatusPill({

@@ -87,7 +87,7 @@ export function RunStatus({
       {complete ? (
         <div className="mt-8 flex gap-2">
           <Button asChild>
-            <Link href={`/app/brands/${brandId}`}>Open report</Link>
+            <Link href={`/app/brands/${brandId}`}>Brand home</Link>
           </Button>
         </div>
       ) : null}

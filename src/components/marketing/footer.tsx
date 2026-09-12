@@ -10,7 +10,12 @@ export function MarketingFooter() {
           <Link href="/pricing" className="hover:text-cb-text">
             Pricing
           </Link>
-          <span>Legal</span>
+          <Link href="/legal/privacy" className="hover:text-cb-text">
+            Privacy
+          </Link>
+          <Link href="/legal/terms" className="hover:text-cb-text">
+            Terms
+          </Link>
           <span>Status</span>
           <span>getcitebrief.com</span>
         </div>

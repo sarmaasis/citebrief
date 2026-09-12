@@ -49,6 +49,9 @@ Derived (not in PRD table; keep tonal, no new hues):
 | accent-subtle | `--cb-accent-subtle` | `#E8F0EC` | Soft accent wash for pills / selected rows |
 | danger | `--cb-danger` | `#9A3412` | Alias of missing for form errors |
 | shadow-menu | `--cb-shadow-menu` | `0 8px 24px rgba(0,0,0,.06)` | Floating menus only |
+| missing-subtle | `--cb-missing-subtle` | `#F4E7E0` | StatusPill wash |
+| pending-subtle | `--cb-pending-subtle` | `#F6EAD4` | StatusPill / partial wash |
+| muted-bg | `--cb-muted-bg` | `#F3F2EE` | Neutral muted surface (not accent-subtle) |
 
 ---
 

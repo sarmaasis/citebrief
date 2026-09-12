@@ -21,6 +21,9 @@
   --cb-accent-subtle: #e8f0ec;
   --cb-danger: #9a3412;
   --cb-on-accent: #ffffff;
+  --cb-missing-subtle: #f4e7e0;
+  --cb-pending-subtle: #f6ead4;
+  --cb-muted-bg: #f3f2ee;
 
   /* Radius - §20.4 */
   --cb-radius-control: 8px;
@@ -73,4 +76,7 @@
   --cb-accent-hover: #e8f0ec;
   --cb-accent-subtle: #1a2822;
   --cb-on-accent: #0b3d2e;
+  --cb-missing-subtle: #3a2418;
+  --cb-pending-subtle: #3a2e14;
+  --cb-muted-bg: #1a1f1c;
 }

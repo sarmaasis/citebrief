@@ -11,9 +11,9 @@ export function MarketingHeader() {
           <Link href="/pricing" className="hover:text-cb-text">
             Pricing
           </Link>
-          <a href="#sample" className="hover:text-cb-text">
+          <Link href="/report" className="hover:text-cb-text">
             Sample report
-          </a>
+          </Link>
           <Link href="/login" className="hover:text-cb-text">
             Sign in
           </Link>
