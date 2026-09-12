@@ -87,7 +87,7 @@ export function ReportViewer({
       </div>
 
       {partial ? (
-        <div className="border-b border-cb-line bg-[#f6ead4] px-6 py-3 text-sm text-cb-pending">
+        <div className="border-b border-cb-line bg-cb-pending-subtle px-6 py-3 text-sm text-cb-pending">
           3 of 4 engines returned. Numbers reflect available engines.
         </div>
       ) : null}

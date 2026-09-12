@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 const links = [
+  { href: "/app/settings/workspace", title: "Workspace", body: "Name, timezone, sender, default engines." },
   { href: "/app/settings/billing", title: "Billing", body: "Plan, usage, and Dodo portal." },
   { href: "/app/settings/brand-kit", title: "Brand kit", body: "Logo, color, footer, Prepared by." },
   { href: "/app/settings/members", title: "Members", body: "Invite account managers (Agency+)." },

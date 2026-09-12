@@ -18,7 +18,7 @@ See [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Design tokens use t
 
 **Phase 4:** Dodo checkout/webhooks (stub-friendly), billing UI, brand kit, client link `/r/[token]`, run/brand caps, report email send.
 
-Later: history, members invite, cron, marketing polish.
+**Phase 5:** History/MoM sparkline, members invite stub, workspace settings, Friday cron stub, marketing `/report` + legal pages, StatusPill token polish.
 
 ### Phase 2 routes
 
