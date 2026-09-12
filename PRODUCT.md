@@ -4,7 +4,7 @@ Version 2.0 · 12 Sep 2026 · Domain: getcitebrief.com · Next.js on Cloudflare 
 
 ---
 
-**Canonical domain:** **Primary:** `getcitebrief.com` (optional redirect from `citebrief.xyz`) (~$11.08 Porkbun at-cost). `citebrief.com` is taken. Optional cheap redirect: `getcitebrief.com` (~$2.04).
+**Canonical domain:** `getcitebrief.com` (~$11.08 Porkbun at-cost). `citebrief.com` is taken. Optional redirect: `citebrief.xyz` (~$2.04).
 
 ## 1. One-liner
 Agencies enter a brand + 20 buyer questions. CiteBrief asks ChatGPT, Perplexity, Gemini, and Google AI Overviews. Every Friday it emails a white-label PDF the client can read.
