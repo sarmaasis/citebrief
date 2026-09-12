@@ -1,6 +1,6 @@
 # CiteBrief Design Brief
 
-Version 1.0 · aligned to PRODUCT.md §18–§20 · Domain: citebrief.xyz
+Version 1.0 · aligned to PRODUCT.md §18–§20 · Domain: getcitebrief.com
 
 Quiet instrument for agencies. Paper + ink, not neon cockpit. Show the actual PDF.
 
@@ -21,7 +21,7 @@ CiteBrief is a **paper + ink** product: Linear / Vercel / Swiss editorial, not g
 
 **Marketing** may use a dark option later; **app is light**. Clients print these reports.
 
-**Brand name:** CiteBrief only. Canonical domain `citebrief.xyz`; stretch `citebrief.com`.
+**Brand name:** CiteBrief only. Canonical domain `getcitebrief.com`; stretch `citebrief.com`.
 
 ---
 
