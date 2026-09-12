@@ -27,7 +27,6 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
     .map(({ report, run }) => ({
       period: run.periodStart || report.createdAt.toISOString().slice(0, 10),
       mentioned: report.scoreMentioned ?? 0,
-      recommended: Math.max(0, Math.round((report.scoreMentioned ?? 0) * 0.6)),
     }));
 
   // Who-won basics from latest run rows
@@ -55,7 +54,7 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
       </div>
 
       <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
-        <p className="text-xs text-cb-muted">Mentioned / recommended</p>
+        <p className="text-xs text-cb-muted">Mentioned score</p>
         <div className="mt-4">
           <MomChart data={chartData} />
         </div>
@@ -86,7 +85,7 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
             reportRows.map(({ report, run }) => (
               <li key={report.id} className="flex h-12 items-center justify-between border-b border-cb-line px-5 last:border-0">
                 <span className="text-sm">
-                  Week of {run.periodStart || "—"} · {report.scoreMentioned ?? "-"}/{report.scoreTotal}
+                  Week of {run.periodStart || "-"} · {report.scoreMentioned ?? "-"}/{report.scoreTotal}
                 </span>
                 <Link href={`/app/brands/${id}/reports/${report.id}`} className="text-sm text-cb-accent">
                   Open report

@@ -5,7 +5,7 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 export function MomChart({
   data,
 }: {
-  data: Array<{ period: string; mentioned: number; recommended: number }>;
+  data: Array<{ period: string; mentioned: number }>;
 }) {
   if (data.length === 0) {
     return <p className="text-sm text-cb-muted">No history yet. Run a report to start MoM tracking.</p>;
@@ -26,7 +26,6 @@ export function MomChart({
             }}
           />
           <Line type="monotone" dataKey="mentioned" stroke="#0B3D2E" strokeWidth={2} dot={false} name="Mentioned" />
-          <Line type="monotone" dataKey="recommended" stroke="#B45309" strokeWidth={2} dot={false} name="Recommended" />
         </LineChart>
       </ResponsiveContainer>
     </div>

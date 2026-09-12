@@ -92,19 +92,7 @@ export function ReportViewer({
         </div>
       ) : null}
 
-      <div className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[160px_1fr]">
-        <aside className="space-y-2">
-          <div className="aspect-[8.5/11] rounded-cb-control border border-cb-accent bg-cb-surface p-2 text-[10px] text-cb-muted">
-            Cover
-          </div>
-          <div className="aspect-[8.5/11] rounded-cb-control border border-cb-line bg-cb-surface p-2 text-[10px] text-cb-muted">
-            Prompts
-          </div>
-          <div className="aspect-[8.5/11] rounded-cb-control border border-cb-line bg-cb-surface p-2 text-[10px] text-cb-muted">
-            Priorities
-          </div>
-        </aside>
-
+      <div className="mx-auto max-w-4xl px-6 py-8">
         <div className="rounded-cb-card border border-cb-line bg-cb-surface">
           {html ? (
             <iframe title="Report" className="min-h-[80vh] w-full rounded-cb-card" srcDoc={html} />
