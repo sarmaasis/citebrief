@@ -247,6 +247,8 @@ export async function processRun(
     prompts: [...aggs.values()],
     partial,
     failedEngines,
+    accentColor: kit?.accentColor || undefined,
+    logoUrl: kit?.logoUrl || undefined,
   });
 
   const ymd = (bundle.run.periodStart || new Date().toISOString().slice(0, 10)).slice(0, 10);

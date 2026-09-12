@@ -74,6 +74,8 @@ export function writeReport(args: {
   prompts: PromptAgg[];
   partial: boolean;
   failedEngines: string[];
+  accentColor?: string;
+  logoUrl?: string;
 }): WrittenReport {
   const sorted = [...args.prompts].sort((a, b) => a.sortOrder - b.sortOrder);
   const scoreMentioned = sorted.filter(promptNamed).length;
@@ -93,6 +95,11 @@ export function writeReport(args: {
   }));
 
   const dateLabel = formatShortDate(new Date());
+  const accent = args.accentColor && /^#[0-9A-Fa-f]{6}$/.test(args.accentColor) ? args.accentColor : "#0B3D2E";
+  const logoHtml = args.logoUrl
+    ? `<img src="${escapeHtml(args.logoUrl)}" alt="" style="height:24px;object-fit:contain;" />`
+    : "";
+
   const partialBanner = args.partial
     ? `<p class="banner">3 of 4 engines returned. Numbers reflect available engines.</p>`
     : "";
@@ -138,7 +145,7 @@ export function writeReport(args: {
     body { font-family: Inter, system-ui, sans-serif; color: #171717; background: #FAFAF8; margin: 0; }
     .page { max-width: 720px; margin: 0 auto; padding: 0.7in; background: #FAFAF8; }
     h1 { font-size: 22px; margin: 24px 0 8px; }
-    .score { font-family: ui-monospace, monospace; font-size: 42px; color: #0B3D2E; margin: 16px 0; }
+    .score { font-family: ui-monospace, monospace; font-size: 42px; color: ${accent}; margin: 16px 0; }
     .muted { color: #737373; font-size: 12px; }
     .meta { color: #737373; font-size: 12px; }
     .prompt { border-top: 1px solid #E8E6E1; padding: 16px 0; }
@@ -150,7 +157,7 @@ export function writeReport(args: {
 </head>
 <body>
   <article class="page">
-    <p class="muted">${escapeHtml(args.agency)}</p>
+    <div style="display:flex;align-items:center;gap:12px;min-height:24px;">${logoHtml}<p class="muted" style="margin:0">${escapeHtml(args.agency)}</p></div>
     <h1>${escapeHtml(args.brand)}</h1>
     <p class="muted">Week of ${escapeHtml(args.period)}</p>
     <p class="score">${scoreMentioned}/${scoreTotal}</p>
