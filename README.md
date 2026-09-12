@@ -16,7 +16,9 @@ See [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Design tokens use t
 
 **Phase 3:** Engine fan-out (stub adapters), run_rows, soft-fail ≥3/4, HTML+PDF to R2 (filesystem mock locally), in-app report viewer.
 
-Later: Dodo, white-label, cron, history.
+**Phase 4:** Dodo checkout/webhooks (stub-friendly), billing UI, brand kit, client link `/r/[token]`, run/brand caps, report email send.
+
+Later: history, members invite, cron, marketing polish.
 
 ### Phase 2 routes
 

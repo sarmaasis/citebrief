@@ -1,6 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { eq } from "drizzle-orm";
 import { emptyEngineStatus } from "@/lib/engines";
+import { assertRunCap, bumpRunsUsed } from "@/lib/usage";
 import { formatWeekOf } from "@/lib/friday";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
@@ -28,6 +29,15 @@ export async function POST(_request: Request, context: RouteContext) {
   const promptRows = await ctx.db.select().from(prompts).where(eq(prompts.brandId, id));
   if (promptRows.length === 0) {
     return jsonError("Generate twenty buyer questions before you run.");
+  }
+
+  try {
+    const cap = await assertRunCap(ctx.db, ctx.workspace.id, id);
+    if (cap.warning) {
+      console.info("[runs] cap warning", cap.warning);
+    }
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "Run cap reached.", 402);
   }
 
   const now = new Date();
@@ -59,6 +69,8 @@ export async function POST(_request: Request, context: RouteContext) {
     engineStates: JSON.stringify(emptyEngineStatus()),
     createdAt: now,
   });
+
+  await bumpRunsUsed(ctx.db, ctx.workspace.id);
 
   return jsonOk({ runId, queue, payload }, 201);
 }

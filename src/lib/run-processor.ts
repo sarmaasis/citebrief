@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "@/db";
 import {
+  brandKits,
   brands,
   competitors,
   prompts,
@@ -82,6 +83,13 @@ export async function processRun(
 
   // Clear prior rows if reprocessing.
   await db.delete(runRows).where(eq(runRows.runId, runId));
+
+  const [kit] = await db
+    .select()
+    .from(brandKits)
+    .where(eq(brandKits.workspaceId, bundle.workspace.id))
+    .limit(1);
+  const agencyName = kit?.preparedBy || bundle.workspace.name;
 
   const competitorNames = bundle.competitorRows.map((row) => row.name);
   const aggs = new Map<string, PromptAgg>();
@@ -232,7 +240,7 @@ export async function processRun(
 
   const partial = successCount < ENGINES.length;
   const written = writeReport({
-    agency: bundle.workspace.name,
+    agency: agencyName,
     brand: bundle.brand.name,
     period: bundle.run.periodStart || new Date().toISOString().slice(0, 10),
     competitors: competitorNames,
@@ -256,7 +264,7 @@ export async function processRun(
         r2Key: keys.pdfKey,
         htmlKey: keys.htmlKey,
         summary: written.summary,
-        agencyName: bundle.workspace.name,
+        agencyName,
         scoreMentioned: written.scoreMentioned,
         scoreTotal: written.scoreTotal,
         shareToken: existing.shareToken ?? shareToken,
@@ -271,7 +279,7 @@ export async function processRun(
       r2Key: keys.pdfKey,
       htmlKey: keys.htmlKey,
       summary: written.summary,
-      agencyName: bundle.workspace.name,
+      agencyName,
       scoreMentioned: written.scoreMentioned,
       scoreTotal: written.scoreTotal,
       shareToken,

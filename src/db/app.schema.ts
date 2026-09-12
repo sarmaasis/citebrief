@@ -18,6 +18,8 @@ export const workspaces = sqliteTable("workspaces", {
   name: text("name").notNull(),
   slug: text("slug"),
   timezone: text("timezone").notNull().default("America/New_York"),
+  senderName: text("sender_name"),
+  defaultEngines: text("default_engines"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -179,6 +181,9 @@ export const subscriptions = sqliteTable(
     plan: text("plan").notNull().default("agency"),
     status: text("status").notNull().default("none"),
     currentPeriodEnd: integer("current_period_end", { mode: "timestamp_ms" }),
+    trialEndsAt: integer("trial_ends_at", { mode: "timestamp_ms" }),
+    brandsUsed: integer("brands_used").notNull().default(0),
+    runsUsed: integer("runs_used").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -202,6 +207,21 @@ export const webhookEvents = sqliteTable(
   (table) => [uniqueIndex("webhook_events_event_id_idx").on(table.eventId)],
 );
 
+
+
+export const brandKits = sqliteTable("brand_kits", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .unique()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  logoUrl: text("logo_url"),
+  accentColor: text("accent_color").notNull().default("#0B3D2E"),
+  footerText: text("footer_text"),
+  preparedBy: text("prepared_by"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
 
 export const engineCache = sqliteTable(
   "engine_cache",
@@ -298,6 +318,14 @@ export const reportsRelations = relations(reports, ({ one }) => ({
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   workspace: one(workspaces, {
     fields: [subscriptions.workspaceId],
+    references: [workspaces.id],
+  }),
+}));
+
+
+export const brandKitsRelations = relations(brandKits, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [brandKits.workspaceId],
     references: [workspaces.id],
   }),
 }));
