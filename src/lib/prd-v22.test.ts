@@ -81,4 +81,12 @@ assert.equal(wouldRejectInvite(2, 1, "agency"), true);
 assert.equal(wouldRejectInvite(10, 0, "studio"), true);
 assert.equal(wouldRejectInvite(9, 0, "studio"), false);
 
+// seatsUsed mirrors invite POST occupancy: members + pending invites
+function seatsUsed(members: number, pending: number) {
+  return members + pending;
+}
+assert.equal(seatsUsed(2, 1), 3);
+assert.equal(seatsUsed(3, 0), 3);
+assert.equal(seatsUsed(1, 0), 1);
+
 console.log("prd-v22.test.ts ok");

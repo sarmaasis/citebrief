@@ -2,8 +2,10 @@ import Link from "next/link";
 import { EmptyState } from "@/components/app/empty-state";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
+import { planAllowsWeeklyCadence } from "@/lib/billing";
 import { formatShortDate, nextFriday } from "@/lib/friday";
 import { getAppContext } from "@/lib/session";
+import { getWorkspaceSubscription } from "@/lib/usage";
 import { listHomeRows } from "@/server/workspace-data";
 
 export default async function AppHomePage() {
@@ -19,6 +21,8 @@ export default async function AppHomePage() {
 
   const rows = await listHomeRows(ctx);
   const friday = formatShortDate(nextFriday());
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+  const allowsWeekly = planAllowsWeeklyCadence(sub?.plan || "agency");
   const needsSend = rows.filter((row) => row.latestReport && !row.latestReport.sentAt);
 
   if (rows.length === 0) {
@@ -119,7 +123,9 @@ export default async function AppHomePage() {
                       ? "Running"
                       : "Idle"}
                 </StatusPill>
-                <span className="text-xs text-cb-muted">Next Friday {friday}</span>
+                <span className="text-xs text-cb-muted">
+                  {allowsWeekly ? `Next Friday ${friday}` : "Monthly cadence"}
+                </span>
               </div>
             </Link>
           ))}

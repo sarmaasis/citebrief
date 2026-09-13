@@ -1,12 +1,11 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { BillingPanel } from "@/components/billing/billing-panel";
-import { subscriptions } from "@/db/schema";
+import { subscriptions, workspaceInvites, workspaceMembers } from "@/db/schema";
 import { planBrandLimit, planSeatCap } from "@/lib/billing";
 import { formatShortDate } from "@/lib/friday";
 import { getAppContext } from "@/lib/session";
 import { listWorkspaceBrands } from "@/server/workspace-data";
-import { workspaceMembers } from "@/db/schema";
 
 export default async function BillingSettingsPage() {
   const ctx = await getAppContext();
@@ -26,6 +25,16 @@ export default async function BillingSettingsPage() {
     .select()
     .from(workspaceMembers)
     .where(eq(workspaceMembers.workspaceId, ctx.workspace.id));
+  const now = Date.now();
+  const activePending = (
+    await ctx.db
+      .select()
+      .from(workspaceInvites)
+      .where(
+        and(eq(workspaceInvites.workspaceId, ctx.workspace.id), isNull(workspaceInvites.acceptedAt)),
+      )
+  ).filter((invite) => invite.expiresAt.getTime() >= now);
+  const seatsUsed = members.length + activePending.length;
 
   return (
     <div>
@@ -45,7 +54,7 @@ export default async function BillingSettingsPage() {
           extraBrands={extraBrands}
           extraRuns={sub?.extraRuns || 0}
           currentPeriodEnd={sub?.currentPeriodEnd ? formatShortDate(new Date(sub.currentPeriodEnd)) : null}
-          seatsUsed={members.length}
+          seatsUsed={seatsUsed}
           seatCap={planSeatCap(plan)}
         />
       </div>

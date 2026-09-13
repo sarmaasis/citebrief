@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArchiveButton } from "@/components/brands/archive-button";
+import { CadenceCard } from "@/components/brands/cadence-card";
 import { RunNowButton } from "@/components/brands/run-now-button";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
+import { planAllowsWeeklyCadence } from "@/lib/billing";
 import { formatShortDate, nextFriday } from "@/lib/friday";
 import { getAppContext } from "@/lib/session";
+import { getWorkspaceSubscription } from "@/lib/usage";
 import { getBrandBundle } from "@/server/workspace-data";
 
 export default async function BrandHomePage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,6 +24,8 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
 
   const { brand, competitors, latestRun, latestReport, prompts } = bundle;
   const friday = formatShortDate(nextFriday());
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+  const allowsWeekly = planAllowsWeeklyCadence(sub?.plan || "agency");
   const score = latestReport?.scoreMentioned;
   const total = latestReport?.scoreTotal ?? 20;
 
@@ -75,11 +80,7 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
             ) : null}
           </div>
         </div>
-        <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
-          <p className="text-xs text-cb-muted">Next Friday</p>
-          <p className="mt-3 text-sm text-cb-text">{friday}</p>
-          <p className="mt-2 text-xs text-cb-muted">Friday cron send lands in a later phase.</p>
-        </div>
+        <CadenceCard friday={friday} allowsWeekly={allowsWeekly} />
       </div>
 
       <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
