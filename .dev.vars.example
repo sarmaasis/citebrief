@@ -3,7 +3,6 @@ NEXTJS_ENV=development
 # Better Auth
 BETTER_AUTH_SECRET=replace-with-32-plus-random-chars
 BETTER_AUTH_URL=http://localhost:3000
-BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000,https://getcitebrief.com
 
 # Google OAuth (stub until live credentials)
 GOOGLE_CLIENT_ID=stub-google-client-id
@@ -29,14 +28,9 @@ INTERNAL_PROCESS_SECRET=stub
 CRON_SECRET=stub
 INTERNAL_ADMIN_SECRET=stub
 
-# Live engines (unset or stub = deterministic stub adapters)
-OPENAI_API_KEY=stub
-PERPLEXITY_API_KEY=stub
-GEMINI_API_KEY=stub
-# AI Overviews via Cloudflare Browser Rendering REST (optional if BROWSER binding exists)
+# Cloudflare AI Gateway (unset or stub = deterministic stub adapters)
 CF_ACCOUNT_ID=
-CF_API_TOKEN=
+AI_GATEWAY_ID=
+CF_AI_GATEWAY_TOKEN=
 
-# Studio add-on engines
-ANTHROPIC_API_KEY=stub
-XAI_API_KEY=stub
+# AI Overviews uses Cloudflare Browser Rendering, not AI Gateway.

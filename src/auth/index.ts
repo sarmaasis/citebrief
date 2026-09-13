@@ -24,6 +24,7 @@ async function createAuth() {
           clientId: env.GOOGLE_CLIENT_ID || "stub-google-client-id",
           clientSecret: env.GOOGLE_CLIENT_SECRET || "stub-google-client-secret",
         };
+  const baseURL = (env.BETTER_AUTH_URL || "http://localhost:3000").replace(/\/$/, "");
 
   return betterAuth({
     ...withCloudflare(
@@ -43,11 +44,8 @@ async function createAuth() {
       {
         appName: "CiteBrief",
         secret: env.BETTER_AUTH_SECRET || "dev-only-replace-with-BETTER_AUTH_SECRET",
-        baseURL: env.BETTER_AUTH_URL || "http://localhost:3000",
-        trustedOrigins: (env.BETTER_AUTH_TRUSTED_ORIGINS ?? env.BETTER_AUTH_URL ?? "")
-          .split(",")
-          .map((origin) => origin.trim())
-          .filter(Boolean),
+        baseURL,
+        trustedOrigins: [baseURL],
         emailAndPassword: {
           enabled: true,
         },

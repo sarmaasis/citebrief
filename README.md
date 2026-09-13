@@ -20,7 +20,7 @@ See [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Design tokens use t
 
 **Phase 5:** History/MoM sparkline, members invite stub, workspace settings, Friday cron (tenant timezone), marketing `/report` + legal pages, StatusPill token polish.
 
-**Later follow-ups:** Live engine APIs when keys are set, Queue consumer Worker for `citebrief-runs`, `@dodopayments/hono` Checkout/Webhooks mounts, Friday 06:00 per workspace timezone, CC-client Dialog.
+**Later follow-ups:** Live engine APIs through Cloudflare AI Gateway, Queue consumer Worker for `citebrief-runs`, `@dodopayments/hono` Checkout/Webhooks mounts, Friday 06:00 per workspace timezone, CC-client Dialog.
 
 **PRD §18 remaining gaps:** Members invite accept, Slack incoming webhook (Agency+), 24h engine cache, Studio Claude/Grok engines, billing depth (extra brand/run, trial caps, dunning, cancel-at-period-end, Dodo portal), internal admin (impersonate, COGS, webhook replay).
 
@@ -38,7 +38,7 @@ See [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Design tokens use t
 | `/api/internal/process-run` | Local/dev run processor (Bearer `INTERNAL_PROCESS_SECRET`) |
 | `/api/cron/friday` | Manual/dev Friday enqueue (Bearer `CRON_SECRET`) |
 
-Prompt generation fills the PRODUCT.md templates when no LLM key is set. Set `OPENAI_API_KEY` to use a live writer.
+Prompt generation fills the PRODUCT.md templates when AI Gateway is not configured. Configure `CF_ACCOUNT_ID`, `AI_GATEWAY_ID`, and a scoped Cloudflare token to use live gateway-routed models.
 
 ## Local setup
 
@@ -49,7 +49,7 @@ npm install
 cp .dev.vars.example .dev.vars
 ```
 
-Edit `.dev.vars` and set at least `BETTER_AUTH_SECRET` (32+ random characters). Outside development, also set `INTERNAL_PROCESS_SECRET` and `CRON_SECRET` (Bearer auth for `/api/internal/process-run` and `/api/cron/friday`). Stub values are fine for Google, Resend, Dodo, and engines until you have live keys.
+Edit `.dev.vars` and set at least `BETTER_AUTH_SECRET` (32+ random characters). Outside development, also set `INTERNAL_PROCESS_SECRET` and `CRON_SECRET` (Bearer auth for `/api/internal/process-run` and `/api/cron/friday`). Stub values are fine for Google, Resend, Dodo, and engines until Cloudflare AI Gateway is configured.
 
 ### Next.js dev (Node)
 
@@ -91,18 +91,20 @@ This is not a single fixed UTC “Friday stub”; each tenant’s Friday morning
 
 ## Studio engines (Claude / Grok)
 
-Optional add-on engines on **Studio**. Soft-fail still requires ≥3 of 4 **core** engines. List `claude` / `grok` in workspace default engines (or set API keys) to include them in a run.
+Optional add-on engines on **Studio**. Soft-fail still requires ≥3 of 4 **core** engines. List `claude` / `grok` in workspace default engines and route them through Cloudflare AI Gateway provider-native routes.
 
 ## Live engines
 
-Adapters live in `src/lib/engine-adapters.ts`. Soft-fail ≥3/4 is unchanged in `processRun`.
+Adapters live in `src/lib/engine-adapters.ts`. Soft-fail ≥3/4 is unchanged in `processRun`. Production adapters should call Cloudflare AI Gateway, not provider APIs directly.
 
-| Engine | Secret / binding | Behavior when unset |
+| Engine | Gateway path / binding | Behavior when unset |
 |---|---|---|
-| ChatGPT | `OPENAI_API_KEY` | Deterministic stub |
-| Perplexity | `PERPLEXITY_API_KEY` | Deterministic stub |
-| Gemini | `GEMINI_API_KEY` | Deterministic stub |
-| AI Overviews | `BROWSER` binding and/or `CF_ACCOUNT_ID` + `CF_API_TOKEN` | Deterministic stub |
+| ChatGPT | AI Gateway OpenAI provider-native route | Deterministic stub |
+| Perplexity | AI Gateway Perplexity provider-native route | Deterministic stub |
+| Gemini | AI Gateway Google AI Studio / Vertex provider-native route | Deterministic stub |
+| AI Overviews | `BROWSER` binding and/or Browser Rendering API | Deterministic stub |
+
+The app should keep provider credentials in Cloudflare AI Gateway stored keys or unified billing where available. Do not make individual provider keys first-class Worker secrets.
 
 Live calls that error fall back to the stub for that prompt so a single flaky provider does not blank the run.
 
@@ -136,7 +138,6 @@ npm run db:migrate:remote
 ```bash
 npx wrangler secret put BETTER_AUTH_SECRET
 npx wrangler secret put BETTER_AUTH_URL
-npx wrangler secret put BETTER_AUTH_TRUSTED_ORIGINS
 npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put RESEND_API_KEY
@@ -147,13 +148,9 @@ npx wrangler secret put DODO_PAYMENTS_ENVIRONMENT
 npx wrangler secret put INTERNAL_PROCESS_SECRET
 npx wrangler secret put CRON_SECRET
 npx wrangler secret put INTERNAL_ADMIN_SECRET
-npx wrangler secret put OPENAI_API_KEY
-npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put XAI_API_KEY
-npx wrangler secret put PERPLEXITY_API_KEY
-npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put CF_ACCOUNT_ID
-npx wrangler secret put CF_API_TOKEN
+npx wrangler secret put AI_GATEWAY_ID
+npx wrangler secret put CF_AI_GATEWAY_TOKEN
 # optional product IDs
 npx wrangler secret put DODO_PRODUCT_STARTER
 npx wrangler secret put DODO_PRODUCT_AGENCY
@@ -170,15 +167,14 @@ npx wrangler secret put DODO_PRODUCT_EXTRA_RUN
 npm run deploy
 ```
 
-`BETTER_AUTH_URL` must be the public origin, for example `https://getcitebrief.com`.
+`BETTER_AUTH_URL` must be the single canonical public origin, for example `https://getcitebrief.com`. Optional domains such as `citebrief.xyz` should redirect there and must not participate in auth/session sharing.
 
 ## Required secrets
 
 | Secret | Purpose | Stub / notes |
 |---|---|---|
 | `BETTER_AUTH_SECRET` | Session signing | Required. Use a long random string. |
-| `BETTER_AUTH_URL` | Auth base URL | `http://localhost:3000` locally |
-| `BETTER_AUTH_TRUSTED_ORIGINS` | Extra allowed origins | Optional. Comma-separated. |
+| `BETTER_AUTH_URL` | Single canonical auth/app origin | `http://localhost:3000` locally |
 | `GOOGLE_CLIENT_ID` | Google OAuth | Stub until you add a Google client |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth | Stub until you add a Google client |
 | `RESEND_API_KEY` | Magic-link + report email | `stub` logs and skips send |
@@ -190,12 +186,10 @@ npm run deploy
 | `INTERNAL_PROCESS_SECRET` | Bearer for `/api/internal/process-run` | Required outside development |
 | `CRON_SECRET` | Bearer for `/api/cron/friday` | Required outside development |
 | `INTERNAL_ADMIN_SECRET` | Bearer for `/api/internal/admin/*` | Local: Bearer `dev-admin` when unset |
-| `OPENAI_API_KEY` | ChatGPT engine (+ prompt writer) | Stub adapters when unset |
-| `PERPLEXITY_API_KEY` | Perplexity Sonar | Stub when unset |
-| `GEMINI_API_KEY` | Gemini + Search | Stub when unset |
-| `CF_ACCOUNT_ID` / `CF_API_TOKEN` | Browser Rendering for AIO | Optional if `BROWSER` binding works |
-| `ANTHROPIC_API_KEY` | Studio Claude engine | Stub when unset; Studio plan only |
-| `XAI_API_KEY` | Studio Grok engine | Stub when unset (`GROK_API_KEY` alias) |
+| `CF_ACCOUNT_ID` | Cloudflare account for AI Gateway / Browser Rendering | Stub adapters when unset |
+| `AI_GATEWAY_ID` | Cloudflare AI Gateway id | Stub adapters when unset |
+| `CF_AI_GATEWAY_TOKEN` | Scoped token for AI Gateway / Workers AI calls | Stub adapters when unset |
+| `BROWSER` | Browser Rendering binding for AI Overviews | Optional if using browser binding |
 | `DODO_PRODUCT_EXTRA_BRAND` | Extra brand addon product id | Placeholder `citebrief_extra_brand` |
 | `DODO_PRODUCT_EXTRA_RUN` | Extra run meter/product id | Placeholder `citebrief_extra_run` |
 
