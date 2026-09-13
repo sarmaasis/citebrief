@@ -45,3 +45,16 @@ Public `/r/[token]`: same viewer, agency logo, no app sidebar, no billing chrome
 - CC dialog: **Send this report to your client**
 - Expired: **This client link expired. Ask your agency for a new one.**
 - Empty: **No report for this period yet.**
+
+## Sources / Audit drawer (in-app only)
+
+Action bar includes **Sources**. Opens a right sheet (paper surface, hairline border). Closed by default.
+
+Per prompt × engine:
+- Named / Missing status
+- Timestamp
+- Source URLs
+- View raw
+- Muted confidence + gateway request id
+
+Public `/r/[token]` does **not** get the audit drawer. No CiteBrief auth chrome on client links.

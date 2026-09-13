@@ -55,7 +55,7 @@ export default function HomePage() {
               <p className="mt-2 text-sm text-cb-muted">Start with one brand. Send the first report this week.</p>
             </div>
             <Button asChild>
-              <Link href="/pricing">See Agency at $199</Link>
+              <Link href="/pricing">See Agency at $249</Link>
             </Button>
           </div>
         </section>

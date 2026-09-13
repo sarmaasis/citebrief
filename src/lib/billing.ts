@@ -5,7 +5,8 @@ export const PLANS = {
     amountUsd: 149,
     brands: 3,
     prompts: 20,
-    cadence: "monthly",
+    seats: 1,
+    cadence: "monthly" as const,
     includedRunsPerBrandPerWeek: 1,
     manualRerunsPerBrandPerWeek: 1,
     hardStopMultiplier: 3,
@@ -13,10 +14,11 @@ export const PLANS = {
   agency: {
     id: "agency" as const,
     name: "Agency",
-    amountUsd: 199,
+    amountUsd: 249,
     brands: 8,
     prompts: 20,
-    cadence: "weekly",
+    seats: 3,
+    cadence: "weekly" as const,
     includedRunsPerBrandPerWeek: 1,
     manualRerunsPerBrandPerWeek: 2,
     hardStopMultiplier: 3,
@@ -24,10 +26,11 @@ export const PLANS = {
   studio: {
     id: "studio" as const,
     name: "Studio",
-    amountUsd: 399,
+    amountUsd: 499,
     brands: 20,
     prompts: 30,
-    cadence: "weekly",
+    seats: 10,
+    cadence: "weekly" as const,
     includedRunsPerBrandPerWeek: 1,
     manualRerunsPerBrandPerWeek: 2,
     hardStopMultiplier: 3,
@@ -36,19 +39,21 @@ export const PLANS = {
 
 export type PlanId = keyof typeof PLANS;
 
-/** Extra brand addon list prices (Dodo product IDs come from env). */
+/** Extra brand addon list prices (PRODUCT §10). */
 export const EXTRA_BRAND_USD: Record<PlanId, number> = {
-  starter: 25,
-  agency: 25,
-  studio: 39,
+  starter: 39,
+  agency: 39,
+  studio: 29,
 };
 
-/** Extra run meter list prices. */
+/** Extra run meter list prices (PRODUCT §10). */
 export const EXTRA_RUN_USD: Record<PlanId, number> = {
-  starter: 6,
-  agency: 6,
+  starter: 9,
+  agency: 9,
   studio: 9,
 };
+
+export const SEAT_OVERAGE_USD = 15;
 
 export function parsePlanId(value: string | null | undefined): PlanId | null {
   if (!value) return null;
@@ -59,6 +64,16 @@ export function parsePlanId(value: string | null | undefined): PlanId | null {
 export function planBrandLimit(plan: PlanId | string | null | undefined, extraBrands = 0): number {
   const id = parsePlanId(plan ?? "agency") ?? "agency";
   return PLANS[id].brands + Math.max(0, extraBrands);
+}
+
+export function planSeatCap(plan: PlanId | string | null | undefined): number {
+  const id = parsePlanId(plan ?? "agency") ?? "agency";
+  return PLANS[id].seats;
+}
+
+export function planPromptCap(plan: PlanId | string | null | undefined): number {
+  const id = parsePlanId(plan ?? "agency") ?? "agency";
+  return PLANS[id].prompts;
 }
 
 export function planManualRerunCap(plan: PlanId | string | null | undefined): number {
@@ -80,6 +95,7 @@ export const TRIAL_DAYS = 14;
 export const TRIAL_BRAND_CAP = 1;
 export const TRIAL_RUN_CAP = 1;
 
+/** Agency+ may invite members (subject to seat cap). */
 export function planAllowsMembers(plan: PlanId | string | null | undefined) {
   const id = parsePlanId(plan ?? "agency") ?? "agency";
   return id === "agency" || id === "studio";
@@ -89,6 +105,23 @@ export function planAllowsSlack(plan: PlanId | string | null | undefined) {
   return planAllowsMembers(plan);
 }
 
+export function planAllowsWeeklyCadence(plan: PlanId | string | null | undefined) {
+  const id = parsePlanId(plan ?? "agency") ?? "agency";
+  return PLANS[id].cadence === "weekly";
+}
+
+export function planAllowsClientCc(plan: PlanId | string | null | undefined) {
+  return planAllowsMembers(plan);
+}
+
+export function planAllowsCustomSender(plan: PlanId | string | null | undefined) {
+  return parsePlanId(plan ?? "") === "studio";
+}
+
 export function planAllowsStudioEngines(plan: PlanId | string | null | undefined) {
   return parsePlanId(plan ?? "") === "studio";
+}
+
+export function planAllowsHistory(plan: PlanId | string | null | undefined) {
+  return planAllowsMembers(plan);
 }

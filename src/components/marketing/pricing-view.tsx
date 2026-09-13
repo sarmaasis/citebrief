@@ -3,42 +3,65 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { EXTRA_BRAND_USD, EXTRA_RUN_USD, PLANS } from "@/lib/billing";
 import { cn } from "@/lib/utils";
 
 const plans = [
   {
+    id: "starter" as const,
     name: "Starter",
-    monthly: 149,
-    brands: 3,
-    prompts: 20,
-    cadence: "Monthly",
+    monthly: PLANS.starter.amountUsd,
     recommended: false,
     cta: "Start trial",
+    bullets: [
+      `${PLANS.starter.brands} brands`,
+      `${PLANS.starter.prompts} prompts`,
+      "Monthly report cadence",
+      "CiteBrief sender",
+      `${PLANS.starter.seats} seat`,
+      "PDF download and private client link",
+    ],
   },
   {
+    id: "agency" as const,
     name: "Agency",
-    monthly: 199,
-    brands: 8,
-    prompts: 20,
-    cadence: "Weekly",
+    monthly: PLANS.agency.amountUsd,
     recommended: true,
     cta: "Start Agency trial",
+    bullets: [
+      `${PLANS.agency.brands} brands`,
+      `${PLANS.agency.prompts} prompts`,
+      "Weekly Friday reports",
+      "White-label logo, color, footer",
+      "Client CC sending",
+      "History and score trend",
+      `${PLANS.agency.seats} seats`,
+      "Slack webhook",
+    ],
   },
   {
+    id: "studio" as const,
     name: "Studio",
-    monthly: 399,
-    brands: 20,
-    prompts: 30,
-    cadence: "Weekly",
+    monthly: PLANS.studio.amountUsd,
     recommended: false,
     cta: "Start trial",
+    bullets: [
+      `${PLANS.studio.brands} brands`,
+      `${PLANS.studio.prompts} prompts per brand`,
+      "Weekly Friday reports",
+      "Custom sender name and domain",
+      "Claude and Grok add-on engines",
+      `${PLANS.studio.seats} seats`,
+      "Client portal archive",
+      "Priority support",
+    ],
   },
 ];
 
 const faqs = [
   {
     q: "Can my client read the PDF without an account?",
-    a: "Yes. Share a client link or CC them on the Friday email.",
+    a: "Yes. Share a client link or CC them on the Friday email. Client CC is Agency and Studio only.",
   },
   {
     q: "What if one engine fails?",
@@ -50,11 +73,15 @@ const faqs = [
   },
   {
     q: "What is included in the trial?",
-    a: "14 days, 1 brand, 1 full run.",
+    a: "14 days, 1 brand, 1 full run. No free forever plan.",
   },
   {
     q: "Can I pay annually?",
-    a: "Annual is 10 months. Toggle above the cards.",
+    a: "Annual is 10 months prepaid (2 months free). Toggle above the cards.",
+  },
+  {
+    q: "What if I outgrow Starter?",
+    a: "Move to Agency for weekly Friday reports, white-label, client CC, history, and 3 seats.",
   },
 ];
 
@@ -64,7 +91,7 @@ export function PricingView() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-16">
       <h1 className="font-serif text-5xl tracking-tight">Simple pricing for agency retainers</h1>
-      <p className="mt-4 text-lg text-cb-muted">White-label Friday PDFs. Not a $29 vanity score.</p>
+      <p className="mt-4 text-lg text-cb-muted">White-label Friday PDFs. Not a vanity score.</p>
 
       <div className="mt-8 inline-flex rounded-cb-control border border-cb-line bg-cb-surface p-1">
         <button
@@ -113,9 +140,9 @@ export function PricingView() {
                 <span className="text-sm text-cb-muted">/mo</span>
               </p>
               <ul className="mt-6 space-y-2 text-sm text-cb-muted">
-                <li>{plan.brands} brands</li>
-                <li>{plan.prompts} prompts</li>
-                <li>{plan.cadence} cadence</li>
+                {plan.bullets.map((bullet) => (
+                  <li key={bullet}>{bullet}</li>
+                ))}
               </ul>
               <Button asChild className="mt-8 w-full" variant={plan.recommended ? "default" : "outline"}>
                 <Link href="/signup">{plan.cta}</Link>
@@ -125,7 +152,10 @@ export function PricingView() {
         })}
       </div>
 
-      <p className="mt-6 text-sm text-cb-muted">Add-ons: extra brand and extra run meters. Tax handled by Dodo.</p>
+      <p className="mt-6 text-sm text-cb-muted">
+        Add-ons: extra brand ${EXTRA_BRAND_USD.agency}/mo Agency · ${EXTRA_BRAND_USD.studio}/mo Studio · extra run $
+        {EXTRA_RUN_USD.agency}. Tax handled by Dodo. Trial: 14 days, 1 brand, 1 full run.
+      </p>
 
       <section className="mt-16 max-w-3xl">
         <h2 className="text-xl font-semibold">Questions agencies actually ask</h2>

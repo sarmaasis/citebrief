@@ -137,6 +137,8 @@ export const runRows = sqliteTable(
     sentence: text("sentence"),
     nextAction: text("next_action"),
     rawAnswer: text("raw_answer"),
+    gatewayRequestId: text("gateway_request_id"),
+    confidence: text("confidence"),
     status: text("status").default("complete"),
     createdAt: createdAt(),
   },

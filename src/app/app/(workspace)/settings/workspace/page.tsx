@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { WorkspaceForm } from "@/components/settings/workspace-form";
 import { workspaces } from "@/db/schema";
-import { planAllowsSlack } from "@/lib/billing";
+import { planAllowsCustomSender, planAllowsSlack } from "@/lib/billing";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 
@@ -26,6 +26,7 @@ export default async function WorkspaceSettingsPage() {
       <div className="mt-8">
         <WorkspaceForm
           slackAllowed={planAllowsSlack(sub?.plan || "agency")}
+          customSenderAllowed={planAllowsCustomSender(sub?.plan || "agency")}
           initial={{
             name: workspace.name,
             timezone: workspace.timezone,

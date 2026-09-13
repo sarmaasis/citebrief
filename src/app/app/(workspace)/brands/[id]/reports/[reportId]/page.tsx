@@ -2,8 +2,12 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ReportViewer } from "@/components/reports/report-viewer";
+import type { AuditEngineRow } from "@/components/reports/sources-drawer";
+import { prompts, runRows } from "@/db/schema";
+import { planAllowsClientCc } from "@/lib/billing";
 import { getReportObject } from "@/lib/r2";
 import { getAppContext } from "@/lib/session";
+import { getWorkspaceSubscription } from "@/lib/usage";
 import { brands, reports, runs } from "@/db/schema";
 
 export default async function ReportPage({
@@ -52,6 +56,48 @@ export default async function ReportPage({
     }
   }
 
+  const engineRows = await ctx.db
+    .select({
+      promptId: runRows.promptId,
+      promptText: prompts.text,
+      engine: runRows.engine,
+      mentioned: runRows.mentioned,
+      createdAt: runRows.createdAt,
+      citedUrls: runRows.citedUrls,
+      rawAnswer: runRows.rawAnswer,
+      confidence: runRows.confidence,
+      gatewayRequestId: runRows.gatewayRequestId,
+      status: runRows.status,
+    })
+    .from(runRows)
+    .innerJoin(prompts, eq(prompts.id, runRows.promptId))
+    .where(eq(runRows.runId, row.run.id));
+
+  const auditRows: AuditEngineRow[] = engineRows.map((item) => {
+    let cited: string[] = [];
+    if (item.citedUrls) {
+      try {
+        cited = JSON.parse(item.citedUrls) as string[];
+      } catch {
+        cited = [];
+      }
+    }
+    return {
+      promptId: item.promptId,
+      promptText: item.promptText,
+      engine: item.engine,
+      mentioned: item.mentioned,
+      createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : null,
+      citedUrls: cited,
+      rawAnswer: item.rawAnswer,
+      confidence: item.confidence,
+      gatewayRequestId: item.gatewayRequestId,
+      status: item.status,
+    };
+  });
+
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+
   return (
     <ReportViewer
       brandId={id}
@@ -64,6 +110,9 @@ export default async function ReportPage({
       html={html}
       shareToken={row.report.shareToken}
       partial={row.run.status === "partial"}
+      auditRows={auditRows}
+      allowClientCc={planAllowsClientCc(sub?.plan || "agency")}
+      showSources
     />
   );
 }

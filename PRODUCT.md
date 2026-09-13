@@ -74,7 +74,7 @@ Auth is **single-domain first-party auth** on `getcitebrief.com`. Do not impleme
 - Do not use `BETTER_AUTH_TRUSTED_ORIGINS` for multiple app domains.
 - `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` as Wrangler secrets.
 - Workspace created on first verified login.
-- Invite flow later (Studio). v1 = one owner per workspace.
+- Seats follow §11: Starter 1 (owner), Agency 3, Studio 10. Owners invite members only; invites enforce the seat cap (members + pending invites).
 - Optional domains like `citebrief.xyz` must 301 redirect to `getcitebrief.com` and must not set or share auth cookies.
 - Client report links under `/r/[token]` are public token links, not authenticated cross-domain sessions.
 
@@ -91,7 +91,7 @@ Dodo has a first-party Cloudflare + Hono adapter. Do not use Stripe.
 | CiteBrief Starter | $149 | month |
 | CiteBrief Agency | $249 | month |
 | CiteBrief Studio | $499 | month |
-| Extra brand | $29 / $39 | month addon |
+| Extra brand | $39 Agency / $29 Studio | month addon |
 | Extra run | $9 | one-time or usage meter |
 
 **Worker flow**
@@ -214,6 +214,7 @@ Gateway responsibilities:
 - Analytics by workspace, brand, engine, run, and plan.
 - Centralized request logging for debugging and trust.
 - Cache repeated prompt+engine calls when freshness allows it.
+- Product soft-fail path uses D1 `engine_cache` first. Gateway edge cache is additive and does not replace D1.
 - Rate limits and spend limits by plan.
 - Retries and model fallback for flaky providers.
 - Custom metadata on every request: `workspace_id`, `brand_id`, `run_id`, `engine`, `plan`, `prompt_hash`.

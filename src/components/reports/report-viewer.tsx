@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { SourcesDrawer, type AuditEngineRow } from "@/components/reports/sources-drawer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogActions, DialogCloseButton } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -18,6 +20,9 @@ export function ReportViewer({
   html,
   shareToken,
   partial,
+  auditRows = [],
+  allowClientCc = true,
+  showSources = true,
 }: {
   brandId: string;
   brandName: string;
@@ -29,11 +34,16 @@ export function ReportViewer({
   html: string | null;
   shareToken: string | null;
   partial: boolean;
+  auditRows?: AuditEngineRow[];
+  allowClientCc?: boolean;
+  showSources?: boolean;
 }) {
   const [toast, setToast] = useState<string | null>(null);
   const [ccOpen, setCcOpen] = useState(false);
   const [ccEmail, setCcEmail] = useState("");
   const [ccBusy, setCcBusy] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [ccUpgrade, setCcUpgrade] = useState(false);
 
   async function copyLink() {
     if (!shareToken) {
@@ -48,6 +58,11 @@ export function ReportViewer({
 
   async function sendCcClient(event: React.FormEvent) {
     event.preventDefault();
+    if (!allowClientCc) {
+      setCcUpgrade(true);
+      setCcOpen(false);
+      return;
+    }
     const email = ccEmail.trim();
     if (!email) {
       setToast("Enter a client email.");
@@ -61,7 +76,13 @@ export function ReportViewer({
         body: JSON.stringify({ ccClient: email }),
       });
       if (!response.ok) {
-        setToast("Could not send. Try again.");
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        if (response.status === 402 || response.status === 403) {
+          setCcUpgrade(true);
+          setCcOpen(false);
+        } else {
+          setToast(data.error ?? "Could not send. Try again.");
+        }
       } else {
         setToast("Report queued to client. Resend uses a stub if keys are missing.");
         setCcOpen(false);
@@ -92,9 +113,25 @@ export function ReportViewer({
           <Button type="button" variant="outline" size="sm" onClick={() => void copyLink()}>
             Copy client link
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => setCcOpen(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (!allowClientCc) {
+                setCcUpgrade(true);
+                return;
+              }
+              setCcOpen(true);
+            }}
+          >
             CC client
           </Button>
+          {showSources ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setSourcesOpen(true)}>
+              Sources
+            </Button>
+          ) : null}
           <Button asChild variant="ghost" size="sm">
             <Link href={`/app/brands/${brandId}`}>Back</Link>
           </Button>
@@ -104,6 +141,17 @@ export function ReportViewer({
       {partial ? (
         <div className="border-b border-cb-line bg-cb-pending-subtle px-6 py-3 text-sm text-cb-pending">
           3 of 4 engines returned. Numbers reflect available engines.
+        </div>
+      ) : null}
+
+      {ccUpgrade ? (
+        <div className="border-b border-cb-line px-6 py-4">
+          <UpgradePrompt
+            title={UPGRADE_COPY.ccStarter.title}
+            body={UPGRADE_COPY.ccStarter.body}
+            cta={UPGRADE_COPY.ccStarter.cta}
+            onDismiss={() => setCcUpgrade(false)}
+          />
         </div>
       ) : null}
 
@@ -154,9 +202,13 @@ export function ReportViewer({
       </Dialog>
 
       {toast ? (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-cb-control border border-cb-line bg-cb-surface px-4 py-2 text-sm shadow-cb-menu">
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-cb-control border border-cb-line bg-cb-surface px-4 py-2 text-sm text-cb-text shadow-[var(--cb-shadow-menu)]">
           {toast}
         </div>
+      ) : null}
+
+      {showSources ? (
+        <SourcesDrawer rows={auditRows} open={sourcesOpen} onOpenChange={setSourcesOpen} />
       ) : null}
     </div>
   );

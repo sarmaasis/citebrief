@@ -90,6 +90,8 @@ export async function processRun(
     env,
   });
   const runEngines = resolved.engines;
+  const sub = await getWorkspaceSubscription(db, bundle.workspace.id);
+  const planId = sub?.plan || "agency";
   const engines = emptyEngineStatus(resolved.includeStudio);
   for (const engine of runEngines) {
     engines[engine.id] = "queued";
@@ -133,6 +135,8 @@ export async function processRun(
         const cached = await readEngineCache(db, engine.id, prompt.text);
         let rawAnswer: string;
         let extracted = cached?.extracted ?? null;
+        let gatewayRequestId: string | null = null;
+        let confidence: string | null = cached ? "medium" : null;
 
         if (cached) {
           rawAnswer = cached.rawAnswer;
@@ -144,8 +148,17 @@ export async function processRun(
             competitors: competitorNames,
             buyer: bundle.brand.buyer,
             env,
+            metadata: {
+              workspace_id: bundle.workspace.id,
+              brand_id: bundle.brand.id,
+              run_id: runId,
+              plan: planId,
+              cache_policy: "fresh",
+            },
           });
           rawAnswer = result.rawAnswer;
+          gatewayRequestId = result.gatewayRequestId ?? null;
+          confidence = result.confidence ?? (result.stubbed ? "low" : "medium");
           extracted = extractFromAnswer({
             brand: bundle.brand.name,
             competitors: competitorNames,
@@ -190,6 +203,8 @@ export async function processRun(
           sentence: extracted.sentence,
           nextAction: extracted.nextAction,
           rawAnswer,
+          gatewayRequestId,
+          confidence,
           status: "complete",
           createdAt: new Date(),
         });
