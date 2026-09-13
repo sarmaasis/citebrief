@@ -35,7 +35,24 @@ export type WrittenReport = {
   priorities: Array<{ question: string; why: string; action: string; owner: string }>;
   html: string;
   pdfBytes: Uint8Array;
+  suggestedEmailSubject: string;
+  suggestedEmailBody: string;
 };
+
+/** Reuses stored report copy. No extra model call (PRODUCT §18.2 / §22.3). */
+export function suggestedClientEmail(args: { brand: string; summary: string; period?: string | null }) {
+  const period = args.period?.trim();
+  return {
+    subject: `${args.brand}: this week's visibility report`,
+    body: [
+      args.summary.trim(),
+      period ? `Period: week of ${period}.` : null,
+      "Open the client link for the full report and three next actions.",
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  };
+}
 
 function escapeHtml(value: string) {
   return value
@@ -198,7 +215,18 @@ export function writeReport(args: {
     dateLabel,
   });
 
-  return { scoreMentioned, scoreRecommended, scoreTotal, summary, priorities, html, pdfBytes };
+  const suggested = suggestedClientEmail({ brand: args.brand, summary, period: args.period });
+  return {
+    scoreMentioned,
+    scoreRecommended,
+    scoreTotal,
+    summary,
+    priorities,
+    html,
+    pdfBytes,
+    suggestedEmailSubject: suggested.subject,
+    suggestedEmailBody: suggested.body,
+  };
 }
 
 /** Minimal multi-line PDF without external deps (Workers-safe). */

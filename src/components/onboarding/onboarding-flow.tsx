@@ -16,7 +16,13 @@ import { cn } from "@/lib/utils";
 
 const steps = ["Brand", "Prompts", "Report"] as const;
 
-export function OnboardingFlow({ allowSend = false }: { allowSend?: boolean }) {
+export function OnboardingFlow({
+  allowSend = false,
+  allowApproval = false,
+}: {
+  allowSend?: boolean;
+  allowApproval?: boolean;
+}) {
   const [step, setStep] = useState(1);
   const [fields, setFields] = useState<BrandFieldValues>(emptyBrandFields);
   const [brandId, setBrandId] = useState<string | null>(null);
@@ -32,6 +38,8 @@ export function OnboardingFlow({ allowSend = false }: { allowSend?: boolean }) {
   const [scoreMentioned, setScoreMentioned] = useState<number | null>(null);
   const [testBusy, setTestBusy] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [approved, setApproved] = useState(false);
+  const [approveBusy, setApproveBusy] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
 
   async function saveBrand() {
@@ -180,8 +188,31 @@ export function OnboardingFlow({ allowSend = false }: { allowSend?: boolean }) {
     }
   }
 
+  async function approveReport() {
+    if (!allowApproval || !reportId) return false;
+    setApproveBusy(true);
+    setTestMessage(null);
+    try {
+      const response = await fetch(`/api/reports/${reportId}/approve`, { method: "POST" });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        setTestMessage(data.error ?? "Could not approve this report.");
+        return false;
+      }
+      setApproved(true);
+      setTestMessage("Report approved. You can send a test now.");
+      return true;
+    } finally {
+      setApproveBusy(false);
+    }
+  }
+
   async function sendTest() {
     if (!allowSend || !reportId) return;
+    if (allowApproval && !approved) {
+      setTestMessage("Approve this report before sending.");
+      return;
+    }
     setTestBusy(true);
     setTestMessage(null);
     try {
@@ -335,8 +366,23 @@ export function OnboardingFlow({ allowSend = false }: { allowSend?: boolean }) {
                   <Link href={`/app/brands/${brandId}`}>Brand home</Link>
                 </Button>
               )}
+              {reportId && allowApproval ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={approveBusy || approved}
+                  onClick={() => void approveReport()}
+                >
+                  {approveBusy ? "Approving…" : approved ? "Approved" : "Approve"}
+                </Button>
+              ) : null}
               {reportId && allowSend ? (
-                <Button type="button" variant="outline" disabled={testBusy} onClick={() => void sendTest()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={testBusy || (allowApproval && !approved)}
+                  onClick={() => void sendTest()}
+                >
                   {testBusy ? "Sending…" : "Send test"}
                 </Button>
               ) : null}

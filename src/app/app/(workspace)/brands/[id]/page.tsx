@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RiskPill } from "@/components/app/risk-pill";
 import { ScoreChange } from "@/components/app/score-change";
 import { ArchiveButton } from "@/components/brands/archive-button";
 import { CadenceCard } from "@/components/brands/cadence-card";
@@ -8,6 +9,7 @@ import { RunNowButton } from "@/components/brands/run-now-button";
 import { MomChart } from "@/components/history/mom-chart";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
+import { clientRisk, opportunityFromRow } from "@/lib/command-center";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { formatShortDate, nextFriday } from "@/lib/friday";
 import { getAppContext } from "@/lib/session";
@@ -36,6 +38,19 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
   const total = latestReport?.scoreTotal ?? 20;
   const recommended = latestReport?.scoreRecommended ?? insights.recommendedCount;
   const runStatus = latestRun?.status;
+  const risk = clientRisk({
+    promptCount: prompts.length,
+    mentionedDelta: insights.mentionedDelta,
+    latestRun,
+    latestReport,
+  });
+  const opportunity = opportunityFromRow({
+    brand: { id: brand.id, name: brand.name },
+    promptCount: prompts.length,
+    mentionedDelta: insights.mentionedDelta,
+    latestRun,
+    latestReport,
+  });
 
   return (
     <div>
@@ -46,7 +61,10 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
             <img src={brand.logoUrl} alt="" className="h-10 w-10 rounded-cb-control object-contain" />
           ) : null}
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">{brand.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight">{brand.name}</h1>
+              <RiskPill risk={risk} />
+            </div>
             <p className="text-sm text-cb-muted">
               {brand.siteUrl || "No site yet"}
               {brand.vertical || brand.category ? ` · ${brand.vertical || brand.category}` : ""}
@@ -134,6 +152,11 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
         </div>
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <h2 className="text-sm font-medium">Top missing questions</h2>
+          {opportunity ? (
+            <p className="mt-2 text-sm text-cb-muted">
+              Sell next: {opportunity.service} — {opportunity.reason}
+            </p>
+          ) : null}
           {insights.missingQuestions.length === 0 ? (
             <p className="mt-3 text-sm text-cb-muted">
               {latestReport

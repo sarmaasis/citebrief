@@ -26,7 +26,20 @@ export const PLANS = {
   studio: {
     id: "studio" as const,
     name: "Studio",
-    amountUsd: 499,
+    amountUsd: 799,
+    brands: 25,
+    prompts: 30,
+    seats: 10,
+    cadence: "weekly" as const,
+    includedRunsPerBrandPerWeek: 1,
+    manualRerunsPerBrandPerWeek: 2,
+    hardStopMultiplier: 3,
+  },
+  /** Contract floor until extras/custom limits are stored. PRODUCT §11. */
+  enterprise: {
+    id: "enterprise" as const,
+    name: "Enterprise",
+    amountUsd: 1499,
     brands: 25,
     prompts: 30,
     seats: 10,
@@ -39,11 +52,16 @@ export const PLANS = {
 
 export type PlanId = keyof typeof PLANS;
 
-/** Extra brand addon list prices (AGENCY_PLAN_UPDATE.md: $19–$29/mo). */
+/** Public pricing page stays three plans (PRODUCT §18.1). */
+export const PUBLIC_PLAN_IDS = ["starter", "agency", "studio"] as const;
+export type PublicPlanId = (typeof PUBLIC_PLAN_IDS)[number];
+
+/** Extra brand addon list prices (PRODUCT §10–11: $29 Agency / $29 Studio). */
 export const EXTRA_BRAND_USD: Record<PlanId, number> = {
   starter: 29,
   agency: 29,
-  studio: 19,
+  studio: 29,
+  enterprise: 29,
 };
 
 /** Extra run meter list prices (PRODUCT §10). */
@@ -51,9 +69,13 @@ export const EXTRA_RUN_USD: Record<PlanId, number> = {
   starter: 9,
   agency: 9,
   studio: 9,
+  enterprise: 9,
 };
 
 export const SEAT_OVERAGE_USD = 15;
+
+/** PRODUCT §10 range $99–$199. Listed at the low end until a Dodo product exists. */
+export const PREMIUM_ENGINE_PACK_USD = 99;
 
 export const TRIAL_DAYS = 14;
 export const TRIAL_BRAND_CAP = 1;
@@ -145,9 +167,13 @@ export function parseBillingInterval(value: string | null | undefined): "monthly
   return value === "annual" || value === "year" || value === "yearly" ? "annual" : "monthly";
 }
 
-export function planAllowsExtraBrands(plan: PlanId | string | null | undefined) {
+export function isAgencyPlus(plan: PlanId | string | null | undefined) {
   const id = parsePlanId(plan ?? "");
-  return id === "agency" || id === "studio";
+  return id === "agency" || id === "studio" || id === "enterprise";
+}
+
+export function planAllowsExtraBrands(plan: PlanId | string | null | undefined) {
+  return isAgencyPlus(plan);
 }
 
 export function planManualRerunCap(plan: PlanId | string | null | undefined): number {
@@ -189,8 +215,7 @@ export function stubPaidSubscriptionPatch(args: {
 
 /** Agency+ may invite members (subject to seat cap). */
 export function planAllowsMembers(plan: PlanId | string | null | undefined) {
-  const id = parsePlanId(plan ?? "agency") ?? "agency";
-  return id === "agency" || id === "studio";
+  return isAgencyPlus(plan);
 }
 
 export function planAllowsSlack(plan: PlanId | string | null | undefined) {
@@ -206,18 +231,28 @@ export function planAllowsClientCc(plan: PlanId | string | null | undefined) {
   return planAllowsMembers(plan);
 }
 
-/** Paid Agency/Studio may email the Friday report. Starter and unpaid/trial cannot. */
+/** Paid Agency+ may email the Friday report. Starter and unpaid/trial cannot. */
 export function planAllowsEmailSend(plan: PlanId | string | null | undefined) {
-  const id = parsePlanId(plan ?? "");
-  return id === "agency" || id === "studio";
+  return isAgencyPlus(plan);
 }
 
 export function planAllowsCustomSender(plan: PlanId | string | null | undefined) {
-  return parsePlanId(plan ?? "") === "studio";
+  const id = parsePlanId(plan ?? "");
+  return id === "studio" || id === "enterprise";
 }
 
 export function planAllowsStudioEngines(plan: PlanId | string | null | undefined) {
-  return parsePlanId(plan ?? "") === "studio";
+  const id = parsePlanId(plan ?? "");
+  return id === "studio" || id === "enterprise";
+}
+
+export function planAllowsBulkSend(plan: PlanId | string | null | undefined) {
+  const id = parsePlanId(plan ?? "");
+  return id === "studio" || id === "enterprise";
+}
+
+export function planAllowsApproval(plan: PlanId | string | null | undefined) {
+  return isAgencyPlus(plan);
 }
 
 export function planAllowsHistory(plan: PlanId | string | null | undefined) {

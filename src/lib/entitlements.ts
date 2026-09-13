@@ -1,6 +1,9 @@
 import {
   EXTRA_BRAND_USD,
+  isAgencyPlus,
   parsePlanId,
+  planAllowsApproval,
+  planAllowsBulkSend,
   planAllowsClientCc,
   planAllowsCustomSender,
   planAllowsEmailSend,
@@ -30,6 +33,7 @@ export type SubscriptionLike = {
   extraRuns?: number | null;
   extraRunCredits?: number | null;
   billingInterval?: string | null;
+  premiumEnginePack?: number | boolean | null;
 } | null;
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
@@ -67,12 +71,17 @@ export function reportSendBlockedReason(args: {
   ccClient?: string | null;
   allowsEmailSend: boolean;
   allowsClientCc: boolean;
+  requiresApproval?: boolean;
+  approved?: boolean;
 }): string | null {
   if (!args.allowsEmailSend) {
-    return "Email sending requires Agency or Studio.";
+    return "Email sending requires Agency, Studio, or Enterprise.";
+  }
+  if (args.requiresApproval && !args.approved) {
+    return "Approve this report before sending.";
   }
   if (args.ccClient?.trim() && !args.allowsClientCc) {
-    return "Client CC requires Agency or Studio.";
+    return "Client CC requires Agency, Studio, or Enterprise.";
   }
   return null;
 }
@@ -82,6 +91,8 @@ export function reportSendDenial(args: {
   ccClient?: string | null;
   allowsEmailSend: boolean;
   allowsClientCc: boolean;
+  requiresApproval?: boolean;
+  approved?: boolean;
 }): { status: 403; error: string } | null {
   const error = reportSendBlockedReason(args);
   return error ? { status: 403, error } : null;
@@ -114,6 +125,9 @@ export type WorkspaceEntitlements = {
   allowsCustomSender: boolean;
   allowsHistory: boolean;
   allowsStudioEngines: boolean;
+  allowsBulkSend: boolean;
+  allowsApproval: boolean;
+  allowsPremiumEnginePack: boolean;
   allowsExtraBrands: boolean;
   allowsExtraSeats: boolean;
   extraBrandUsd: number;
@@ -129,6 +143,7 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
   const extraBrands = Math.max(0, sub?.extraBrands || 0);
   const extraSeats = Math.max(0, sub?.extraSeats || 0);
   const extraRunCredits = Math.max(0, sub?.extraRunCredits || 0);
+  const premiumEnginePack = Boolean(sub?.premiumEnginePack);
   const billingInterval = sub?.billingInterval === "annual" ? "annual" : "monthly";
   const ended = Boolean(!paid && !trialing && sub && sub.status !== "none");
 
@@ -154,6 +169,9 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
       allowsCustomSender: false,
       allowsHistory: false,
       allowsStudioEngines: false,
+      allowsBulkSend: false,
+      allowsApproval: false,
+      allowsPremiumEnginePack: false,
       allowsExtraBrands: false,
       allowsExtraSeats: false,
       extraBrandUsd: EXTRA_BRAND_USD[plan],
@@ -183,8 +201,11 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
     allowsEmailSend: planAllowsEmailSend(plan),
     allowsCustomSender: planAllowsCustomSender(plan),
     allowsHistory: planAllowsHistory(plan),
-    allowsStudioEngines: planAllowsStudioEngines(plan),
-    allowsExtraBrands: plan === "agency" || plan === "studio",
+    allowsStudioEngines: planAllowsStudioEngines(plan) || premiumEnginePack,
+    allowsBulkSend: planAllowsBulkSend(plan),
+    allowsApproval: planAllowsApproval(plan),
+    allowsPremiumEnginePack: isAgencyPlus(plan),
+    allowsExtraBrands: isAgencyPlus(plan),
     allowsExtraSeats: planAllowsMembers(plan),
     extraBrandUsd: EXTRA_BRAND_USD[plan],
     trialBrandCap: TRIAL_BRAND_CAP,
@@ -203,12 +224,15 @@ export function upgradeHintForBrandCap(ent: WorkspaceEntitlements): string {
   if (ent.plan === "agency") {
     return `Agency includes ${PLANS.agency.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.agency}/mo) or upgrade to Studio.`;
   }
-  return `Studio includes ${PLANS.studio.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.studio}/mo) to add more.`;
+  if (ent.plan === "studio") {
+    return `Studio includes ${PLANS.studio.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.studio}/mo) or talk to us about Enterprise.`;
+  }
+  return `Enterprise brand limits are contractual. Buy an extra brand ($${EXTRA_BRAND_USD.enterprise}/mo) or ask support to raise the floor.`;
 }
 
 export function upgradeHintForSeatCap(ent: WorkspaceEntitlements): string {
   if (!ent.paid || !ent.allowsMembers) {
-    return "Member invites require Agency or Studio.";
+    return "Member invites require Agency, Studio, or Enterprise.";
   }
   if (ent.plan === "agency") {
     return `Seat cap reached (${ent.seatCap}). Add a seat ($15/mo) or upgrade to Studio (${PLANS.studio.seats} seats).`;

@@ -24,11 +24,11 @@ export const PRICING_FAQS = [
   },
   {
     q: "What is included in the trial?",
-    a: `${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, ${TRIAL_RUN_CAP} full report. No weekly send until paid. No free forever plan. After the trial, Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands on a monthly cadence; weekly Friday sending is Agency ($${PLANS.agency.amountUsd}/mo, ${PLANS.agency.brands} brands) and Studio.`,
+    a: `${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, ${TRIAL_RUN_CAP} full report. No weekly send until paid. No Studio engines in trial. No free forever plan. After the trial, Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands on a monthly cadence; weekly Friday sending is Agency ($${PLANS.agency.amountUsd}/mo, ${PLANS.agency.brands} brands) and Studio ($${PLANS.studio.amountUsd}/mo).`,
   },
   {
     q: "What if I outgrow Starter?",
-    a: `Move to Agency at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, history, Slack, extra brands, and ${PLANS.agency.seats} seats. Studio adds a custom sender, ${PLANS.studio.brands} brands, ${PLANS.studio.prompts} questions, ${PLANS.studio.seats} seats, and Claude/Grok add-on engines. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are $${EXTRA_BRAND_USD.agency}/mo on Agency and $${EXTRA_BRAND_USD.studio}/mo on Studio only.`,
+    a: `Move to Agency at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, history, Slack, extra brands, and ${PLANS.agency.seats} seats. Studio is $${PLANS.studio.amountUsd}/mo for a custom sender, ${PLANS.studio.brands} brands, ${PLANS.studio.prompts} questions, ${PLANS.studio.seats} seats, and limited Claude/Grok capacity. Enterprise starts at $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract for custom limits, SSO, and SLA. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are $${EXTRA_BRAND_USD.agency}/mo on Agency and $${EXTRA_BRAND_USD.studio}/mo on Studio only.`,
   },
   {
     q: "Can I pay annually?",

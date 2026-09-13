@@ -32,14 +32,17 @@ function dodoEnvironment(env: CloudflareEnv): "test_mode" | "live_mode" {
   return env.DODO_PAYMENTS_ENVIRONMENT === "live_mode" ? "live_mode" : "test_mode";
 }
 
-export function dodoProductId(env: CloudflareEnv, plan: PlanId): string {
+export function dodoProductId(env: CloudflareEnv, plan: PlanId): string | null {
   const fromEnv =
     plan === "starter"
       ? env.DODO_PRODUCT_STARTER
       : plan === "agency"
         ? env.DODO_PRODUCT_AGENCY
-        : env.DODO_PRODUCT_STUDIO;
+        : plan === "studio"
+          ? env.DODO_PRODUCT_STUDIO
+          : env.DODO_PRODUCT_ENTERPRISE;
   if (fromEnv && !isStubSecret(fromEnv)) return fromEnv;
+  if (plan === "enterprise") return null;
   return `citebrief_${plan}`;
 }
 
@@ -70,8 +73,17 @@ export function dodoAnnualProductId(env: CloudflareEnv, plan: PlanId): string | 
       ? env.DODO_PRODUCT_STARTER_ANNUAL
       : plan === "agency"
         ? env.DODO_PRODUCT_AGENCY_ANNUAL
-        : env.DODO_PRODUCT_STUDIO_ANNUAL;
+        : plan === "studio"
+          ? env.DODO_PRODUCT_STUDIO_ANNUAL
+          : env.DODO_PRODUCT_ENTERPRISE_ANNUAL;
   if (fromEnv && !isStubSecret(fromEnv)) return fromEnv;
+  return null;
+}
+
+export function dodoPremiumEnginePackProductId(env: CloudflareEnv): string | null {
+  if (env.DODO_PRODUCT_PREMIUM_ENGINE && !isStubSecret(env.DODO_PRODUCT_PREMIUM_ENGINE)) {
+    return env.DODO_PRODUCT_PREMIUM_ENGINE;
+  }
   return null;
 }
 
@@ -112,6 +124,12 @@ export async function createDodoCheckout(args: {
     };
   }
   const productId = annualId || dodoProductId(args.env, args.plan);
+  if (!productId) {
+    return {
+      mode: "unavailable",
+      message: "Enterprise checkout is contract-only until a Dodo product is configured. Contact support.",
+    };
+  }
   const returnUrl = `${args.returnUrl}${successPath}`;
   const metadata = {
     workspace_id: args.workspaceId,
@@ -346,7 +364,7 @@ export async function recordDodoExtraRunUsage(args: {
   }
 }
 
-export type DodoAddon = "extra_brand" | "extra_run" | "extra_seat";
+export type DodoAddon = "extra_brand" | "extra_run" | "extra_seat" | "premium_engine_pack";
 
 export async function createDodoAddonCheckout(args: {
   env: CloudflareEnv;
@@ -369,7 +387,15 @@ export async function createDodoAddonCheckout(args: {
       ? dodoExtraBrandProductId(args.env)
       : args.addon === "extra_seat"
         ? dodoExtraSeatProductId(args.env)
-        : dodoExtraRunProductId(args.env);
+        : args.addon === "premium_engine_pack"
+          ? dodoPremiumEnginePackProductId(args.env)
+          : dodoExtraRunProductId(args.env);
+  if (!productId) {
+    return {
+      mode: "unavailable",
+      message: "Premium engine pack is not configured yet (missing Dodo product ID).",
+    };
+  }
   try {
     const session = await createCheckoutSession(
       {

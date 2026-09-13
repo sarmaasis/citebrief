@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const plan = parsePlanId(url.searchParams.get("plan") || "agency");
   if (!plan) {
-    return jsonError("Unknown plan. Use starter, agency, or studio.");
+    return jsonError("Unknown plan. Use starter, agency, studio, or enterprise.");
   }
   const interval = parseBillingInterval(url.searchParams.get("interval"));
 

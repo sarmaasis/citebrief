@@ -28,7 +28,7 @@ export function validateDefaultEngines(
       return { ok: false, error: `Unknown engine "${id}". Use chatgpt, perplexity, gemini, aio, claude, grok.` };
     }
     if (!studioOk && (id === "claude" || id === "grok")) {
-      return { ok: false, error: "Claude and Grok require Studio." };
+      return { ok: false, error: "Claude and Grok require Studio, Enterprise, or the premium engine pack." };
     }
   }
   return { ok: true, normalized: requested.join(",") };

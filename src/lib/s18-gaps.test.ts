@@ -10,6 +10,7 @@ assert.equal(planBrandLimit("starter"), 2);
 assert.equal(planBrandLimit("studio"), 25);
 assert.equal(planAllowsStudioEngines("studio"), true);
 assert.equal(planAllowsStudioEngines("agency"), false);
+assert.equal(planAllowsStudioEngines("enterprise"), true);
 assert.equal(TRIAL_BRAND_CAP, 1);
 assert.equal(TRIAL_RUN_CAP, 1);
 

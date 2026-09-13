@@ -44,17 +44,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     ccClient: body.ccClient,
     allowsEmailSend: ent.allowsEmailSend,
     allowsClientCc: ent.allowsClientCc,
+    requiresApproval: ent.allowsApproval,
+    approved: row.report.approvalState === "approved",
   });
   if (denial) {
     return jsonError(denial.error, denial.status);
   }
 
+  const subject = row.report.suggestedEmailSubject?.trim() || `${row.brandName}: Friday report`;
+  const bodyHtml = row.report.suggestedEmailBody?.trim()
+    ? `<p>${row.report.suggestedEmailBody.replace(/\n/g, "</p><p>")}</p>`
+    : `<p>Your report for <strong>${row.brandName}</strong> is ready.</p><p>${row.report.summary || ""}</p>`;
+
   await sendTransactionalEmail({
     to,
-    subject: `${row.brandName}: Friday report`,
-    html: `<p>Your report for <strong>${row.brandName}</strong> is ready.</p><p>${row.report.summary || ""}</p>${
-      share ? `<p><a href="${share}">Open client link</a></p>` : ""
-    }`,
+    subject,
+    html: `${bodyHtml}${share ? `<p><a href="${share}">Open client link</a></p>` : ""}`,
     env,
     senderName: workspace?.senderName,
     senderDomain: workspace?.senderDomain,

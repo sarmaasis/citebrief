@@ -4,14 +4,22 @@ import { workspaceEntitlements } from "@/lib/entitlements";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { requireOwner } from "@/lib/permissions";
-import { bumpExtraBrands, bumpExtraRunCredits, bumpExtraSeats, getWorkspaceSubscription } from "@/lib/usage";
+import {
+  bumpExtraBrands,
+  bumpExtraRunCredits,
+  bumpExtraSeats,
+  getWorkspaceSubscription,
+  setPremiumEnginePack,
+} from "@/lib/usage";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
 
 export const dynamic = "force-dynamic";
 
 function parseAddon(value: string | undefined): DodoAddon | null {
-  if (value === "extra_run" || value === "extra_brand" || value === "extra_seat") return value;
+  if (value === "extra_run" || value === "extra_brand" || value === "extra_seat" || value === "premium_engine_pack") {
+    return value;
+  }
   return null;
 }
 
@@ -23,16 +31,19 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as { addon?: string };
   const addon = parseAddon(body.addon);
-  if (!addon) return jsonError("addon must be extra_brand, extra_run, or extra_seat.");
+  if (!addon) return jsonError("addon must be extra_brand, extra_run, extra_seat, or premium_engine_pack.");
 
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
 
   if (addon === "extra_brand" && !ent.allowsExtraBrands) {
-    return jsonError("Extra brands are available on Agency and Studio. Upgrade from Starter to add more brands.", 402);
+    return jsonError("Extra brands are available on Agency, Studio, and Enterprise. Upgrade from Starter to add more brands.", 402);
   }
   if (addon === "extra_seat" && !ent.allowsExtraSeats) {
-    return jsonError("Additional seats require Agency or Studio.", 402);
+    return jsonError("Additional seats require Agency, Studio, or Enterprise.", 402);
+  }
+  if (addon === "premium_engine_pack" && !ent.allowsPremiumEnginePack) {
+    return jsonError("The premium engine pack is available on paid Agency, Studio, and Enterprise.", 402);
   }
   if (!ent.paid && addon !== "extra_run") {
     return jsonError("Start a paid plan before buying add-ons.", 402);
@@ -59,6 +70,7 @@ export async function POST(request: Request) {
     if (addon === "extra_brand") await bumpExtraBrands(ctx.db, ctx.workspace.id, 1);
     if (addon === "extra_seat") await bumpExtraSeats(ctx.db, ctx.workspace.id, 1);
     if (addon === "extra_run") await bumpExtraRunCredits(ctx.db, ctx.workspace.id, 1);
+    if (addon === "premium_engine_pack") await setPremiumEnginePack(ctx.db, ctx.workspace.id, true);
   }
 
   await writeAuditLog(ctx.db, {

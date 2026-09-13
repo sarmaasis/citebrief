@@ -41,6 +41,13 @@ const PLAN_VALUE: Record<PlanId, string[]> = {
     `${PLANS.studio.seats} seats`,
     "Priority support",
   ],
+  enterprise: [
+    `Starts at $${PLANS.enterprise.amountUsd}/mo`,
+    "Custom brand, prompt, and cadence limits",
+    "Studio features plus contract floor",
+    "SSO and security review support",
+    "Dedicated onboarding",
+  ],
 };
 
 export type BillingUsage = {

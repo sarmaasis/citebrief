@@ -83,7 +83,7 @@ export async function PUT(request: Request) {
     }
   }
   if (slackWebhookUrl && !ent.allowsSlack) {
-    return jsonError("Slack webhook requires Agency or Studio.", 402);
+    return jsonError("Slack webhook requires Agency, Studio, or Enterprise.", 402);
   }
   if (slackWebhookUrl && !slackWebhookUrl.startsWith("https://hooks.slack.com/")) {
     return jsonError("Use a Slack incoming webhook URL (https://hooks.slack.com/...).");

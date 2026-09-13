@@ -85,17 +85,15 @@ export function PromptsPage({
       {prompts.length === 0 ? (
         <div className="rounded-cb-card border border-cb-line bg-cb-surface px-6 py-16 text-center">
           <p className="text-sm text-cb-text">Generate twenty buyer questions for this brand.</p>
+          <div className="mt-4">
+            <Button type="button" onClick={() => void generate()} disabled={pending}>
+              {pending ? "Generating…" : "Generate 20 prompts"}
+            </Button>
+          </div>
         </div>
       ) : (
         <PromptEditor prompts={prompts} brandName={brandName} onChange={setPrompts} />
       )}
-      {prompts.length === 0 ? (
-        <div className="mt-4">
-          <Button type="button" onClick={() => void generate()} disabled={pending}>
-            {pending ? "Generating…" : "Generate 20 prompts"}
-          </Button>
-        </div>
-      ) : null}
       {status ? <p className="mt-4 text-sm text-cb-muted">{status}</p> : null}
     </div>
   );

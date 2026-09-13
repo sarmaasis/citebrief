@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
 import { SourcesDrawer, type AuditEngineRow } from "@/components/reports/sources-drawer";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,13 @@ export function ReportViewer({
   auditRows = [],
   allowClientCc = false,
   allowSend = false,
+  allowApproval = false,
+  approvalState = "needs_review",
   showSources = true,
+  suggestedEmailSubject = "",
+  suggestedEmailBody = "",
+  reviewActions = [],
+  upsellNote = null,
 }: {
   brandId: string;
   brandName: string;
@@ -48,7 +54,13 @@ export function ReportViewer({
   auditRows?: AuditEngineRow[];
   allowClientCc?: boolean;
   allowSend?: boolean;
+  allowApproval?: boolean;
+  approvalState?: string;
   showSources?: boolean;
+  suggestedEmailSubject?: string;
+  suggestedEmailBody?: string;
+  reviewActions?: string[];
+  upsellNote?: string | null;
 }) {
   const [toast, setToast] = useState<string | null>(null);
   const [ccOpen, setCcOpen] = useState(false);
@@ -62,10 +74,96 @@ export function ReportViewer({
   const [liveToken, setLiveToken] = useState(shareToken);
   const [liveExpires, setLiveExpires] = useState(shareExpiresAt ?? null);
   const [revoked, setRevoked] = useState(Boolean(shareRevokedAt));
+  const [approved, setApproved] = useState(approvalState === "approved" || Boolean(sentAt));
+  const [approveBusy, setApproveBusy] = useState(false);
+  const [emailSubject, setEmailSubject] = useState(suggestedEmailSubject);
+  const [emailDraft, setEmailDraft] = useState(suggestedEmailBody);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const lastSaved = useRef({ subject: suggestedEmailSubject, body: suggestedEmailBody });
+  const needsApprove = allowApproval && !approved && !sentAt;
+  const canSend = allowSend && !needsApprove;
 
   function flash(next: string) {
     setToast(next);
     window.setTimeout(() => setToast(null), 3000);
+  }
+
+  function handleSendDenied(status: number, error?: string) {
+    if (error?.toLowerCase().includes("approve")) {
+      flash(error);
+      return;
+    }
+    if (status === 402 || status === 403) {
+      setSendUpgrade(true);
+      return;
+    }
+    flash(error ?? "Could not send. Try again.");
+  }
+
+  async function saveDraft(showToast = false) {
+    if (!allowSend) return false;
+    const subject = emailSubject.trim();
+    const body = emailDraft.trim();
+    if (!subject || !body) {
+      if (showToast) flash("Subject and body are required.");
+      return false;
+    }
+    if (subject === lastSaved.current.subject && body === lastSaved.current.body) return true;
+    setDraftBusy(true);
+    try {
+      const response = await fetch(`/api/reports/${reportId}/email-draft`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, body }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        if (showToast) flash(data.error ?? "Could not save the email draft.");
+        return false;
+      }
+      lastSaved.current = { subject, body };
+      if (showToast) flash("Suggested email saved");
+      return true;
+    } finally {
+      setDraftBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!allowSend) return;
+    const timer = window.setTimeout(() => {
+      void saveDraft(false);
+    }, 800);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce subject/body only
+  }, [emailSubject, emailDraft, allowSend, reportId]);
+
+  async function approveReport() {
+    if (!allowApproval) return;
+    setApproveBusy(true);
+    try {
+      await saveDraft(false);
+      const response = await fetch(`/api/reports/${reportId}/approve`, { method: "POST" });
+      const data = (await response.json().catch(() => ({}))) as { error?: string; approvalState?: string };
+      if (!response.ok) {
+        flash(data.error ?? "Could not approve this report.");
+        return;
+      }
+      setApproved(true);
+      flash("Report approved. You can send it now.");
+    } finally {
+      setApproveBusy(false);
+    }
+  }
+
+  async function copySuggestedEmail() {
+    const text = [emailSubject.trim(), emailDraft.trim()].filter(Boolean).join("\n\n");
+    if (!text) {
+      flash("Write a short client note first.");
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    flash("Suggested email copied");
   }
 
   async function copyLink() {
@@ -114,8 +212,13 @@ export function ReportViewer({
       setSendUpgrade(true);
       return;
     }
+    if (needsApprove) {
+      flash("Approve this report before sending.");
+      return;
+    }
     setTestBusy(true);
     try {
+      await saveDraft(false);
       const response = await fetch(`/api/reports/${reportId}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,11 +226,7 @@ export function ReportViewer({
       });
       if (!response.ok) {
         const data = (await response.json().catch(() => ({}))) as { error?: string };
-        if (response.status === 402 || response.status === 403) {
-          setSendUpgrade(true);
-        } else {
-          flash(data.error ?? "Could not send a test. Try again.");
-        }
+        handleSendDenied(response.status, data.error);
       } else {
         flash("Test send queued to you.");
       }
@@ -143,6 +242,10 @@ export function ReportViewer({
       setCcOpen(false);
       return;
     }
+    if (needsApprove) {
+      flash("Approve this report before sending.");
+      return;
+    }
     const email = ccEmail.trim();
     if (!email) {
       flash("Enter a client email.");
@@ -150,6 +253,7 @@ export function ReportViewer({
     }
     setCcBusy(true);
     try {
+      await saveDraft(false);
       const response = await fetch(`/api/reports/${reportId}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -157,7 +261,9 @@ export function ReportViewer({
       });
       if (!response.ok) {
         const data = (await response.json().catch(() => ({}))) as { error?: string };
-        if (response.status === 402 || response.status === 403) {
+        if (data.error?.toLowerCase().includes("approve")) {
+          flash(data.error);
+        } else if (response.status === 402 || response.status === 403) {
           setCcUpgrade(true);
           setCcOpen(false);
         } else {
@@ -184,7 +290,15 @@ export function ReportViewer({
           <p className="font-mono text-xs tabular-nums text-cb-accent">
             {scoreMentioned == null ? "-/20" : `${scoreMentioned}/${scoreTotal}`}
             {scoreRecommended != null ? ` · rec ${scoreRecommended}/${scoreTotal}` : ""}
-            {allowSend ? (sentAt ? " · Sent" : " · Not sent") : " · Email on Agency"}
+            {allowSend
+              ? sentAt
+                ? " · Sent"
+                : allowApproval
+                  ? approved
+                    ? " · Approved"
+                    : " · Needs review"
+                  : " · Not sent"
+              : " · Email on Agency"}
             {shareOpenCount ? ` · ${shareOpenCount} opens` : ""}
           </p>
         </div>
@@ -204,8 +318,17 @@ export function ReportViewer({
           >
             {shareBusy ? "Updating…" : revoked ? "New client link" : "Revoke link"}
           </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => void copySuggestedEmail()}>
+            Copy suggested email
+          </Button>
           {allowSend ? (
-            <Button type="button" variant="outline" size="sm" disabled={testBusy} onClick={() => void sendTest()}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={testBusy || needsApprove}
+              onClick={() => void sendTest()}
+            >
               {testBusy ? "Sending…" : "Send test"}
             </Button>
           ) : (
@@ -218,6 +341,7 @@ export function ReportViewer({
               type="button"
               variant="outline"
               size="sm"
+              disabled={needsApprove}
               onClick={() => {
                 if (!allowClientCc) {
                   setCcUpgrade(true);
@@ -269,6 +393,77 @@ export function ReportViewer({
       ) : null}
 
       <div className="mx-auto max-w-4xl px-6 py-8">
+        <div className="mb-6 rounded-cb-card border border-cb-line bg-cb-surface p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-medium">Review before you send</h2>
+            <p className="text-xs text-cb-muted">
+              {sentAt
+                ? "Sent"
+                : allowApproval
+                  ? approved
+                    ? "Approved"
+                    : "Needs review"
+                  : allowSend
+                    ? "Ready to send"
+                    : "Download or share"}
+            </p>
+          </div>
+          {summary ? <p className="mt-3 text-sm text-cb-text">{summary}</p> : null}
+          {reviewActions.length ? (
+            <div className="mt-4">
+              <p className="text-xs text-cb-muted">Recommended actions</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-cb-text">
+                {reviewActions.map((action) => (
+                  <li key={action}>{action}</li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+          {upsellNote ? (
+            <p className="mt-4 text-sm text-cb-muted">
+              <span className="font-medium text-cb-text">Sell next. </span>
+              {upsellNote}
+            </p>
+          ) : null}
+          <label className="mt-4 block">
+            <span className="text-xs text-cb-muted">Subject</span>
+            <Input
+              className="mt-2"
+              value={emailSubject}
+              onChange={(event) => setEmailSubject(event.target.value)}
+              disabled={!allowSend}
+            />
+          </label>
+          <label className="mt-4 block">
+            <span className="text-xs text-cb-muted">Suggested client email</span>
+            <textarea
+              className="mt-2 min-h-28 w-full rounded-cb-control border border-cb-line bg-cb-bg px-3 py-2 text-sm text-cb-text disabled:opacity-60"
+              value={emailDraft}
+              onChange={(event) => setEmailDraft(event.target.value)}
+              disabled={!allowSend}
+            />
+          </label>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {allowSend ? (
+              <Button type="button" variant="outline" size="sm" disabled={draftBusy} onClick={() => void saveDraft(true)}>
+                {draftBusy ? "Saving…" : "Save email"}
+              </Button>
+            ) : null}
+            {allowApproval && !sentAt ? (
+              <Button type="button" size="sm" disabled={approveBusy || approved} onClick={() => void approveReport()}>
+                {approveBusy ? "Approving…" : approved ? "Approved" : "Approve"}
+              </Button>
+            ) : null}
+            {allowSend ? (
+              <Button type="button" size="sm" disabled={!canSend || testBusy} onClick={() => void sendTest()}>
+                {testBusy ? "Sending…" : "Send test"}
+              </Button>
+            ) : null}
+          </div>
+          {needsApprove ? (
+            <p className="mt-3 text-xs text-cb-muted">Approve this report before Send test or CC client.</p>
+          ) : null}
+        </div>
         {revoked ? (
           <p className="mb-3 text-xs text-cb-muted">
             The client link is revoked. Create a new one if the account still needs a read-only page.

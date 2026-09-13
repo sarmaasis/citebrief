@@ -7,6 +7,8 @@ export type AuditAction =
   | "impersonation.end"
   | "webhook.replay"
   | "report.send"
+  | "report.approve"
+  | "report.email_draft"
   | "report.share_revoke"
   | "report.share_rotate"
   | "billing.checkout"

@@ -26,7 +26,7 @@ export async function GET(request: Request, context: RouteContext) {
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   if (!ent.allowsHistory) {
-    return jsonError("History export requires Agency or Studio.", 402);
+    return jsonError("History export requires Agency, Studio, or Enterprise.", 402);
   }
 
   const rows = await ctx.db

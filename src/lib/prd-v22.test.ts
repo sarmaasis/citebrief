@@ -5,8 +5,10 @@ import {
   EXTRA_RUN_USD,
   PLANS,
   planAllowsClientCc,
+  planAllowsBulkSend,
   planAllowsCustomSender,
   planAllowsEmailSend,
+  planAllowsStudioEngines,
   planAllowsWeeklyCadence,
   planSeatCap,
 } from "./billing";
@@ -14,7 +16,8 @@ import { isEngineApiConfigured, usesDeterministicStub } from "./engine-adapters"
 
 assert.equal(PLANS.starter.amountUsd, 99);
 assert.equal(PLANS.agency.amountUsd, 249);
-assert.equal(PLANS.studio.amountUsd, 499);
+assert.equal(PLANS.studio.amountUsd, 799);
+assert.equal(PLANS.enterprise.amountUsd, 1499);
 assert.equal(PLANS.starter.brands, 2);
 assert.equal(PLANS.agency.brands, 10);
 assert.equal(PLANS.studio.brands, 25);
@@ -26,7 +29,8 @@ assert.equal(planSeatCap("studio"), 10);
 assert.equal(planSeatCap("starter"), 1);
 
 assert.equal(EXTRA_BRAND_USD.agency, 29);
-assert.equal(EXTRA_BRAND_USD.studio, 19);
+assert.equal(EXTRA_BRAND_USD.studio, 29);
+assert.equal(EXTRA_BRAND_USD.enterprise, 29);
 assert.equal(EXTRA_RUN_USD.agency, 9);
 assert.equal(EXTRA_RUN_USD.studio, 9);
 
@@ -37,8 +41,14 @@ assert.equal(planAllowsClientCc("agency"), true);
 assert.equal(planAllowsEmailSend("starter"), false);
 assert.equal(planAllowsEmailSend("agency"), true);
 assert.equal(planAllowsEmailSend("studio"), true);
+assert.equal(planAllowsEmailSend("enterprise"), true);
 assert.equal(planAllowsCustomSender("agency"), false);
 assert.equal(planAllowsCustomSender("studio"), true);
+assert.equal(planAllowsCustomSender("enterprise"), true);
+assert.equal(planAllowsStudioEngines("agency"), false);
+assert.equal(planAllowsStudioEngines("enterprise"), true);
+assert.equal(planAllowsBulkSend("agency"), false);
+assert.equal(planAllowsBulkSend("studio"), true);
 
 // Stub gateway detection
 assert.equal(isAiGatewayConfigured(undefined), false);

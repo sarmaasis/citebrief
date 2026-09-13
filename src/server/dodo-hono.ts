@@ -6,7 +6,7 @@ import { subscriptions, webhookEvents, workspaces, workspaceMembers, users } fro
 import { parseBillingInterval, parsePlanId } from "@/lib/billing";
 import { dodoCurrentPeriodEnd, dodoProductId } from "@/lib/dodo";
 import { sendTransactionalEmail } from "@/lib/email";
-import { bumpExtraBrands, bumpExtraRunCredits, bumpExtraSeats } from "@/lib/usage";
+import { bumpExtraBrands, bumpExtraRunCredits, bumpExtraSeats, setPremiumEnginePack } from "@/lib/usage";
 
 type DodoEnv = {
   Bindings: CloudflareEnv;
@@ -148,6 +148,9 @@ export async function applyDodoWebhookPayload(
     }
     if (addon === "extra_run" && (eventType.includes("succeeded") || eventType.includes("active"))) {
       await bumpExtraRunCredits(db, workspaceId, 1);
+    }
+    if (addon === "premium_engine_pack" && (eventType.includes("succeeded") || eventType.includes("active"))) {
+      await setPremiumEnginePack(db, workspaceId, true);
     }
 
     const nextInterval = addon ? (sub?.billingInterval === "annual" ? "annual" : interval) : interval;

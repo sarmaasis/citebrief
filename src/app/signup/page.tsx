@@ -52,6 +52,12 @@ function signupCopy(
       body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Studio is $${listed.amountUsd}/mo for ${listed.brands} brands, a custom sender, and weekly Friday reports.`,
     };
   }
+  if (plan === "enterprise") {
+    return {
+      title: "Start the first report",
+      body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Enterprise starts at $${listed.amountUsd.toLocaleString("en-US")}/mo for custom limits, SSO, and contract support.`,
+    };
+  }
   return {
     title: "Start the first report",
     body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. No weekly send until paid. Agency is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, and ${PLANS.agency.seats} seats.`,

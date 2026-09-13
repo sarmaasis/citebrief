@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/app/empty-state";
+import { RiskPill } from "@/components/app/risk-pill";
 import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
 import { ArchiveButton } from "@/components/brands/archive-button";
 import { DuplicateBrandButton } from "@/components/brands/duplicate-brand-button";
 import { Button } from "@/components/ui/button";
+import { clientRisk } from "@/lib/command-center";
 import { upgradeHintForBrandCap, workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
-import { listWorkspaceBrands } from "@/server/workspace-data";
+import { listHomeRows, listWorkspaceBrands } from "@/server/workspace-data";
 
 export default async function BrandsPage({
   searchParams,
@@ -21,7 +23,11 @@ export default async function BrandsPage({
 
   const { archived } = await searchParams;
   const includeArchived = archived === "1";
-  const rows = await listWorkspaceBrands(ctx, includeArchived);
+  const [rows, homeRows] = await Promise.all([
+    listWorkspaceBrands(ctx, includeArchived),
+    listHomeRows(ctx),
+  ]);
+  const riskByBrand = new Map(homeRows.map((row) => [row.brand.id, clientRisk(row)]));
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   const brandLimit = ent.brandLimit;
@@ -89,6 +95,7 @@ export default async function BrandsPage({
             <thead className="bg-cb-surface text-left text-cb-muted">
               <tr className="h-12 border-b border-cb-line">
                 <th className="px-4 font-medium">Brand</th>
+                <th className="px-4 font-medium">Risk</th>
                 <th className="px-4 font-medium">Site / vertical</th>
                 <th className="px-4 font-medium">Client owner</th>
                 <th className="px-4 font-medium">
@@ -114,6 +121,13 @@ export default async function BrandsPage({
                         {brand.archivedAt ? <span className="ml-2 text-xs text-cb-muted">Archived</span> : null}
                       </span>
                     </Link>
+                  </td>
+                  <td className="px-4">
+                    {brand.archivedAt ? (
+                      <span className="text-xs text-cb-muted">Archived</span>
+                    ) : (
+                      <RiskPill risk={riskByBrand.get(brand.id) ?? "watch"} />
+                    )}
                   </td>
                   <td className="px-4 text-cb-muted">{brand.siteUrl || brand.vertical || brand.category || "—"}</td>
                   <td className="px-4 text-cb-muted">{brand.clientOwner || brand.buyer || "—"}</td>

@@ -6,5 +6,6 @@ import { getWorkspaceSubscription } from "@/lib/usage";
 export default async function OnboardingPage() {
   const ctx = await getAppContext();
   const sub = ctx ? await getWorkspaceSubscription(ctx.db, ctx.workspace.id) : null;
-  return <OnboardingFlow allowSend={workspaceEntitlements(sub).allowsEmailSend} />;
+  const ent = workspaceEntitlements(sub);
+  return <OnboardingFlow allowSend={ent.allowsEmailSend} allowApproval={ent.allowsApproval} />;
 }

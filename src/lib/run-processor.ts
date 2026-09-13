@@ -315,6 +315,9 @@ export async function processRun(
         scoreTotal: written.scoreTotal,
         shareToken: existing.shareToken ?? shareToken,
         shareExpiresAt: existing.shareExpiresAt ?? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        suggestedEmailSubject: written.suggestedEmailSubject,
+        suggestedEmailBody: written.suggestedEmailBody,
+        approvalState: existing.sentAt ? existing.approvalState : "needs_review",
       })
       .where(eq(reports.id, existing.id));
   } else {
@@ -331,6 +334,9 @@ export async function processRun(
       scoreTotal: written.scoreTotal,
       shareToken,
       shareExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      approvalState: "needs_review",
+      suggestedEmailSubject: written.suggestedEmailSubject,
+      suggestedEmailBody: written.suggestedEmailBody,
       createdAt: new Date(),
     });
   }
@@ -615,6 +621,9 @@ export async function retryFailedEngine(
         scoreTotal: written.scoreTotal,
         shareToken: existing.shareToken ?? shareToken,
         shareExpiresAt: existing.shareExpiresAt ?? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        suggestedEmailSubject: written.suggestedEmailSubject,
+        suggestedEmailBody: written.suggestedEmailBody,
+        approvalState: existing.sentAt ? existing.approvalState : "needs_review",
       })
       .where(eq(reports.id, existing.id));
   } else {
@@ -631,6 +640,9 @@ export async function retryFailedEngine(
       scoreTotal: written.scoreTotal,
       shareToken,
       shareExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      approvalState: "needs_review",
+      suggestedEmailSubject: written.suggestedEmailSubject,
+      suggestedEmailBody: written.suggestedEmailBody,
       createdAt: new Date(),
     });
   }

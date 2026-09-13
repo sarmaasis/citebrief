@@ -4,7 +4,7 @@ import { PricingView } from "@/components/marketing/pricing-view";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingHeader } from "@/components/marketing/header";
 import { JsonLd } from "@/components/seo/json-ld";
-import { parseBillingInterval, type PlanId } from "@/lib/billing";
+import { parseBillingInterval, type PublicPlanId } from "@/lib/billing";
 import { dodoAnnualProductId } from "@/lib/dodo";
 import { getMarketingAuth } from "@/lib/session";
 import { metadataPages, pricingJsonLd } from "@/lib/seo";
@@ -12,7 +12,7 @@ import { metadataPages, pricingJsonLd } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = metadataPages.pricing;
 
-async function annualProductsLive(): Promise<Record<PlanId, boolean>> {
+async function annualProductsLive(): Promise<Record<PublicPlanId, boolean>> {
   const empty = { starter: false, agency: false, studio: false };
   try {
     const { env } = await getCloudflareContext({ async: true });

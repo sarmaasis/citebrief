@@ -37,7 +37,7 @@ export default function SampleReportPage() {
               ))}
             </ul>
           </div>
-          <MarketingPrimaryCta signedOutLabel="Generate your first client report" size="lg" />
+          <MarketingPrimaryCta signedOutLabel="Send a Friday report" size="lg" />
         </div>
         <div className="rounded-cb-panel border border-cb-line bg-cb-bg p-4 sm:p-10">
           <SampleReportDoc />
@@ -49,7 +49,7 @@ export default function SampleReportPage() {
             sending.
           </p>
           <div className="flex flex-wrap gap-3">
-            <MarketingPrimaryCta signedOutLabel="Generate your first client report" />
+            <MarketingPrimaryCta signedOutLabel="Send a Friday report" />
             <Button asChild variant="outline">
               <Link href="/pricing">See Agency at ${PLANS.agency.amountUsd}</Link>
             </Button>

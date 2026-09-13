@@ -232,6 +232,18 @@ export async function bumpExtraSeats(db: Database, workspaceId: string, delta = 
     .where(eq(subscriptions.id, sub.id));
 }
 
+export async function setPremiumEnginePack(db: Database, workspaceId: string, enabled = true) {
+  const sub = await getWorkspaceSubscription(db, workspaceId);
+  if (!sub) return;
+  await db
+    .update(subscriptions)
+    .set({
+      premiumEnginePack: enabled,
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptions.id, sub.id));
+}
+
 export async function bumpExtraRunCredits(db: Database, workspaceId: string, delta = 1) {
   const sub = await getWorkspaceSubscription(db, workspaceId);
   if (!sub) return;

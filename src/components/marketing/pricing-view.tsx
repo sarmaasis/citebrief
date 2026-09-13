@@ -8,11 +8,13 @@ import {
   EXTRA_BRAND_USD,
   EXTRA_RUN_USD,
   PLANS,
+  PREMIUM_ENGINE_PACK_USD,
   SEAT_OVERAGE_USD,
   TRIAL_BRAND_CAP,
   TRIAL_DAYS,
   TRIAL_RUN_CAP,
-  type PlanId,
+  planAnnualAmountUsd,
+  type PublicPlanId,
 } from "@/lib/billing";
 import { planCtaHref } from "@/lib/marketing-cta";
 import { PRICING_FAQS } from "@/lib/pricing-faq";
@@ -62,7 +64,7 @@ const plans = [
     name: "Studio",
     monthly: PLANS.studio.amountUsd,
     recommended: false,
-    pitch: "For agencies already reselling AI-search reporting.",
+    pitch: "For agencies already reselling AI-search reporting across a client book.",
     monthlyCta: "Start Studio trial",
     annualCta: "Start Studio annual",
     bullets: [
@@ -71,7 +73,7 @@ const plans = [
       "Weekly Friday reports",
       "Custom sender name and domain",
       "Client portal archive",
-      "Claude and Grok add-on engines",
+      "Limited Claude and Grok capacity",
       `${PLANS.studio.seats} seats`,
       "Priority support",
       "Internal COGS and usage export",
@@ -86,7 +88,7 @@ export function PricingView({
   initialAnnual = false,
 }: {
   signedIn?: boolean;
-  annualProductsLive?: Record<PlanId, boolean>;
+  annualProductsLive?: Record<PublicPlanId, boolean>;
   initialAnnual?: boolean;
 }) {
   const [annual, setAnnual] = useState(initialAnnual);
@@ -97,15 +99,16 @@ export function PricingView({
     else url.searchParams.delete("interval");
     window.history.replaceState(null, "", url);
   }, [annual]);
-  const missingAnnual = (Object.keys(annualProductsLive) as PlanId[]).filter((id) => !annualProductsLive[id]);
+  const missingAnnual = (Object.keys(annualProductsLive) as PublicPlanId[]).filter((id) => !annualProductsLive[id]);
   const annualLive = missingAnnual.length === 0;
 
   return (
     <main id="main" className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
       <h1 className="font-serif text-5xl tracking-tight">Simple pricing for agency retainers</h1>
       <p className="mt-4 max-w-2xl text-lg text-cb-muted">
-        Agency at ${PLANS.agency.amountUsd}/mo is the plan to buy: {PLANS.agency.brands} brands,
-        weekly Friday reports, white-label, and {PLANS.agency.seats} seats. Not a $29 vanity score.
+        Agency at ${PLANS.agency.amountUsd}/mo is the plan to buy: {PLANS.agency.brands} brands ($
+        {(PLANS.agency.amountUsd / PLANS.agency.brands).toFixed(2)}/client), weekly Friday reports,
+        white-label, and {PLANS.agency.seats} seats. Not a $29 vanity score.
       </p>
 
       <div className="mt-8 inline-flex rounded-cb-control border border-cb-line bg-cb-surface p-1">
@@ -186,15 +189,21 @@ export function PricingView({
       </div>
 
       <p className="mt-6 text-sm leading-6 text-cb-muted">
-        Add-ons: extra brand ${EXTRA_BRAND_USD.agency}/mo on Agency, ${EXTRA_BRAND_USD.studio}/mo on
+        Add-ons: extra brand ${EXTRA_BRAND_USD.agency}/mo on Agency and ${EXTRA_BRAND_USD.studio}/mo on
         Studio. Extra run ${EXTRA_RUN_USD.agency}. Extra seats ${SEAT_OVERAGE_USD}/seat/mo after the
-        plan cap. Extra brands are Agency and Studio only. Tax handled by Dodo. Trial: {TRIAL_DAYS}{" "}
-        days, {TRIAL_BRAND_CAP} brand, {TRIAL_RUN_CAP} full run. No free forever plan.
+        plan cap. Premium engine pack ${PREMIUM_ENGINE_PACK_USD}/mo for extra Claude/Grok capacity.
+        Extra brands are Agency and Studio only. Tax handled by Dodo. Trial: {TRIAL_DAYS} days,{" "}
+        {TRIAL_BRAND_CAP} brand, {TRIAL_RUN_CAP} full run. No free forever plan.
+      </p>
+      <p className="mt-3 text-sm leading-6 text-cb-muted">
+        Enterprise starts at ${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual
+        contract for custom limits, dedicated onboarding, SSO, and SLA. Ask during onboarding — there
+        is no self-serve Enterprise checkout.
       </p>
       <p className="mt-3 text-sm leading-6 text-cb-muted">
         Launch: first 25 agencies can lock Agency annual at $
-        {(PLANS.agency.amountUsd * ANNUAL_MONTHS_CHARGED).toLocaleString("en-US")} for 12 months.
-        First 20 paid agencies get done-with-you setup. Ask during onboarding.
+        {planAnnualAmountUsd("agency").toLocaleString("en-US")} for 12 months. First 20 paid agencies
+        get done-with-you setup. Ask during onboarding.
       </p>
 
       <section className="mt-16 max-w-3xl">

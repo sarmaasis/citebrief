@@ -20,6 +20,7 @@ import {
   reportSendDenial,
   workspaceEntitlements,
 } from "./entitlements";
+import { suggestedClientEmail } from "./report-writer";
 import { shouldSettleBillableExtra } from "./usage";
 import { isLocalFirstFridaySix } from "./friday-tz";
 import { generatePromptPack, validatePromptSet } from "./prompts";
@@ -28,7 +29,7 @@ assert.equal(planAllowsExtraBrands("starter"), false);
 assert.equal(planAllowsExtraBrands("agency"), true);
 assert.equal(planAllowsExtraBrands("studio"), true);
 assert.equal(EXTRA_BRAND_USD.agency, 29);
-assert.equal(EXTRA_BRAND_USD.studio, 19);
+assert.equal(EXTRA_BRAND_USD.studio, 29);
 assert.equal(SEAT_OVERAGE_USD, 15);
 assert.equal(ANNUAL_MONTHS_CHARGED, 10);
 assert.equal(planAnnualAmountUsd("agency"), 2490);
@@ -147,7 +148,7 @@ assert.equal(
     allowsEmailSend: true,
     allowsClientCc: false,
   }),
-  "Client CC requires Agency or Studio.",
+  "Client CC requires Agency, Studio, or Enterprise.",
 );
 assert.equal(
   reportSendBlockedReason({ ccClient: "client@example.com", allowsEmailSend: true, allowsClientCc: true }),
@@ -161,7 +162,7 @@ const starterSend = reportSendDenial({
   allowsClientCc: workspaceEntitlements(paidStarter).allowsClientCc,
 });
 assert.equal(starterSend?.status, 403);
-assert.equal(starterSend?.error, "Email sending requires Agency or Studio.");
+assert.equal(starterSend?.error, "Email sending requires Agency, Studio, or Enterprise.");
 
 const agencySend = reportSendDenial({
   allowsEmailSend: workspaceEntitlements(paidAgency).allowsEmailSend,
@@ -302,5 +303,52 @@ const leftoverTrial = workspaceEntitlements({
 });
 assert.equal(leftoverTrial.paid, false);
 assert.equal(leftoverTrial.trialing, true);
+
+const paidEnterprise = workspaceEntitlements({
+  plan: "enterprise",
+  status: "active",
+  trialEndsAt: null,
+  currentPeriodEnd: new Date(Date.now() + 20 * 86400000),
+});
+assert.equal(paidEnterprise.paid, true);
+assert.equal(paidEnterprise.allowsEmailSend, true);
+assert.equal(paidEnterprise.allowsBulkSend, true);
+assert.equal(paidEnterprise.allowsStudioEngines, true);
+assert.equal(paidEnterprise.allowsCustomSender, true);
+assert.equal(paidEnterprise.allowsApproval, true);
+
+const agencyWithPack = workspaceEntitlements({
+  ...paidAgency,
+  premiumEnginePack: true,
+});
+assert.equal(agencyWithPack.allowsStudioEngines, true);
+assert.equal(workspaceEntitlements(paidAgency).allowsStudioEngines, false);
+
+assert.equal(
+  reportSendDenial({
+    allowsEmailSend: true,
+    allowsClientCc: true,
+    requiresApproval: true,
+    approved: false,
+  })?.status,
+  403,
+);
+assert.equal(
+  reportSendDenial({
+    allowsEmailSend: true,
+    allowsClientCc: true,
+    requiresApproval: true,
+    approved: true,
+  }),
+  null,
+);
+
+const draft = suggestedClientEmail({
+  brand: "Northstar",
+  summary: "Northstar was named in 12 of 20 buyer questions this week.",
+  period: "2026-09-14",
+});
+assert.match(draft.subject, /Northstar/);
+assert.match(draft.body, /12 of 20/);
 
 console.log("entitlements.test.ts ok");

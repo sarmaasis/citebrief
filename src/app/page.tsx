@@ -89,15 +89,15 @@ export default function HomePage() {
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-2 lg:py-24">
           <div>
             <h1 className="font-serif text-[56px] leading-[1.05] tracking-tight text-cb-text lg:text-[64px]">
-              The Friday AI-search report agencies send to clients.
+              The Friday AI-search report your client actually reads.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-cb-muted">
-              CiteBrief checks ChatGPT, Perplexity, Gemini, and Google AI Overviews, then turns the
-              results into a white-label client report with competitor wins, source evidence, and
-              recommended next actions.
+              Track buyer questions across ChatGPT, Perplexity, Gemini, and AI Overviews. Send a
+              white-label PDF with who won, where you were missing, and what to do next. Built for
+              agencies managing multiple clients.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <MarketingPrimaryCta signedOutLabel="Generate your first client report" size="lg" />
+              <MarketingPrimaryCta signedOutLabel="Send a Friday report" size="lg" />
               <Button asChild variant="outline" size="lg">
                 <Link href="/report">View sample report</Link>
               </Button>
@@ -185,7 +185,7 @@ export default function HomePage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <MarketingPrimaryCta signedOutLabel="Generate your first client report" />
+              <MarketingPrimaryCta signedOutLabel="Send a Friday report" />
               <Button asChild variant="outline">
                 <Link href="/pricing">See Agency at ${PLANS.agency.amountUsd}</Link>
               </Button>

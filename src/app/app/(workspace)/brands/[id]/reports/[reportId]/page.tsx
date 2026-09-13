@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { ReportViewer } from "@/components/reports/report-viewer";
 import type { AuditEngineRow } from "@/components/reports/sources-drawer";
 import { prompts, runRows } from "@/db/schema";
+import { opportunityFromRow } from "@/lib/command-center";
 import { workspaceEntitlements } from "@/lib/entitlements";
+import { suggestedClientEmail } from "@/lib/report-writer";
 import { getReportObject } from "@/lib/r2";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -62,6 +64,7 @@ export default async function ReportPage({
       promptText: prompts.text,
       engine: runRows.engine,
       mentioned: runRows.mentioned,
+      nextAction: runRows.nextAction,
       createdAt: runRows.createdAt,
       citedUrls: runRows.citedUrls,
       rawAnswer: runRows.rawAnswer,
@@ -98,6 +101,27 @@ export default async function ReportPage({
 
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
+  const fallbackEmail = suggestedClientEmail({
+    brand: row.brand.name,
+    summary: row.report.summary || "",
+    period: row.run.periodStart,
+  });
+  const reviewActions = [
+    ...new Set(engineRows.map((item) => item.nextAction?.trim()).filter((item): item is string => Boolean(item))),
+  ].slice(0, 3);
+  const opportunity = opportunityFromRow({
+    brand: { id, name: row.brand.name },
+    promptCount: 20,
+    mentionedDelta: null,
+    latestRun: { status: row.run.status },
+    latestReport: {
+      id: row.report.id,
+      sentAt: row.report.sentAt,
+      scoreMentioned: row.report.scoreMentioned,
+      scoreRecommended: row.report.scoreRecommended,
+      scoreTotal: row.report.scoreTotal,
+    },
+  });
 
   return (
     <ReportViewer
@@ -119,7 +143,13 @@ export default async function ReportPage({
       auditRows={auditRows}
       allowClientCc={ent.allowsClientCc}
       allowSend={ent.allowsEmailSend}
+      allowApproval={ent.allowsApproval}
+      approvalState={row.report.approvalState}
       showSources
+      suggestedEmailSubject={row.report.suggestedEmailSubject || fallbackEmail.subject}
+      suggestedEmailBody={row.report.suggestedEmailBody || fallbackEmail.body}
+      reviewActions={reviewActions}
+      upsellNote={opportunity ? `${opportunity.service}: ${opportunity.reason}` : null}
     />
   );
 }

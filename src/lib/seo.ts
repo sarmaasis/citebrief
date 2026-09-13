@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { PLANS } from "@/lib/billing";
 import { LEGAL_ARTICLES, legalBySlug } from "@/lib/legal-articles";
 import { PRICING_FAQS } from "@/lib/pricing-faq";
 import { PUBLIC_ARTICLES, type PublicArticle } from "@/lib/public-articles";
+import { PLANS } from "@/lib/billing";
+import { PUBLIC_PLAN_OFFERS } from "@/lib/public-pricing";
 
 export { PRICING_FAQS } from "@/lib/pricing-faq";
 
@@ -31,12 +32,11 @@ export type IndexablePath = (typeof INDEXABLE_PATHS)[number];
 /** Private or authenticated surfaces that must not be crawled. */
 export const ROBOTS_DISALLOW = ["/app/", "/api/", "/r/", "/invite/"] as const;
 
-/** List prices and Agency limits from billing.ts (AGENCY_PLAN_UPDATE.md, 14 Sep 2026). */
-export const SEO_PLAN_OFFERS = [
-  { name: PLANS.starter.name, price: PLANS.starter.amountUsd, brands: PLANS.starter.brands, cadence: "Monthly reports" },
-  { name: PLANS.agency.name, price: PLANS.agency.amountUsd, brands: PLANS.agency.brands, cadence: "Weekly Friday reports" },
-  { name: PLANS.studio.name, price: PLANS.studio.amountUsd, brands: PLANS.studio.brands, cadence: "Weekly Friday reports" },
-] as const;
+/**
+ * Public list prices from PRODUCT.md §11. /pricing stays three plans + FAQ.
+ * Enterprise is named in meta only (custom contract, no public checkout URL).
+ */
+export const SEO_PLAN_OFFERS = PUBLIC_PLAN_OFFERS;
 
 export const PAGE_COPY = {
   home: {
@@ -48,7 +48,7 @@ export const PAGE_COPY = {
   pricing: {
     path: "/pricing" as const,
     title: "Simple pricing for agency retainers",
-    description: `Starter $${PLANS.starter.amountUsd}, Agency $${PLANS.agency.amountUsd}, Studio $${PLANS.studio.amountUsd}. Agency includes weekly white-label Friday reports for ${PLANS.agency.brands} client brands. Not a $29 vanity score.`,
+    description: `Starter $${PLANS.starter.amountUsd}, Agency $${PLANS.agency.amountUsd}, Studio $${PLANS.studio.amountUsd}. Agency includes weekly white-label Friday reports for ${PLANS.agency.brands} client brands. Enterprise from $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}. Not a $29 vanity score.`,
   },
   report: {
     path: "/report" as const,
@@ -247,7 +247,7 @@ function softwareApplicationNode() {
     featureList: [
       "White-label Friday PDF reports",
       "Buyer questions across ChatGPT, Perplexity, Gemini, and Google AI Overviews",
-      `Weekly reports for ${PLANS.agency.brands} Agency client brands`,
+      `Weekly reports for ${SEO_PLAN_OFFERS[1].brands} Agency client brands`,
       "Private client links",
       "Recommended next actions on each report",
     ],
