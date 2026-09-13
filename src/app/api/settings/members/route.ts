@@ -20,9 +20,14 @@ export async function GET() {
     .select()
     .from(workspaceInvites)
     .where(eq(workspaceInvites.workspaceId, ctx.workspace.id));
+  const now = Date.now();
+  const activePending = invites.filter(
+    (invite) => invite.acceptedAt == null && invite.expiresAt.getTime() >= now,
+  );
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const seatCap = planSeatCap(sub?.plan || "agency");
-  return jsonOk({ members, invites, seatCap, seatsUsed: members.length });
+  const seatsUsed = members.length + activePending.length;
+  return jsonOk({ members, invites, seatCap, seatsUsed });
 }
 
 export async function POST(request: Request) {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
 
 export function MembersForm() {
   const [email, setEmail] = useState("");
@@ -65,15 +65,14 @@ export function MembersForm() {
     <div className="space-y-6">
       {seatCap != null && seatsUsed != null ? (
         <p className="text-sm text-cb-muted">
-          Seats: {seatsUsed}/{seatCap}
+          Seats: {seatsUsed}/{seatCap} (members + pending invites)
         </p>
       ) : null}
       {showSeatUpgrade ? (
         <UpgradePrompt
-          title="You hit the Agency seat cap"
-          body="Studio includes 10 seats so larger account teams can share brands and Friday reports."
-          cta="Upgrade to Studio"
-          href="/app/settings/billing"
+          title={UPGRADE_COPY.fourthSeatAgency.title}
+          body={UPGRADE_COPY.fourthSeatAgency.body}
+          cta={UPGRADE_COPY.fourthSeatAgency.cta}
           onDismiss={() => setShowSeatUpgrade(false)}
         />
       ) : null}

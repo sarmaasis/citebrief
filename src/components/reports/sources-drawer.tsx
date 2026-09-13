@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 
 export type AuditEngineRow = {
@@ -70,26 +71,17 @@ export function SourcesDrawer({
                   <p className="text-sm font-medium text-cb-text">{engineRows[0]?.promptText}</p>
                   {engineRows.map((row) => {
                     const key = `${row.promptId}:${row.engine}`;
-                    const named =
+                    const namedLabel =
                       row.mentioned == null ? "Pending" : row.mentioned ? "Named" : "Missing";
+                    const namedStatus =
+                      row.mentioned == null ? "running" : row.mentioned ? "named" : "missing";
                     return (
                       <div key={key} className="rounded-cb-control border border-cb-line bg-cb-bg p-3">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-xs font-medium uppercase tracking-wide text-cb-muted">
                             {row.engine}
                           </p>
-                          <span
-                            className={cn(
-                              "text-xs font-medium",
-                              named === "Named"
-                                ? "text-cb-named"
-                                : named === "Missing"
-                                  ? "text-cb-missing"
-                                  : "text-cb-pending",
-                            )}
-                          >
-                            {named}
-                          </span>
+                          <StatusPill status={namedStatus}>{namedLabel}</StatusPill>
                         </div>
                         {row.createdAt ? (
                           <p className="mt-1 font-mono text-[11px] tabular-nums text-cb-muted">
