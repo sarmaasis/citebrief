@@ -38,7 +38,7 @@ export default async function BrandsPage({
             Logo, site, competitors, vertical. Duplicate a live client. Archive when a retainer ends.
           </p>
         </div>
-        {atCap ? null : (
+        {atCap || rows.length === 0 ? null : (
           <Button asChild>
             <Link href="/app/onboarding">Add a brand</Link>
           </Button>
@@ -78,7 +78,8 @@ export default async function BrandsPage({
 
       {rows.length === 0 ? (
         <EmptyState
-          line="Add a brand to start the first Friday report."
+          title="No brands yet"
+          line="Start the first Friday report."
           cta="Add a brand"
           href="/app/onboarding"
         />

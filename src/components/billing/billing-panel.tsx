@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogActions, DialogCloseButton } from "@/components/ui/dialog";
-import { EXTRA_BRAND_USD, EXTRA_RUN_USD, PLANS, SEAT_OVERAGE_USD, type PlanId } from "@/lib/billing";
+import { EXTRA_BRAND_USD, EXTRA_RUN_USD, PLANS, SEAT_OVERAGE_USD, TRIAL_DAYS, TRIAL_RUN_CAP, type PlanId } from "@/lib/billing";
 import { cn } from "@/lib/utils";
 
 const PLAN_VALUE: Record<PlanId, string[]> = {
@@ -94,10 +94,16 @@ export function BillingPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [annual, setAnnual] = useState(usage.billingInterval === "annual");
-  const planId = (usage.plan in PLANS ? usage.plan : "starter") as PlanId;
+  const selectedPlan = (usage.plan in PLANS ? usage.plan : "starter") as PlanId;
   const isTrialing = usage.trialing;
+  const isPaid = usage.paid;
   const paymentFailed = usage.status === "failed" || usage.status === "past_due";
-  const extraBrandPrice = EXTRA_BRAND_USD[planId];
+  const extraBrandPrice = EXTRA_BRAND_USD[selectedPlan];
+  const canBuyAddons = isPaid;
+  const canBuyExtraBrand = isPaid && usage.allowsExtraBrands;
+  const canBuyExtraSeat = isPaid && usage.allowsMembers;
+  const showUpgradeToAgency = isPaid && selectedPlan === "starter";
+  const selectedName = PLANS[selectedPlan].name;
 
   async function checkout(plan: PlanId) {
     if (!canManage) return;
@@ -211,21 +217,21 @@ export function BillingPanel({
     <div className="space-y-8">
       {isTrialing ? (
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-4">
-          <p className="text-sm font-medium text-cb-text">14-day trial</p>
+          <p className="text-sm font-medium text-cb-text">{TRIAL_DAYS}-day trial</p>
           <p className="mt-1 text-sm text-cb-muted">
             One brand and one full report
             {usage.trialEndsAt ? ` · ends ${usage.trialEndsAt}` : ""}. Weekly sending, members, and client CC start on a
-            paid plan.
+            paid plan. {selectedName} is selected for after the trial.
           </p>
         </div>
       ) : null}
 
-      {!usage.paid && !isTrialing ? (
+      {!isPaid && !isTrialing ? (
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-4">
           <p className="text-sm font-medium text-cb-text">No paid plan yet</p>
           <p className="mt-1 text-sm text-cb-muted">
-            Trial and unpaid workspaces stay on one brand and one seat. Agency is the usual pick for weekly Friday
-            reports.
+            One brand and one seat until you subscribe. {selectedName} is selected. Agency is the usual pick for weekly
+            Friday reports.
           </p>
         </div>
       ) : null}
@@ -246,16 +252,24 @@ export function BillingPanel({
 
       <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
         <p className="text-xs text-cb-muted">Current plan</p>
-        <p className="mt-2 text-lg font-semibold">{PLANS[planId].name}</p>
-        <p className="mt-1 text-sm capitalize text-cb-muted">
-          {usage.status === "none" ? "No paid plan yet" : usage.status}
-          {usage.paid ? ` · ${usage.billingInterval}` : ""}
+        <p className="mt-2 text-lg font-semibold">
+          {isTrialing ? `${TRIAL_DAYS}-day trial` : isPaid ? selectedName : "No paid plan yet"}
         </p>
+        <p className="mt-1 text-sm text-cb-muted">
+          {isTrialing
+            ? `Continues as ${selectedName} after trial`
+            : isPaid
+              ? `${usage.status} · ${usage.billingInterval}`
+              : `${selectedName} selected`}
+        </p>
+        {isTrialing && usage.trialEndsAt ? (
+          <p className="mt-2 text-sm text-cb-muted">Trial ends {usage.trialEndsAt}.</p>
+        ) : null}
         {usage.cancelAtPeriodEnd ? (
           <p className="mt-2 text-sm text-cb-pending">
             Cancels at period end{usage.currentPeriodEnd ? ` (${usage.currentPeriodEnd})` : ""}. PDFs stay 90 days.
           </p>
-        ) : usage.currentPeriodEnd ? (
+        ) : isPaid && usage.currentPeriodEnd ? (
           <p className="mt-2 text-sm text-cb-muted">Current period ends {usage.currentPeriodEnd}.</p>
         ) : null}
 
@@ -264,43 +278,64 @@ export function BillingPanel({
             label="Brands"
             used={usage.brandsUsed}
             cap={usage.brandLimit}
-            hint={`${usage.brandsIncluded} included${usage.extraBrandBillable ? ` · ${usage.extraBrandBillable} extra billed` : ""}`}
+            hint={
+              isTrialing
+                ? "Trial includes 1 brand"
+                : !isPaid
+                  ? "1 brand until you subscribe"
+                  : `${usage.brandsIncluded} included${usage.extraBrandBillable ? ` · ${usage.extraBrandBillable} extra billed` : ""}`
+            }
           />
           <UsageMeter
             label="Seats"
             used={usage.seatsUsed}
             cap={usage.seatCap}
-            hint={`${usage.seatsIncluded} included${usage.extraSeats ? ` · ${usage.extraSeats} extra at $${SEAT_OVERAGE_USD}/mo` : ""}`}
+            hint={
+              isTrialing
+                ? "Trial includes 1 seat"
+                : !isPaid
+                  ? "1 seat until you subscribe"
+                  : `${usage.seatsIncluded} included${usage.extraSeats ? ` · ${usage.extraSeats} extra at $${SEAT_OVERAGE_USD}/mo` : ""}`
+            }
           />
           <div>
             <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm text-cb-text">Runs this period</p>
-              <p className="font-mono text-xs tabular-nums text-cb-muted">{usage.runsUsed}</p>
+              <p className="text-sm text-cb-text">{isPaid ? "Runs this period" : isTrialing ? "Trial reports" : "Reports"}</p>
+              <p className="font-mono text-xs tabular-nums text-cb-muted">
+                {!isPaid ? `${usage.runsUsed}/${TRIAL_RUN_CAP}` : usage.runsUsed}
+              </p>
             </div>
             <p className="mt-3 text-xs text-cb-muted">
-              {usage.extraRuns
-                ? `${Math.max(0, usage.runsUsed - usage.extraRuns)} included · ${usage.extraRuns} extra at $${EXTRA_RUN_USD[planId]}`
-                : "Included weekly runs do not invoice extra."}
-              {usage.extraRunCredits ? ` · ${usage.extraRunCredits} extra-run credit${usage.extraRunCredits === 1 ? "" : "s"}` : ""}
+              {!isPaid
+                ? `Trial includes ${TRIAL_RUN_CAP} full report. Extra runs start on a paid plan.`
+                : usage.extraRuns
+                  ? `${Math.max(0, usage.runsUsed - usage.extraRuns)} included · ${usage.extraRuns} extra at $${EXTRA_RUN_USD[selectedPlan]}`
+                  : "Included weekly runs do not invoice extra."}
+              {isPaid && usage.extraRunCredits
+                ? ` · ${usage.extraRunCredits} extra-run credit${usage.extraRunCredits === 1 ? "" : "s"}`
+                : ""}
             </p>
           </div>
         </div>
 
         <p className="mt-5 text-xs text-cb-muted">
-          Included usage is on the plan. Extra brands, seats, and runs show as billable before they charge. Invoices
-          live in the billing portal.
+          {isPaid
+            ? "Included usage is on the plan. Extra brands, seats, and runs show as billable before they charge. Invoices live in the billing portal."
+            : "These meters are trial limits, not Agency/Starter/Studio entitlements. Subscribe below to unlock the selected plan."}
         </p>
 
         {canManage ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void openPortal()}>
-              {busy === "portal" ? "Opening…" : "Open billing portal"}
-            </Button>
+            {isPaid ? (
+              <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void openPortal()}>
+                {busy === "portal" ? "Opening…" : "Open billing portal"}
+              </Button>
+            ) : null}
             {usage.cancelAtPeriodEnd ? (
               <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void toggleCancel(false)}>
                 Keep subscription
               </Button>
-            ) : usage.paid ? (
+            ) : isPaid ? (
               <Button type="button" variant="outline" disabled={busy !== null} onClick={() => setCancelOpen(true)}>
                 Cancel at period end
               </Button>
@@ -314,12 +349,13 @@ export function BillingPanel({
       <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
         <p className="text-sm font-medium">Add-ons</p>
         <p className="mt-1 text-sm text-cb-muted">
-          Extra brand ${extraBrandPrice}/mo on Agency and Studio. Extra seat ${SEAT_OVERAGE_USD}/mo after the seat cap.
-          Extra run ${EXTRA_RUN_USD[planId]} when you pass included re-runs.
+          {canBuyAddons
+            ? `Extra brand $${extraBrandPrice}/mo on Agency and Studio. Extra seat $${SEAT_OVERAGE_USD}/mo after the seat cap. Extra run $${EXTRA_RUN_USD[selectedPlan]} when you pass included re-runs.`
+            : "Extra brand, seat, and run are paid-plan expansion. Subscribe first — trial stays one brand, one seat, and one report."}
         </p>
-        {canManage ? (
+        {canManage && canBuyAddons ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            {usage.allowsExtraBrands ? (
+            {canBuyExtraBrand ? (
               <Button
                 type="button"
                 variant="outline"
@@ -328,18 +364,18 @@ export function BillingPanel({
               >
                 {busy === "extra_brand" ? "Starting…" : `Add extra brand · $${extraBrandPrice}/mo`}
               </Button>
-            ) : (
+            ) : showUpgradeToAgency ? (
               <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void checkout("agency")}>
                 Need more brands? Upgrade to Agency
               </Button>
-            )}
-            {usage.allowsMembers ? (
+            ) : null}
+            {canBuyExtraSeat ? (
               <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void buyAddon("extra_seat")}>
                 {busy === "extra_seat" ? "Starting…" : `Add extra seat · $${SEAT_OVERAGE_USD}/mo`}
               </Button>
             ) : null}
             <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void buyAddon("extra_run")}>
-              {busy === "extra_run" ? "Starting…" : `Buy extra run · $${EXTRA_RUN_USD[planId]}`}
+              {busy === "extra_run" ? "Starting…" : `Buy extra run · $${EXTRA_RUN_USD[selectedPlan]}`}
             </Button>
           </div>
         ) : null}
@@ -372,26 +408,38 @@ export function BillingPanel({
           </div>
         </div>
         <p className="mb-4 text-xs text-cb-muted">
-          Annual is 10 months prepaid. Choosing a plan starts checkout for the interval selected above.
+          {isTrialing
+            ? `Annual is 10 months prepaid. Subscribe to start ${selectedName} after the trial — this does not unlock Agency limits until payment succeeds.`
+            : "Annual is 10 months prepaid. Choosing a plan starts checkout for the interval selected above."}
         </p>
         <div className="grid gap-4 md:grid-cols-3">
           {(Object.keys(PLANS) as PlanId[]).map((id) => {
             const plan = PLANS[id];
             const recommended = id === "agency";
+            const selectedForAfterTrial = !isPaid && selectedPlan === id;
             const sameInterval = annual === (usage.billingInterval === "annual");
-            const isCurrent = usage.paid && usage.plan === id && sameInterval && !isTrialing;
+            const isCurrent = isPaid && usage.plan === id && sameInterval && !isTrialing;
             const monthly = plan.amountUsd;
             const display = annual ? Math.round((monthly * 10) / 12) : monthly;
+            const cta = isCurrent
+              ? "Current plan"
+              : isTrialing && selectedForAfterTrial
+                ? `Continue with ${plan.name}`
+                : `Choose ${plan.name}`;
             return (
               <div
                 key={id}
                 className={`rounded-cb-card border bg-cb-surface p-5 ${
-                  recommended ? "border-cb-accent" : "border-cb-line"
+                  recommended || selectedForAfterTrial ? "border-cb-accent" : "border-cb-line"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">{plan.name}</p>
-                  {recommended ? <span className="text-xs text-cb-accent">Usual pick</span> : null}
+                  {isTrialing && selectedForAfterTrial ? (
+                    <span className="text-xs text-cb-accent">After trial</span>
+                  ) : recommended ? (
+                    <span className="text-xs text-cb-accent">Usual pick</span>
+                  ) : null}
                 </div>
                 <p className="mt-2 font-mono text-2xl tabular-nums text-cb-accent">${display}</p>
                 <p className="mt-1 text-xs text-cb-muted">{annual ? "per month, billed annually" : "per month"}</p>
@@ -402,11 +450,11 @@ export function BillingPanel({
                 </ul>
                 <Button
                   className="mt-4 w-full"
-                  variant={recommended ? "default" : "outline"}
+                  variant={recommended || selectedForAfterTrial ? "default" : "outline"}
                   disabled={busy !== null || isCurrent || !canManage}
                   onClick={() => void checkout(id)}
                 >
-                  {busy === id ? "Starting…" : isCurrent ? "Current plan" : `Choose ${plan.name}`}
+                  {busy === id ? "Starting…" : cta}
                 </Button>
               </div>
             );

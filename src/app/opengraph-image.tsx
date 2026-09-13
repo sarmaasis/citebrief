@@ -19,8 +19,66 @@ export default function OpenGraphImage() {
           padding: "72px 80px",
         }}
       >
-        <div style={{ display: "flex", fontSize: 24, fontWeight: 600, color: "#0B3D2E", letterSpacing: -0.4 }}>
-          CiteBrief
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "#0B3D2E",
+              borderRadius: 8,
+            }}
+          >
+            <div
+              style={{
+                width: 18,
+                height: 22,
+                display: "flex",
+                flexDirection: "column",
+                backgroundColor: "#FAFAF8",
+                borderRadius: 2,
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  width: 6,
+                  height: 6,
+                  backgroundColor: "#C5D4CE",
+                }}
+              />
+              <div
+                style={{
+                  marginTop: 9,
+                  marginLeft: 3,
+                  width: 12,
+                  height: 2,
+                  backgroundColor: "#0B3D2E",
+                  borderRadius: 1,
+                }}
+              />
+              <div
+                style={{
+                  marginTop: 2,
+                  marginLeft: 3,
+                  width: 8,
+                  height: 2,
+                  backgroundColor: "#0B3D2E",
+                  opacity: 0.45,
+                  borderRadius: 1,
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ display: "flex", fontSize: 24, fontWeight: 600, color: "#0B3D2E", letterSpacing: -0.4 }}>
+            CiteBrief
+          </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div

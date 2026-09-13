@@ -59,7 +59,9 @@ export function AppSidebar({
         {impersonating ? (
           <p className="mb-2 text-xs text-cb-pending">Support view</p>
         ) : null}
-        <p className="text-sm font-medium text-cb-text">{workspaceName}</p>
+        <p className="text-sm font-medium text-cb-text">
+          {workspaceName.trim().toLowerCase() === "citebrief" ? "Your workspace" : workspaceName}
+        </p>
         <p className="mt-1 text-xs text-cb-muted">{userLabel}</p>
         {roleLabel ? <p className="mt-1 text-xs capitalize text-cb-muted">{roleLabel}</p> : null}
       </div>

@@ -45,14 +45,10 @@ export default async function AppHomePage() {
   if (rows.length === 0) {
     return (
       <div>
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-tight">Home</h1>
-          <Button asChild>
-            <Link href="/app/onboarding">Add a brand</Link>
-          </Button>
-        </div>
+        <h1 className="mb-8 text-xl font-semibold tracking-tight">Home</h1>
         <EmptyState
-          line="Add a brand to start the first Friday report."
+          title="No brands yet"
+          line="Start the first Friday report."
           cta="Add a brand"
           href="/app/onboarding"
         />

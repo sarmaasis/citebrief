@@ -157,7 +157,7 @@ export const metadataPages = {
 
 export const appMetadata: Metadata = {
   title: {
-    default: SITE_NAME,
+    absolute: SITE_NAME,
     template: `%s · ${SITE_NAME}`,
   },
   description: "CiteBrief workspace",

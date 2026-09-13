@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CiteBriefMark } from "@/components/brand/mark";
 import { cn } from "@/lib/utils";
 
 export function Logo({
@@ -13,9 +14,13 @@ export function Logo({
   return (
     <Link
       href={href}
-      className={cn("text-sm font-semibold tracking-tight", muted ? "text-cb-muted" : "text-cb-text", className)}
+      aria-label="CiteBrief"
+      className={cn("inline-flex items-center gap-2", className)}
     >
-      CiteBrief
+      <CiteBriefMark className={cn("h-6 w-6", muted && "opacity-70")} />
+      <span className={cn("text-sm font-semibold tracking-tight", muted ? "text-cb-muted" : "text-cb-text")}>
+        CiteBrief
+      </span>
     </Link>
   );
 }

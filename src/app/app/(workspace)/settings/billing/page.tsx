@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BillingPanel } from "@/components/billing/billing-panel";
 import { formatShortDate } from "@/lib/friday";
 import { canManageBilling } from "@/lib/permissions";
 import { getAppContext } from "@/lib/session";
 import { getUsageSnapshot } from "@/lib/usage";
+
+export const metadata: Metadata = { title: "Billing" };
 
 export default async function BillingSettingsPage() {
   const ctx = await getAppContext();
@@ -18,7 +21,7 @@ export default async function BillingSettingsPage() {
     <div>
       <h1 className="text-xl font-semibold tracking-tight">Billing</h1>
       <p className="mt-3 text-sm text-cb-muted">
-        Plan, included usage, and expansion. Agency is the usual pick for weekly Friday reports. Invoices and
+        Trial limits now, paid plan next. Agency is the usual pick for weekly Friday reports. Invoices and
         cards live in the billing portal.
       </p>
       <div className="mt-8">

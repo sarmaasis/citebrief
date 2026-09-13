@@ -67,11 +67,7 @@ export function AppTopBar({
               ))}
             </NativeSelect>
           </label>
-        ) : (
-          <Link href="/app/onboarding" className="text-sm text-cb-muted hover:text-cb-accent">
-            Add a brand to switch clients
-          </Link>
-        )}
+        ) : null}
         {error ? <span className="truncate text-xs text-cb-danger">{error}</span> : null}
       </div>
       <div className="flex items-center gap-3">
@@ -79,11 +75,7 @@ export function AppTopBar({
           <Button type="button" onClick={() => void runNow()} disabled={pending}>
             {pending ? "Queuing…" : "Run now"}
           </Button>
-        ) : (
-          <Button asChild>
-            <Link href="/app/onboarding">Add a brand</Link>
-          </Button>
-        )}
+        ) : null}
         {signedIn ? (
           <UserMenu userLabel={userLabel} roleLabel={roleLabel} />
         ) : (
