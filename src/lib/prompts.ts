@@ -142,29 +142,25 @@ export function generatePromptPack(input: PromptPackInput): PromptDraft[] {
   }));
 }
 
-export async function generatePromptPackMaybeLlm(input: PromptPackInput): Promise<{
+export async function generatePromptPackMaybeLlm(
+  input: PromptPackInput,
+  env?: CloudflareEnv,
+  metadata?: {
+    workspace_id?: string;
+    brand_id?: string;
+    plan?: string;
+  },
+): Promise<{
   prompts: PromptDraft[];
   source: "template" | "llm";
 }> {
-  const key = process.env.OPENAI_API_KEY || process.env.WORKERS_AI_API_KEY;
-  if (!key || key === "stub" || key.startsWith("stub-")) {
+  const { aiGatewayRequest, isAiGatewayConfigured, promptHash } = await import("@/lib/ai-gateway");
+  if (!isAiGatewayConfigured(env)) {
     return { prompts: generatePromptPack(input), source: "template" };
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0.4,
-        messages: [
-          {
-            role: "user",
-            content: `You build a 20-prompt tracking set for AI-search buyer questions.
+    const userContent = `You build a 20-prompt tracking set for AI-search buyer questions.
 
 Category: ${input.category}
 Buyer: ${input.buyer}
@@ -180,17 +176,30 @@ Discovery, Comparison, Job/constraint, Switch/risk, Incumbent-seeded.
 
 No brand vanity ("does ChatGPT mention X").
 No keywords. Full questions a person would type.
-Include the year on every "best" prompt.`,
-          },
-        ],
-      }),
+Include the year on every "best" prompt.`;
+
+    const result = await aiGatewayRequest({
+      env,
+      provider: "openai",
+      path: "/chat/completions",
+      body: {
+        model: "gpt-4o-mini",
+        temperature: 0.4,
+        messages: [{ role: "user", content: userContent }],
+      },
+      metadata: {
+        workspace_id: metadata?.workspace_id,
+        brand_id: metadata?.brand_id,
+        engine: "prompt-writer",
+        plan: metadata?.plan,
+        prompt_hash: promptHash(userContent),
+        cache_policy: "fresh",
+      },
     });
-    if (!response.ok) {
+    if (result.stub) {
       return { prompts: generatePromptPack(input), source: "template" };
     }
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = data.choices?.[0]?.message?.content ?? "";
-    const parsed = parseNumberedPrompts(content);
+    const parsed = parseNumberedPrompts(result.text);
     if (parsed.length === PROMPT_COUNT) {
       return { prompts: parsed, source: "llm" };
     }

@@ -15,6 +15,8 @@ export function BillingPanel({
   extraBrands,
   extraRuns,
   currentPeriodEnd,
+  seatsUsed,
+  seatCap,
 }: {
   currentPlan: string;
   status: string;
@@ -26,6 +28,8 @@ export function BillingPanel({
   extraBrands: number;
   extraRuns: number;
   currentPeriodEnd: string | null;
+  seatsUsed: number;
+  seatCap: number;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -129,8 +133,8 @@ export function BillingPanel({
           </p>
         ) : null}
         <p className="mt-4 text-sm text-cb-text">
-          Usage: {brandsUsed}/{brandLimit} brands · {runsUsed} runs this period · {extraBrands} extra brands ·{" "}
-          {extraRuns} metered extra runs
+          Usage: {brandsUsed}/{brandLimit} brands · {seatsUsed}/{seatCap} seats · {runsUsed} runs this period ·{" "}
+          {extraBrands} extra brands · {extraRuns} metered extra runs
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void openPortal()}>
@@ -178,7 +182,7 @@ export function BillingPanel({
               <p className="text-sm font-medium">{plan.name}</p>
               <p className="mt-2 font-mono text-2xl tabular-nums text-cb-accent">${plan.amountUsd}</p>
               <p className="mt-1 text-xs text-cb-muted">
-                per month · {plan.brands} brands · {plan.cadence}
+                per month · {plan.brands} brands · {plan.seats} seats · {plan.cadence}
               </p>
               <Button
                 className="mt-4 w-full"

@@ -27,12 +27,12 @@ interface CloudflareEnv {
   CRON_SECRET?: string;
   INTERNAL_ADMIN_SECRET?: string;
   NEXTJS_ENV?: string;
-  OPENAI_API_KEY?: string;
-  PERPLEXITY_API_KEY?: string;
-  GEMINI_API_KEY?: string;
-  ANTHROPIC_API_KEY?: string;
-  XAI_API_KEY?: string;
-  GROK_API_KEY?: string;
+  /** Cloudflare account id for AI Gateway and Browser Rendering. */
   CF_ACCOUNT_ID?: string;
+  /** Cloudflare AI Gateway id. Missing/stub → deterministic engine stubs. */
+  AI_GATEWAY_ID?: string;
+  /** Scoped token for AI Gateway / Workers AI calls. */
+  CF_AI_GATEWAY_TOKEN?: string;
+  /** Optional token for Browser Rendering REST (AIO). Not used for LLM providers. */
   CF_API_TOKEN?: string;
 }

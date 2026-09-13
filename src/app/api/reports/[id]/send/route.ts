@@ -1,7 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq } from "drizzle-orm";
 import { brands, reports, workspaces } from "@/db/schema";
-import { planAllowsSlack } from "@/lib/billing";
+import { planAllowsClientCc, planAllowsSlack } from "@/lib/billing";
 import { sendTransactionalEmail } from "@/lib/email";
 import { getAppContext } from "@/lib/session";
 import { postSlackIncomingWebhook } from "@/lib/slack";
@@ -43,6 +43,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   });
 
   if (body.ccClient?.trim()) {
+    const subForCc = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+    if (!planAllowsClientCc(subForCc?.plan || "agency")) {
+      return jsonError("Client CC requires Agency or Studio.", 403);
+    }
     await sendTransactionalEmail({
       to: body.ccClient.trim(),
       subject: `${row.brandName}: this week's visibility report`,

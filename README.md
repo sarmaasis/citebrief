@@ -95,7 +95,7 @@ Optional add-on engines on **Studio**. Soft-fail still requires ≥3 of 4 **core
 
 ## Live engines
 
-Adapters live in `src/lib/engine-adapters.ts`. Soft-fail ≥3/4 is unchanged in `processRun`. Production adapters should call Cloudflare AI Gateway, not provider APIs directly.
+Adapters live in `src/lib/engine-adapters.ts`. Product soft-fail cache is D1 `engine_cache` (wins for repeated prompt×engine). Gateway edge cache is additive via `cache_policy`. Soft-fail ≥3/4 is unchanged in `processRun`. Production adapters should call Cloudflare AI Gateway, not provider APIs directly.
 
 | Engine | Gateway path / binding | Behavior when unset |
 |---|---|---|

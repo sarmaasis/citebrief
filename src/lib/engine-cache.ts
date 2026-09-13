@@ -1,3 +1,8 @@
+/**
+ * Product D1 cache for prompt×engine answers (24h).
+ * Soft-fail path reads this first. Cloudflare AI Gateway edge cache is additive
+ * and does not replace this table.
+ */
 import { and, eq, gt } from "drizzle-orm";
 import type { Database } from "@/db";
 import { engineCache } from "@/db/schema";

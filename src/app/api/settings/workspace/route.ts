@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { workspaces } from "@/db/schema";
-import { planAllowsSlack } from "@/lib/billing";
+import { planAllowsCustomSender, planAllowsSlack } from "@/lib/billing";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { jsonError, jsonOk } from "@/server/json";
@@ -22,6 +22,10 @@ export async function PUT(request: Request) {
 
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   let slackWebhookUrl = body.slackWebhookUrl?.trim() || null;
+  const senderName = body.senderName?.trim() || null;
+  if (senderName && senderName !== "CiteBrief" && !planAllowsCustomSender(sub?.plan || "agency")) {
+    return jsonError("Custom sender requires Studio.", 403);
+  }
   if (slackWebhookUrl && !planAllowsSlack(sub?.plan || "agency")) {
     return jsonError("Slack webhook requires Agency or Studio.", 402);
   }
@@ -34,7 +38,7 @@ export async function PUT(request: Request) {
     .set({
       name,
       timezone: body.timezone?.trim() || "America/New_York",
-      senderName: body.senderName?.trim() || null,
+      senderName,
       defaultEngines: body.defaultEngines?.trim() || null,
       slackWebhookUrl,
       updatedAt: new Date(),

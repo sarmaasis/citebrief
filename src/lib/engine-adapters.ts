@@ -1,5 +1,12 @@
 import type { EngineId } from "@/lib/engines";
 import { isStubSecret } from "@/lib/billing";
+import {
+  aiGatewayRequest,
+  isAiGatewayConfigured,
+  promptHash,
+  type AiGatewayCachePolicy,
+  type AiGatewayMetadata,
+} from "@/lib/ai-gateway";
 
 export type EngineQueryInput = {
   engine: EngineId;
@@ -8,12 +15,21 @@ export type EngineQueryInput = {
   competitors: string[];
   buyer?: string | null;
   env?: CloudflareEnv;
+  metadata?: {
+    workspace_id?: string;
+    brand_id?: string;
+    run_id?: string;
+    plan?: string;
+    cache_policy?: AiGatewayCachePolicy;
+  };
 };
 
 export type EngineQueryResult = {
   rawAnswer: string;
   stubbed: boolean;
   latencyMs: number;
+  gatewayRequestId?: string | null;
+  confidence?: "low" | "medium" | "high" | null;
 };
 
 const SYSTEM_HINTS: Record<EngineId, string> = {
@@ -61,26 +77,6 @@ function pick<T>(items: T[], seed: number, salt: number): T {
   return items[(seed + salt) % items.length]!;
 }
 
-function openaiKey(env?: CloudflareEnv) {
-  return env?.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-}
-
-function perplexityKey(env?: CloudflareEnv) {
-  return env?.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY;
-}
-
-function geminiKey(env?: CloudflareEnv) {
-  return env?.GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-}
-
-function anthropicKey(env?: CloudflareEnv) {
-  return env?.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-}
-
-function xaiKey(env?: CloudflareEnv) {
-  return env?.XAI_API_KEY || process.env.XAI_API_KEY || env?.GROK_API_KEY || process.env.GROK_API_KEY;
-}
-
 function aioConfigured(env?: CloudflareEnv) {
   if (!env) return false;
   if (env.BROWSER) return true;
@@ -89,23 +85,34 @@ function aioConfigured(env?: CloudflareEnv) {
   return Boolean(account && token && !isStubSecret(account) && !isStubSecret(token));
 }
 
+/**
+ * LLM engines need AI Gateway. AIO uses Browser Rendering only.
+ */
 export function isEngineApiConfigured(engine: EngineId, env?: CloudflareEnv): boolean {
   switch (engine) {
     case "chatgpt":
-      return !isStubSecret(openaiKey(env));
     case "perplexity":
-      return !isStubSecret(perplexityKey(env));
     case "gemini":
-      return !isStubSecret(geminiKey(env));
+    case "claude":
+    case "grok":
+      return isAiGatewayConfigured(env);
     case "aio":
       return aioConfigured(env);
-    case "claude":
-      return !isStubSecret(anthropicKey(env));
-    case "grok":
-      return !isStubSecret(xaiKey(env));
     default:
       return false;
   }
+}
+
+function buildMetadata(input: EngineQueryInput): AiGatewayMetadata {
+  return {
+    workspace_id: input.metadata?.workspace_id,
+    brand_id: input.metadata?.brand_id,
+    run_id: input.metadata?.run_id,
+    engine: input.engine,
+    plan: input.metadata?.plan,
+    prompt_hash: promptHash(input.prompt),
+    cache_policy: input.metadata?.cache_policy || "fresh",
+  };
 }
 
 async function stubAnswer(input: EngineQueryInput): Promise<EngineQueryResult> {
@@ -140,158 +147,97 @@ async function stubAnswer(input: EngineQueryInput): Promise<EngineQueryResult> {
     rawAnswer,
     stubbed: true,
     latencyMs: Date.now() - started,
+    gatewayRequestId: null,
+    confidence: "low",
   };
 }
 
-async function queryChatGPT(input: EngineQueryInput, key: string): Promise<string> {
-  const buyer = input.buyer || "a buyer";
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4.1-mini",
-      tools: [{ type: "web_search_preview" }],
-      input: [
-        { role: "developer", content: ENGINE_SYSTEM.chatgpt },
-        { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
-      ],
-    }),
+async function queryViaGateway(
+  input: EngineQueryInput,
+  provider: "openai" | "perplexity" | "google" | "anthropic" | "xai",
+  path: string,
+  body: unknown,
+  extraHeaders?: Record<string, string>,
+): Promise<{ text: string; gatewayRequestId: string | null }> {
+  const result = await aiGatewayRequest({
+    env: input.env,
+    provider,
+    path,
+    body,
+    headers: extraHeaders,
+    metadata: buildMetadata(input),
   });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`OpenAI ${response.status}: ${detail.slice(0, 400)}`);
+  if (result.stub) {
+    throw new Error(result.reason);
   }
-  const data = (await response.json()) as {
-    output_text?: string;
-    output?: Array<{ content?: Array<{ text?: string; type?: string }> }>;
-  };
-  if (data.output_text?.trim()) return data.output_text.trim();
-  const chunks: string[] = [];
-  for (const item of data.output || []) {
-    for (const part of item.content || []) {
-      if (part.text) chunks.push(part.text);
-    }
-  }
-  const text = chunks.join("\n").trim();
-  if (!text) throw new Error("OpenAI response missing text");
-  return text;
+  return { text: result.text, gatewayRequestId: result.gatewayRequestId };
 }
 
-async function queryPerplexity(input: EngineQueryInput, key: string): Promise<string> {
+async function queryChatGPT(input: EngineQueryInput) {
   const buyer = input.buyer || "a buyer";
-  const response = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "sonar",
-      messages: [
-        { role: "system", content: ENGINE_SYSTEM.perplexity },
-        { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
-      ],
-    }),
+  return queryViaGateway(input, "openai", "/responses", {
+    model: "gpt-4.1-mini",
+    tools: [{ type: "web_search_preview" }],
+    input: [
+      { role: "developer", content: ENGINE_SYSTEM.chatgpt },
+      { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
+    ],
   });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Perplexity ${response.status}: ${detail.slice(0, 400)}`);
-  }
-  const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const text = data.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error("Perplexity response missing text");
-  return text;
 }
 
-async function queryGemini(input: EngineQueryInput, key: string): Promise<string> {
+async function queryPerplexity(input: EngineQueryInput) {
   const buyer = input.buyer || "a buyer";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return queryViaGateway(input, "perplexity", "/chat/completions", {
+    model: "sonar",
+    messages: [
+      { role: "system", content: ENGINE_SYSTEM.perplexity },
+      { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
+    ],
+  });
+}
+
+async function queryGemini(input: EngineQueryInput) {
+  const buyer = input.buyer || "a buyer";
+  return queryViaGateway(
+    input,
+    "google",
+    "/v1beta/models/gemini-2.0-flash:generateContent",
+    {
       system_instruction: { parts: [{ text: ENGINE_SYSTEM.gemini }] },
       contents: [{ role: "user", parts: [{ text: USER_WRAPPER(buyer, input.prompt) }] }],
       tools: [{ google_search: {} }],
-    }),
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Gemini ${response.status}: ${detail.slice(0, 400)}`);
-  }
-  const data = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("\n").trim();
-  if (!text) throw new Error("Gemini response missing text");
-  return text;
+    },
+  );
 }
 
-async function queryClaude(input: EngineQueryInput, key: string): Promise<string> {
+async function queryClaude(input: EngineQueryInput) {
   const buyer = input.buyer || "a buyer";
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  return queryViaGateway(
+    input,
+    "anthropic",
+    "/v1/messages",
+    {
       model: "claude-sonnet-4-20250514",
       max_tokens: 1024,
       system: ENGINE_SYSTEM.claude,
       messages: [{ role: "user", content: USER_WRAPPER(buyer, input.prompt) }],
-    }),
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Anthropic ${response.status}: ${detail.slice(0, 400)}`);
-  }
-  const data = (await response.json()) as {
-    content?: Array<{ type?: string; text?: string }>;
-  };
-  const text = (data.content || [])
-    .filter((part) => part.type === "text" && part.text)
-    .map((part) => part.text)
-    .join("\n")
-    .trim();
-  if (!text) throw new Error("Anthropic response missing text");
-  return text;
-}
-
-async function queryGrok(input: EngineQueryInput, key: string): Promise<string> {
-  const buyer = input.buyer || "a buyer";
-  const response = await fetch("https://api.x.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: "grok-3-mini",
-      messages: [
-        { role: "system", content: ENGINE_SYSTEM.grok },
-        { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
-      ],
-    }),
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`xAI ${response.status}: ${detail.slice(0, 400)}`);
-  }
-  const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const text = data.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error("xAI response missing text");
-  return text;
+    { "anthropic-version": "2023-06-01" },
+  );
 }
 
+async function queryGrok(input: EngineQueryInput) {
+  const buyer = input.buyer || "a buyer";
+  return queryViaGateway(input, "xai", "/v1/chat/completions", {
+    model: "grok-3-mini",
+    messages: [
+      { role: "system", content: ENGINE_SYSTEM.grok },
+      { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
+    ],
+  });
+}
+
+/** AI Overviews: Cloudflare Browser Rendering only. Not AI Gateway. */
 async function queryAio(input: EngineQueryInput, env: CloudflareEnv): Promise<string> {
   const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(input.prompt)}&hl=en&gl=us`;
   const account = env.CF_ACCOUNT_ID || process.env.CF_ACCOUNT_ID;
@@ -329,37 +275,25 @@ async function queryAio(input: EngineQueryInput, env: CloudflareEnv): Promise<st
   throw new Error("AIO browser binding not configured");
 }
 
-async function liveAnswer(input: EngineQueryInput): Promise<string> {
+async function liveAnswer(
+  input: EngineQueryInput,
+): Promise<{ text: string; gatewayRequestId: string | null }> {
   const env = input.env;
   switch (input.engine) {
-    case "chatgpt": {
-      const key = openaiKey(env);
-      if (!key || isStubSecret(key)) throw new Error("OPENAI_API_KEY missing");
-      return queryChatGPT(input, key);
-    }
-    case "perplexity": {
-      const key = perplexityKey(env);
-      if (!key || isStubSecret(key)) throw new Error("PERPLEXITY_API_KEY missing");
-      return queryPerplexity(input, key);
-    }
-    case "gemini": {
-      const key = geminiKey(env);
-      if (!key || isStubSecret(key)) throw new Error("GEMINI_API_KEY missing");
-      return queryGemini(input, key);
-    }
-    case "claude": {
-      const key = anthropicKey(env);
-      if (!key || isStubSecret(key)) throw new Error("ANTHROPIC_API_KEY missing");
-      return queryClaude(input, key);
-    }
-    case "grok": {
-      const key = xaiKey(env);
-      if (!key || isStubSecret(key)) throw new Error("XAI_API_KEY missing");
-      return queryGrok(input, key);
-    }
+    case "chatgpt":
+      return queryChatGPT(input);
+    case "perplexity":
+      return queryPerplexity(input);
+    case "gemini":
+      return queryGemini(input);
+    case "claude":
+      return queryClaude(input);
+    case "grok":
+      return queryGrok(input);
     case "aio": {
       if (!env) throw new Error("env required for AIO");
-      return queryAio(input, env);
+      const text = await queryAio(input, env);
+      return { text, gatewayRequestId: null };
     }
     default:
       throw new Error(`Unknown engine ${(input as EngineQueryInput).engine}`);
@@ -367,18 +301,20 @@ async function liveAnswer(input: EngineQueryInput): Promise<string> {
 }
 
 /**
- * Real engine clients when API keys / browser bindings are present.
- * Falls back to deterministic stubs when unset or when a live call fails.
+ * Real engine clients via Cloudflare AI Gateway (or Browser Rendering for AIO).
+ * Falls back to deterministic stubs when gateway/browser config is missing or a live call fails.
  */
 export async function queryEngine(input: EngineQueryInput): Promise<EngineQueryResult> {
   const started = Date.now();
   if (isEngineApiConfigured(input.engine, input.env)) {
     try {
-      const rawAnswer = await liveAnswer(input);
+      const live = await liveAnswer(input);
       return {
-        rawAnswer,
+        rawAnswer: live.text,
         stubbed: false,
         latencyMs: Date.now() - started,
+        gatewayRequestId: live.gatewayRequestId,
+        confidence: input.engine === "aio" ? "medium" : "high",
       };
     } catch (error) {
       console.info(`[engine-adapters] ${input.engine} live failed; using stub`, error);

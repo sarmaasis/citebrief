@@ -277,3 +277,14 @@ shadcn/ui: map `--primary` to `--cb-accent`, `--background` to `--cb-bg`, `--bor
 | `design/screens/*.md` | Per-screen specs |
 
 Local only until Principal Designer lands via PR. Do not invent purple, gradients, or glass.
+
+---
+
+## Sources / Audit drawer
+
+In-app report viewer only (`/app/brands/[id]/reports/[reportId]`).
+
+- Trigger: **Sources** in the action bar
+- Pattern: right sheet, `--cb-surface` paper, `--cb-line` hairline, closed by default
+- Content: grouped by prompt; each engine shows Named/Missing, timestamp, cited URLs, View raw, muted confidence and gateway request id
+- Client share `/r/[token]`: agency-branded report only; no Sources drawer, no auth chrome

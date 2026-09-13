@@ -1,6 +1,6 @@
 NEXTJS_ENV=development
 
-# Better Auth
+# Better Auth (single canonical origin; no BETTER_AUTH_TRUSTED_ORIGINS)
 BETTER_AUTH_SECRET=replace-with-32-plus-random-chars
 BETTER_AUTH_URL=http://localhost:3000
 
@@ -34,3 +34,5 @@ AI_GATEWAY_ID=
 CF_AI_GATEWAY_TOKEN=
 
 # AI Overviews uses Cloudflare Browser Rendering, not AI Gateway.
+# Optional REST token when BROWSER binding is unavailable:
+CF_API_TOKEN=

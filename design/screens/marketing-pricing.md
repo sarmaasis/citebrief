@@ -1,62 +1,41 @@
-# Marketing pricing `/pricing`
+# Marketing pricing
 
-Three plans. Agency is the recommended outline. Feature the $199 Agency plan.
+Three plans. Agency is the recommended outline. Feature the **$249** Agency plan.
 
 ## Layout hierarchy
 
 ```
-Header (same as marketing home)
-Main
-  Page title + one line
-  Billing toggle: Monthly | Annual (10 months)
-  Plan cards × 3
-    Starter $149 · Agency $199 (recommended) · Studio $399
-  Add-ons note: Extra brand · Extra run
-  FAQ accordion (5 objections)
-  CTA: Start the first report
+Header
+Hero
+  Simple pricing for agency retainers
+Billing toggle
+  Monthly · Annual (2 months free)
+Cards
+  Starter $149 · Agency $249 (recommended) · Studio $499
+FAQ
 Footer
 ```
 
-Cards: radius 12px, hairline `line`, surface white on paper bg. Agency card: 2px accent outline + "Recommended" pill.
+## Plan cards
 
-## Components
+| Plan | Price | Brands | Prompts | Cadence | Seats |
+|---|---|---|---|---|---|
+| Starter | $149/mo | 3 | 20 | Monthly | 1 |
+| Agency | $249/mo | 8 | 20 | Weekly | 3 |
+| Studio | $499/mo | 20 | 30 | Weekly | 10 |
 
-- Billing interval toggle
-- PlanCard: name, price, brands/prompts/cadence, feature list, CTA
-- Recommended badge (accent-subtle bg, accent text)
-- FAQ accordion (shadcn)
-- Thin legal footnote on taxes / Dodo
+Card bullets must match plan gates:
 
-## Plan snapshot (§11)
+- Starter: monthly, CiteBrief sender, 1 seat, PDF + client link
+- Agency: weekly Friday, white-label, client CC, history, 3 seats, Slack
+- Studio: custom sender/domain, 30 prompts, 10 seats, Claude/Grok
 
-| Plan | Price | Brands | Prompts | Cadence |
-|---|---|---|---|---|
-| Starter | $149/mo | 3 | 20 | Monthly |
-| Agency | $199/mo | 8 | 20 | Weekly |
-| Studio | $399/mo | 20 | 30 | Weekly |
+No free forever. Trial: 14 days, 1 brand, 1 full run. Annual = 10 months prepaid.
 
-Trial: 14 days, 1 brand, 1 full run.
-
-## States
-
-| State | Behavior |
-|---|---|
-| Default | Three cards; Agency outlined; monthly selected |
-| Loading | Skeleton cards; toggle disabled |
-| Empty | N/A |
-| Error | Inline: "Pricing could not load. Refresh or email support." |
-| Partial | Show cached plan table if live checkout config fails |
-| Success | After CTA → `/signup` or checkout |
+FAQ: outgrow Starter → Agency; client CC is Agency+ only.
 
 ## Copy examples (no em dashes)
 
-- Title: **Simple pricing for agency retainers**
-- Sub: White-label Friday PDFs. Not a $29 vanity score.
-- Toggle: **Monthly** / **Annual (2 months free)**
+- Subhead: **White-label Friday PDFs. Not a vanity score.**
 - Agency badge: **Recommended**
-- Agency CTA: **Start Agency trial**
-- Starter / Studio CTA: **Start trial**
-- FAQ examples:
-  - **Can my client read the PDF without an account?** Yes. Share a client link or CC them on the Friday email.
-  - **What if one engine fails?** We soft-fail. A three-engine report still ships.
-  - **Is this a GEO optimizer?** No. CiteBrief is the report layer your account team already promises.
+- CTA: **Start Agency trial**
