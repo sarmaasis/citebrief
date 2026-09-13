@@ -90,7 +90,11 @@ export function BrandKitForm({
         <Button type="submit" disabled={busy}>
           {busy ? "Saving…" : "Save brand kit"}
         </Button>
-        {message ? <p className="text-sm text-cb-muted">{message}</p> : null}
+        {message ? (
+          <p className={message.startsWith("Brand kit saved") ? "text-sm text-cb-muted" : "text-sm text-cb-danger"}>
+            {message}
+          </p>
+        ) : null}
       </form>
 
       <div className="rounded-cb-card border border-cb-line bg-cb-bg p-5">

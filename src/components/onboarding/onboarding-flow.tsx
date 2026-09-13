@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { BrandFields, emptyBrandFields, type BrandFieldValues } from "@/components/brands/brand-fields";
 import { IndustryPacks } from "@/components/prompts/industry-packs";
@@ -15,6 +15,47 @@ import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
 const steps = ["Brand", "Prompts", "Report"] as const;
+const ONBOARDING_SNAP = "citebrief.onboarding.v1";
+
+type OnboardingSnap = {
+  step: number;
+  fields: BrandFieldValues;
+  brandId: string | null;
+  runId: string | null;
+  reportId: string | null;
+  reportReady: boolean;
+  runStatus: string | null;
+  scoreMentioned: number | null;
+  approved: boolean;
+  prompts?: PromptDraft[];
+  source?: "template" | "llm" | null;
+};
+
+function readOnboardingSnap(): OnboardingSnap | null {
+  try {
+    const raw = sessionStorage.getItem(ONBOARDING_SNAP);
+    if (!raw) return null;
+    return JSON.parse(raw) as OnboardingSnap;
+  } catch {
+    return null;
+  }
+}
+
+function writeOnboardingSnap(snap: OnboardingSnap) {
+  try {
+    sessionStorage.setItem(ONBOARDING_SNAP, JSON.stringify(snap));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+function clearOnboardingSnap() {
+  try {
+    sessionStorage.removeItem(ONBOARDING_SNAP);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function OnboardingFlow({
   allowSend = false,
@@ -41,6 +82,62 @@ export function OnboardingFlow({
   const [approved, setApproved] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
+  const pollRef = useRef<(id: string) => void>(() => undefined);
+
+  function applyApproval(state?: string | null) {
+    if (state === "approved") setApproved(true);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+      const resume = nav?.type === "reload" || nav?.type === "back_forward";
+      if (!resume) {
+        clearOnboardingSnap();
+        setRestored(true);
+        return;
+      }
+      const snap = readOnboardingSnap();
+      if (snap?.brandId) {
+        setStep(snap.step || 1);
+        setFields(snap.fields || emptyBrandFields);
+        setBrandId(snap.brandId);
+        setRunId(snap.runId);
+        setReportId(snap.reportId);
+        setReportReady(Boolean(snap.reportReady));
+        setRunStatus(snap.runStatus);
+        setScoreMentioned(snap.scoreMentioned);
+        setApproved(Boolean(snap.approved));
+        if (snap.prompts?.length) setPrompts(snap.prompts);
+        if (snap.source) setSource(snap.source);
+        if (snap.runId) pollRef.current(snap.runId);
+      }
+      setRestored(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!restored || !brandId) return;
+    writeOnboardingSnap({
+      step,
+      fields,
+      brandId,
+      runId,
+      reportId,
+      reportReady,
+      runStatus,
+      scoreMentioned,
+      approved,
+      prompts,
+      source,
+    });
+  }, [restored, step, fields, brandId, runId, reportId, reportReady, runStatus, scoreMentioned, approved, prompts, source]);
 
   async function saveBrand() {
     setPending(true);
@@ -134,6 +231,7 @@ export function OnboardingFlow({
       engines?: Record<string, EngineState>;
       reportId?: string | null;
       scoreMentioned?: number | null;
+      approvalState?: string | null;
       error?: string;
     };
     if (!response.ok) {
@@ -144,6 +242,7 @@ export function OnboardingFlow({
     setEngines(data.engines ?? null);
     if (data.reportId) setReportId(data.reportId);
     if (typeof data.scoreMentioned === "number") setScoreMentioned(data.scoreMentioned);
+    applyApproval(data.approvalState);
     if (data.status === "complete" || data.status === "partial") {
       setReportReady(true);
       return;
@@ -153,6 +252,7 @@ export function OnboardingFlow({
     }
     window.setTimeout(() => void poll(id), 1200);
   }
+  pollRef.current = poll;
 
   async function retryEngine(engine: string) {
     if (!runId) return;
@@ -169,6 +269,7 @@ export function OnboardingFlow({
         engines?: Record<string, EngineState>;
         reportId?: string | null;
         scoreMentioned?: number | null;
+        approvalState?: string | null;
         error?: string;
       };
       if (!response.ok) {
@@ -179,6 +280,7 @@ export function OnboardingFlow({
       if (data.engines) setEngines(data.engines);
       if (data.reportId) setReportId(data.reportId);
       if (typeof data.scoreMentioned === "number") setScoreMentioned(data.scoreMentioned);
+      applyApproval(data.approvalState);
       setReportReady(data.status === "complete" || data.status === "partial");
       if (data.status !== "complete" && data.status !== "partial" && data.status !== "failed") {
         poll(runId);
@@ -227,6 +329,7 @@ export function OnboardingFlow({
         return;
       }
       setTestMessage("Test send queued to you.");
+      clearOnboardingSnap();
     } finally {
       setTestBusy(false);
     }
@@ -237,7 +340,7 @@ export function OnboardingFlow({
       <div className="flex items-center justify-between">
         <Logo href="/app" />
         <div className="flex items-center gap-2">
-          <Link href="/app" className="text-sm text-cb-muted">
+          <Link href="/app" className="text-sm text-cb-muted" onClick={() => clearOnboardingSnap()}>
             Cancel
           </Link>
           <SignOutButton />
@@ -359,11 +462,15 @@ export function OnboardingFlow({
             <div className="mt-8 flex flex-wrap gap-2">
               {reportId ? (
                 <Button asChild>
-                  <Link href={`/app/brands/${brandId}/reports/${reportId}`}>Open report</Link>
+                  <Link href={`/app/brands/${brandId}/reports/${reportId}`} onClick={() => clearOnboardingSnap()}>
+                    Open report
+                  </Link>
                 </Button>
               ) : (
                 <Button asChild>
-                  <Link href={`/app/brands/${brandId}`}>Brand home</Link>
+                  <Link href={`/app/brands/${brandId}`} onClick={() => clearOnboardingSnap()}>
+                    Brand home
+                  </Link>
                 </Button>
               )}
               {reportId && allowApproval ? (
@@ -387,13 +494,17 @@ export function OnboardingFlow({
                 </Button>
               ) : null}
               <Button asChild variant="outline">
-                <Link href={`/app/brands/${brandId}`}>Brand home</Link>
+                <Link href={`/app/brands/${brandId}`} onClick={() => clearOnboardingSnap()}>
+                  Brand home
+                </Link>
               </Button>
             </div>
           ) : runStatus === "failed" && brandId ? (
             <div className="mt-8">
               <Button asChild>
-                <Link href={`/app/brands/${brandId}`}>Back to brand</Link>
+                <Link href={`/app/brands/${brandId}`} onClick={() => clearOnboardingSnap()}>
+                  Back to brand
+                </Link>
               </Button>
             </div>
           ) : (

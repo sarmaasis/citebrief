@@ -73,7 +73,11 @@ export default async function RisksPage({
         <PortfolioFilters fields={["risk", "owner", "brandId"]} owners={owners} brands={brands} />
       </div>
       {alerts.length === 0 ? (
-        <p className="mt-8 text-sm text-cb-muted">No Watch or At risk clients in this filter.</p>
+        <p className="mt-8 text-sm text-cb-muted">
+          {filters.risk || filters.owner || filters.brandId
+            ? "No clients in this filter."
+            : "No Watch or At risk clients this week."}
+        </p>
       ) : (
         <div className="mt-8 overflow-hidden rounded-cb-card border border-cb-line">
           <table className="w-full text-sm">

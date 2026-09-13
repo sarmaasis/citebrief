@@ -5,6 +5,8 @@ import {
   billingPageIntro,
   shouldWriteStubPaidSubscription,
   stubPaidSubscriptionPatch,
+  trialSubscriptionPatch,
+  TRIAL_DAYS,
   planAllowsExtraBrands,
   planAnnualAmountUsd,
   planCardState,
@@ -233,6 +235,8 @@ assert.equal(trialAgencyCards[1].highlighted, true);
 assert.equal(trialAgencyCards[1].badge, "After trial");
 assert.equal(trialAgencyCards[0].badge, null);
 assert.ok(billingPageIntro({ trialing: true, paid: false, plan: "agency" }).includes("Agency"));
+assert.equal(billingPageIntro({ trialing: true, paid: true, plan: "agency" }).includes("trial"), false);
+assert.ok(billingPageIntro({ trialing: true, paid: true, plan: "agency" }).includes("Agency plan"));
 
 const paidAgencyCards = (["starter", "agency", "studio"] as const).map((id) =>
   planCardState({
@@ -313,6 +317,35 @@ const leftoverTrial = workspaceEntitlements({
 });
 assert.equal(leftoverTrial.paid, false);
 assert.equal(leftoverTrial.trialing, true);
+assert.equal(leftoverTrial.ended, false);
+
+const trialNow = new Date("2026-09-14T00:00:00.000Z");
+const trialPatch = trialSubscriptionPatch(trialNow);
+assert.equal(trialPatch.status, "trialing");
+assert.equal(trialPatch.plan, "agency");
+assert.equal(trialPatch.trialEndsAt.getTime(), trialNow.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+assert.equal(
+  workspaceEntitlements({
+    plan: trialPatch.plan,
+    status: trialPatch.status,
+    trialEndsAt: trialPatch.trialEndsAt,
+    currentPeriodEnd: null,
+  }, trialNow.getTime()).trialing,
+  true,
+);
+
+const expiredTrial = {
+  plan: "agency",
+  status: "trialing",
+  trialEndsAt: new Date(Date.now() - 1000),
+  currentPeriodEnd: null,
+};
+assert.equal(isTrialing(expiredTrial), false);
+assert.equal(workspaceEntitlements(expiredTrial).paid, false);
+assert.equal(workspaceEntitlements(expiredTrial).trialing, false);
+assert.equal(workspaceEntitlements(expiredTrial).ended, false);
+assert.equal(workspaceEntitlements(expiredTrial).brandLimit, 1);
+assert.equal(workspaceEntitlements(expiredTrial).allowsEmailSend, false);
 
 const paidEnterprise = workspaceEntitlements({
   plan: "enterprise",

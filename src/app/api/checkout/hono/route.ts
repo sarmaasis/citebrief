@@ -1,8 +1,8 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { isStubSecret } from "@/lib/billing";
 import { isProductionRuntime } from "@/lib/runtime-env";
-import { createDodoCheckoutHono, planProductHint } from "@/server/dodo-hono";
-import { jsonError, jsonOk } from "@/server/json";
+import { createDodoCheckoutHono } from "@/server/dodo-hono";
+import { jsonError } from "@/server/json";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +16,12 @@ export async function GET(request: Request) {
     if (isProductionRuntime(env)) {
       return jsonError("Billing is not configured.", 503);
     }
-    return jsonOk({
-      mode: "stub",
-      message: "Set DODO_PAYMENTS_API_KEY to use @dodopayments/hono Checkout.",
-      products: planProductHint(env),
-    });
+    const url = new URL(request.url);
+    const dest = new URL("/api/checkout", url.origin);
+    dest.searchParams.set("plan", url.searchParams.get("plan") || "agency");
+    dest.searchParams.set("interval", url.searchParams.get("interval") || "monthly");
+    dest.searchParams.set("redirect", url.searchParams.get("redirect") || "0");
+    return Response.redirect(dest, 302);
   }
   const app = createDodoCheckoutHono(env);
   return app.fetch(new Request(new URL("/static" + new URL(request.url).search, "http://dodo.local"), request));

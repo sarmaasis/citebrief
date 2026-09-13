@@ -4,7 +4,12 @@ import { default as handler } from "./.open-next/worker.js";
 import { dbFromEnv } from "./src/db";
 import { runFridayCron } from "./src/lib/cron-friday";
 import { processRun } from "./src/lib/run-processor";
-import { canonicalRedirectLocation, isHealthPath, logProductionSecretProblems } from "./src/lib/runtime-env";
+import {
+  canonicalRedirectLocation,
+  isHealthPath,
+  logProductionSecretProblems,
+  productionTrafficBlocked,
+} from "./src/lib/runtime-env";
 import { applySecurityHeaders, canonicalRedirectResponse } from "./src/lib/security-headers";
 
 let productionSecretGate: "ok" | "blocked" | null = null;
@@ -46,6 +51,13 @@ export default {
 
   async queue(batch, env): Promise<void> {
     logProductionSecretProblems(env);
+    if (productionTrafficBlocked(env)) {
+      console.error("[queue] refusing to process; production secrets are stub");
+      for (const message of batch.messages) {
+        message.retry();
+      }
+      return;
+    }
     const db = dbFromEnv(env);
     for (const message of batch.messages) {
       const body = (message.body || {}) as RunQueueMessage;
@@ -66,6 +78,10 @@ export default {
 
   async scheduled(_controller, env): Promise<void> {
     logProductionSecretProblems(env);
+    if (productionTrafficBlocked(env)) {
+      console.error("[scheduled] refusing Friday cron; production secrets are stub");
+      return;
+    }
     const db = dbFromEnv(env);
     const result = await runFridayCron(db, env);
     console.info("[scheduled] friday cron", result.processed, "enqueued");

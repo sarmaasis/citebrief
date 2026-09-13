@@ -36,6 +36,9 @@ export async function POST(request: Request) {
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
 
+  if (!ent.paid) {
+    return jsonError("Start a paid plan before buying add-ons.", 402);
+  }
   if (addon === "extra_brand" && !ent.allowsExtraBrands) {
     return jsonError("Extra brands are available on Agency, Studio, and Enterprise. Upgrade from Starter to add more brands.", 402);
   }
@@ -44,9 +47,6 @@ export async function POST(request: Request) {
   }
   if (addon === "premium_engine_pack" && !ent.allowsPremiumEnginePack) {
     return jsonError("The premium engine pack is available on paid Agency, Studio, and Enterprise.", 402);
-  }
-  if (!ent.paid && addon !== "extra_run") {
-    return jsonError("Start a paid plan before buying add-ons.", 402);
   }
 
   const { env } = await getCloudflareContext({ async: true });

@@ -3,7 +3,7 @@ import { CORE_ENGINES, isStudioEngine, parseEngineStatus, type EngineId } from "
 import { retryFailedEngine } from "@/lib/run-processor";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
-import { brands, runs } from "@/db/schema";
+import { brands, reports, runs } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -46,7 +46,14 @@ export async function POST(request: Request, context: RouteContext) {
   const { env } = await getCloudflareContext({ async: true });
   try {
     const result = await retryFailedEngine(ctx.db, env, id, engine);
-    return jsonOk(result);
+    const [existing] = result.reportId
+      ? await ctx.db
+          .select({ approvalState: reports.approvalState })
+          .from(reports)
+          .where(eq(reports.id, result.reportId))
+          .limit(1)
+      : [];
+    return jsonOk({ ...result, approvalState: existing?.approvalState ?? null });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "Retry failed.", 500);
   }

@@ -36,6 +36,7 @@ export async function GET(_request: Request, context: RouteContext) {
   let reportId: string | null = null;
   let scoreMentioned: number | null = null;
   let scoreRecommended: number | null = null;
+  let approvalState: string | null = null;
 
   if (status === "queued" || status === "running") {
     try {
@@ -54,6 +55,16 @@ export async function GET(_request: Request, context: RouteContext) {
     reportId = existing?.id ?? null;
     scoreMentioned = existing?.scoreMentioned ?? null;
     scoreRecommended = existing?.scoreRecommended ?? null;
+    approvalState = existing?.approvalState ?? null;
+  }
+
+  if (reportId && !approvalState) {
+    const [existing] = await ctx.db
+      .select({ approvalState: reports.approvalState })
+      .from(reports)
+      .where(eq(reports.id, reportId))
+      .limit(1);
+    approvalState = existing?.approvalState ?? null;
   }
 
   return jsonOk({
@@ -66,5 +77,6 @@ export async function GET(_request: Request, context: RouteContext) {
     reportId,
     scoreMentioned,
     scoreRecommended,
+    approvalState,
   });
 }

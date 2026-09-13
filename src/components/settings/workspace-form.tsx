@@ -192,7 +192,11 @@ export function WorkspaceForm({
         <Button type="submit" disabled={busy}>
           {busy ? "Saving…" : "Save workspace"}
         </Button>
-        {message ? <p className="text-sm text-cb-muted">{message}</p> : null}
+        {message ? (
+          <p className={message.startsWith("Workspace saved") ? "text-sm text-cb-muted" : "text-sm text-cb-danger"}>
+            {message}
+          </p>
+        ) : null}
       </form>
     </div>
   );

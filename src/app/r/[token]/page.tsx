@@ -9,6 +9,7 @@ import { getReportObject } from "@/lib/r2";
 import { clientReportRobots } from "@/lib/seo";
 import { recordClientLinkOpen, shareAccessState } from "@/lib/share";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { isProductionRuntime } from "@/lib/runtime-env";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,10 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
     rateLimited = Boolean(limited);
     rateUnavailable = limited?.status === 503;
   } catch {
-    // Preview without KV still renders the report.
+    if (isProductionRuntime()) {
+      rateLimited = true;
+      rateUnavailable = true;
+    }
   }
 
   if (rateLimited) {

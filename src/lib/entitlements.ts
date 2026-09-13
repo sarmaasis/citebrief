@@ -152,7 +152,10 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
   const extraRunCredits = Math.max(0, sub?.extraRunCredits || 0);
   const premiumEnginePack = Boolean(sub?.premiumEnginePack);
   const billingInterval = sub?.billingInterval === "annual" ? "annual" : "monthly";
-  const ended = Boolean(!paid && !trialing && sub && sub.status !== "none");
+  // Expired trial keeps status "trialing" but isTrialing is false. Stay unpaid 1/1/1 — do not treat as a cancelled paid period.
+  const ended = Boolean(
+    !paid && !trialing && sub && sub.status !== "none" && sub.status !== "trialing",
+  );
 
   if (!paid) {
     return {

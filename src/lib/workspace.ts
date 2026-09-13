@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "@/db";
-import { workspaceInvites, workspaceMembers, workspaces } from "@/db/schema";
-import { planSeatCap } from "@/lib/billing";
+import { subscriptions, workspaceInvites, workspaceMembers, workspaces } from "@/db/schema";
+import { planSeatCap, trialSubscriptionPatch } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getWorkspaceSubscription } from "@/lib/usage";
 
@@ -144,5 +144,14 @@ export async function ensureWorkspaceForUser(
     userId: user.id,
     role: "owner",
     createdAt: now,
+  });
+
+  const trial = trialSubscriptionPatch(now);
+  await db.insert(subscriptions).values({
+    id: crypto.randomUUID(),
+    workspaceId,
+    ...trial,
+    createdAt: now,
+    updatedAt: now,
   });
 }

@@ -305,7 +305,20 @@ export function MembersForm({
           <Button type="submit" disabled={busy !== null || !allowsMembers || atCap}>
             {busy === "invite" ? "Inviting…" : "Send invite"}
           </Button>
-          {message ? <p className="text-sm text-cb-muted">{message}</p> : null}
+          {message ? (
+            <p
+              className={
+                message.startsWith("Invite sent") ||
+                message.startsWith("Member removed") ||
+                message.startsWith("Invite revoked") ||
+                message.startsWith("Extra seat")
+                  ? "text-sm text-cb-muted"
+                  : "text-sm text-cb-danger"
+              }
+            >
+              {message}
+            </p>
+          ) : null}
           {inviteLink ? (
             <div className="flex flex-wrap items-center gap-2">
               <p className="break-all text-xs text-cb-muted">{inviteLink}</p>

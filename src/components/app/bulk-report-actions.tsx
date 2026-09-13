@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PIPELINE_LABEL, type PipelineStage } from "@/lib/command-center";
 import Link from "next/link";
@@ -33,6 +33,12 @@ export function ReportsQueue({
     () => rows.filter((row) => row.reportId && (row.pipeline === "needs_review" || row.pipeline === "ready_to_send")),
     [rows],
   );
+
+  useEffect(() => {
+    const valid = new Set(selectable.map((row) => row.reportId as string));
+    setSelected((current) => current.filter((id) => valid.has(id)));
+  }, [selectable]);
+
   const selectedSet = new Set(selected);
   const selectedRows = selectable.filter((row) => row.reportId && selectedSet.has(row.reportId));
   const approveIds = selectedRows.filter((row) => row.pipeline === "needs_review").map((row) => row.reportId as string);

@@ -1,10 +1,20 @@
 # PRD: CiteBrief
 **Client-ready AI-search reporting for agencies**  
-Version 2.2 · 13 Sep 2026 · Domain: getcitebrief.com · Next.js on Cloudflare Workers (OpenNext) · Better Auth · Dodo Payments · Cloudflare AI Gateway
+Version 2.3 · 14 Sep 2026 · Domain: getcitebrief.com · Next.js 16 on Cloudflare Workers (OpenNext) · Better Auth · Dodo Payments · Cloudflare AI Gateway · Cloudflare Email Service
+
+This document is the product source of truth. Code in `src/lib/billing.ts`, `src/lib/entitlements.ts`, and `src/lib/command-center.ts` is canonical for plan numbers and gates. Do not invent features here.
+
+**Canonical domain:** `getcitebrief.com`. `citebrief.com` is taken. Optional redirect hosts: `citebrief.xyz`, `www.citebrief.xyz`, `www.getcitebrief.com` (301 to `getcitebrief.com`; they must not set auth cookies).
+
+**Status labels**
+
+| Label | Meaning |
+|---|---|
+| **Shipped** | Implemented and gated in this repo. |
+| **Later** | Specified, not built. Do not market as live. |
+| **Ops** | Dashboard, secrets, live verification, or founder process — not an app feature. |
 
 ---
-
-**Canonical domain:** `getcitebrief.com` (~$11.08 Porkbun at-cost). `citebrief.com` is taken. Optional redirect: `citebrief.xyz` (~$2.04).
 
 ## 1. One-liner
 Agencies enter a client brand and 20 buying questions. CiteBrief checks ChatGPT, Perplexity, Gemini, and Google AI Overviews, then sends a polished white-label Friday report that proves whether AI search is sending buyers to the client or to competitors.
@@ -58,80 +68,85 @@ The core job is not "track prompts." The core job is "make AI-search visibility 
 ---
 
 ## 5. Auth — Better Auth
-Use `better-auth` + `better-auth-cloudflare` on the Worker. D1 is the source of truth. Optional KV for rate-limit / session cache.
+**Shipped.** `better-auth` + `better-auth-cloudflare` on the Worker. D1 is the source of truth. KV is used for Better Auth rate-limit / session cache.
 
-Auth is **single-domain first-party auth** on `getcitebrief.com`. Do not implement multi-domain shared auth, cross-domain session sharing, or a separate auth subdomain in v1.
+Auth is **single-domain first-party auth** on `getcitebrief.com`. Do not implement multi-domain shared auth, cross-domain session sharing, or a separate auth subdomain.
 
-**v1 methods**
-- Email + password
-- Magic link (Resend)
-- Google OAuth
+**Methods (shipped)**
+- Email + password (email verification required in production or when the `EMAIL` binding is ready)
+- Magic link (Cloudflare Email Service, not Resend)
+- Google OAuth (live credentials when set; stub client ids in local/dev only)
 
 **Rules**
 - Init auth **inside the request** (`c.env.DB`). Never a global D1 binding.
-- `BETTER_AUTH_URL` is the canonical public origin, e.g. `https://getcitebrief.com`.
-- Better Auth `baseURL` and `trustedOrigins` must both resolve to the single canonical origin.
-- Do not use `BETTER_AUTH_TRUSTED_ORIGINS` for multiple app domains.
-- `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` as Wrangler secrets.
-- Workspace created on first verified login.
-- Seats follow §11: Starter 1 (owner), Agency 3, Studio 10. Owners invite members only; invites enforce the seat cap (members + pending invites).
-- Optional domains like `citebrief.xyz` must 301 redirect to `getcitebrief.com` and must not set or share auth cookies.
-- Client report links under `/r/[token]` are public token links, not authenticated cross-domain sessions.
+- `BETTER_AUTH_URL` is the canonical public origin for that environment:
+  - Production Worker vars: `https://getcitebrief.com`
+  - Wrangler `preview` env: `https://citebrief.sarmaasis.workers.dev`
+  - Wrangler `dev` env / local: `http://localhost:3000`
+- Better Auth `baseURL` and `trustedOrigins` both resolve to that single origin. Do not use `BETTER_AUTH_TRUSTED_ORIGINS` for multiple app domains.
+- Secrets: `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` as Wrangler secrets. Production refuses stub / `dev-only-replace-with-BETTER_AUTH_SECRET` values (worker secret gate, §21.2).
+- Workspace created on first verified login, with `status: "trialing"` + `trialEndsAt` (14 days). Pending invite by token or matching email joins that workspace instead of minting a new owner workspace or trial.
+- Seats follow §11. **Owners invite members only.** Invites enforce the seat cap (members + pending invites). Agency+.
+- Optional domains 301 to `getcitebrief.com` and must not set or share auth cookies.
+- Client report links under `/r/[token]` are public token links, not authenticated sessions. They are noindex.
 
 **Packages:** `better-auth`, `better-auth-cloudflare`, `@better-auth/drizzle-adapter`, `drizzle-orm`.
 
 ---
 
 ## 6. Payments — Dodo
-Dodo has a first-party Cloudflare + Hono adapter. Do not use Stripe.
+**Shipped.** Dodo has a first-party Cloudflare + Hono adapter. Do not use Stripe. Primary checkout is `GET /api/checkout?plan=…`. Official `@dodopayments/hono` Checkout also mounts at `/api/checkout/hono`.
 
-**Products in Dodo dashboard**
-| Product | Amount | Interval |
-|---|---|---|
-| CiteBrief Starter | $99 | month |
-| CiteBrief Agency | $249 | month |
-| CiteBrief Studio | $799 | month |
-| CiteBrief Enterprise | $1,499+ | month or annual contract |
-| Extra brand | $29 Agency / $29 Studio | month addon |
-| Extra seat | $15 | month addon |
-| Extra run | $9-$15 | one-time or usage meter |
-| Premium engine pack | $99-$199 | month addon |
-| Done-with-you setup | $299-$999 | one-time |
+**List prices (code: `src/lib/billing.ts`)**
+
+| Product | Amount | Interval | Notes |
+|---|---|---|---|
+| CiteBrief Starter | $99 | month | Public card |
+| CiteBrief Agency | $249 | month | Public card, recommended |
+| CiteBrief Studio | $799 | month | Public card |
+| CiteBrief Enterprise | $1,499+ | month or annual contract | No public checkout card |
+| Extra brand | $29 | month addon | Agency / Studio / Enterprise only |
+| Extra seat | $15 | month addon | After plan seat cap |
+| Extra run | $9 | one-time / usage meter | List price in code (not a $9–$15 range) |
+| Premium engine pack | $99 | month addon | Listed at the low end until a dedicated Dodo product is confirmed |
+
+**Later / Ops**
+- Done-with-you setup ($299–$999 one-time): founder offer, not a Dodo SKU in app.
+- Annual Dodo products: checkout sends `interval=annual` (10 months prepaid). Live annual product IDs are optional env (`DODO_PRODUCT_*_ANNUAL`). If unset, the charge may use the monthly product until those IDs exist.
 
 **Worker flow**
-1. Logged-in user hits `GET /api/checkout?plan=agency`
-2. `@dodopayments/hono` Checkout → Dodo hosted page
+1. Logged-in **owner** hits `GET /api/checkout?plan=agency` (or starter / studio / enterprise)
+2. Dodo hosted checkout, or local stub (dev only)
 3. Return URL `/app/billing/success`
-4. Webhook Worker verifies signature (`DODO_PAYMENTS_WEBHOOK_KEY`)
-5. Handle: `subscription.active` · `subscription.renewed` · `subscription.cancelled` · `subscription.failed` · `payment.succeeded`
-6. Idempotent on webhook event id (D1 unique)
+4. Webhook Worker verifies signature (`DODO_PAYMENTS_WEBHOOK_KEY`) via `@dodopayments/hono`
+5. Handle subscription/payment events; idempotent on webhook event id (D1 unique)
+6. Dunning email on failed subscription events
 
-**Secrets:** `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY`, `DODO_PAYMENTS_ENVIRONMENT` (`test_mode` | `live_mode`)
+**Local stub checkout (dev only):** when Dodo is unbound and the runtime is not production, checkout persists a paid `status: "active"` row for the selected plan (`shouldWriteStubPaidSubscription`). Production never writes a fake paid row; stub billing returns 503.
 
-**Fee (US cards):** 4% + $0.40 + 0.5% subscription ≈ **4.5% + $0.40**. Tax included in Dodo. India local cheaper.
+**Secrets:** `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY`, `DODO_PAYMENTS_ENVIRONMENT` (`test_mode` | `live_mode`). Optional product ids: `DODO_PRODUCT_STARTER`, `DODO_PRODUCT_AGENCY`, `DODO_PRODUCT_STUDIO`, `DODO_PRODUCT_ENTERPRISE`, extra-brand / extra-run / extra-seat / premium-engine, plus annual variants.
+
+**Fee (US cards, estimate):** 4% + $0.40 + 0.5% subscription ≈ **4.5% + $0.40**. Tax included in Dodo.
 
 Packages: `dodopayments`, `@dodopayments/hono`
 
 ---
 
 ## 7. Product scope — full product, not an MVP
-See §18 for the complete feature map. Shipping order is phased, but the product must feel complete in the places that affect willingness to pay:
+See §18 for the feature map with **Shipped** / **Later** labels. Shipping order was phased, but the paid surface that affects willingness to pay is:
 
 - The first report must look polished enough to forward to a client.
 - The account manager must understand what changed without reading raw engine output.
 - The agency must be able to add multiple client brands quickly.
-- The dashboard must feel like an agency command center, not a thin table of report runs.
-- The product must surface client risk, recommended actions, and upsell opportunities every week.
-- The owner must see plan limits, usage, invoices, and expansion paths clearly.
-- Client-facing pages must look like the agency, not CiteBrief.
+- Agency Home is a command center, not a thin table of report runs.
+- The product must surface client risk, recommended actions, and upsell opportunities from **stored** report data.
+- The owner must see plan limits, usage, invoices (Dodo portal), and expansion paths.
+- Client-facing pages and Friday mail must look like the agency, not CiteBrief.
 
-Time-to-first-PDF: **< 8 minutes**.
-
-Time-to-second-client: **< 3 minutes** once the workspace is configured.
+Time-to-first-PDF target: **< 8 minutes**.  
+Time-to-second-client target: **< 3 minutes** once the workspace is configured.
 
 Polish bar: a paying agency should be able to send the first report without saying "this is a beta."
-
-Agency value bar: a paying agency should feel CiteBrief gives them a new recurring deliverable they can attach to retainers. The app must answer "which clients need attention, which reports should go out, and what can we sell next?" without requiring the user to open every brand.
 
 ---
 
@@ -163,9 +178,10 @@ The report is the product. It must be short, printable, client-safe, and opinion
 - Each priority includes owner suggestion: content, site, PR, listings, or sales enablement.
 
 **Client-safe rules**
-- Never say GEO, AEO, LLM, embeddings, prompt, token, or model unless the agency chooses "technical mode."
+- Never say GEO, AEO, LLM, embeddings, prompt, token, or model in the default PDF.
+- **Later:** agency-chosen "technical mode." Default writer always strips jargon.
 - Do not include raw AI text in the default PDF.
-- Do not mention failed engines unless fewer than 3 engines succeeded.
+- Do not mention failed engines unless fewer than 3 core engines succeeded.
 - If the client is doing poorly, say it plainly but with next steps.
 
 ---
@@ -173,30 +189,29 @@ The report is the product. It must be short, printable, client-safe, and opinion
 ## 9. Architecture — Next.js on Workers (no Pages)
 
 ```
-Next.js 15/16  —  @opennextjs/cloudflare
+Next.js 16  —  @opennextjs/cloudflare
         │
         ├─ App Router UI (marketing + app)
         ├─ Route Handlers / Server Actions
         └─ Worker bindings via getCloudflareContext()
               ├─ D1
-              ├─ KV (Better Auth rate limit + ISR cache)
+              ├─ KV (Better Auth + route rate limits + ISR cache)
               ├─ R2
-              ├─ Queue
-              ├─ Workflows
-              ├─ Browser Rendering
+              ├─ Queue (citebrief-runs; consumer is this same Worker)
+              ├─ Browser Rendering (AI Overviews)
               ├─ AI Gateway
-              └─ Workers AI
+              └─ send_email EMAIL (Cloudflare Email Service)
 
 Better Auth  (better-auth-cloudflare, init per request)
 Dodo         (checkout route + /api/webhooks/dodo)
-Resend       (auth + report mail)
-Cron Trigger Friday 06:00 tenant TZ
+Email        (Cloudflare Email Service; not Resend)
+Cron         hourly (`0 * * * *`); enqueue when tenant TZ is Friday 06:00
 ```
 
 Create with `npm create cloudflare@latest -- --platform=workers`.  
 `nodejs_compat` on. Incremental cache → KV. Static assets ship with the Worker (Workers Static Assets). **Do not use Pages.**
 
-Long jobs (80 engine calls, PDF) run in **Workflows / Queue**, not inside the Next.js request. The app only enqueues and polls.
+Long jobs (engine calls, PDF) run in the **Queue consumer on this Worker**, not inside the Next.js request. The app only enqueues and polls. **Later:** Cloudflare Workflows as an alternative runner.
 
 ### 9.1 AI Gateway policy
 CiteBrief uses **Cloudflare AI Gateway as the AI control plane**. Do not wire product code directly to individual provider API keys.
@@ -205,32 +220,30 @@ What goes through AI Gateway:
 - OpenAI / ChatGPT-style answer generation.
 - Perplexity answer generation.
 - Gemini answer generation.
-- Premium engine calls such as Claude or Grok when enabled for Studio, premium engine packs, or Enterprise.
-- Extractor and writer calls when they use Workers AI or another model provider.
+- Premium engine calls (Claude, Grok) when Studio / Enterprise / premium pack.
+- Extractor and writer **Later** if they move off the deterministic path onto Workers AI.
 
 What does not go through AI Gateway:
-- Google AI Overviews browser capture, because it is a browser-rendered search surface, not an LLM API call.
-- Resend, Dodo, auth, storage, and ordinary app APIs.
+- Google AI Overviews browser capture (Browser Rendering).
+- Cloudflare Email, Dodo, auth, storage, and ordinary app APIs.
 
 Configuration:
-- Required app secrets: `CF_ACCOUNT_ID`, `AI_GATEWAY_ID`, and a scoped Cloudflare token for AI Gateway / Workers AI access.
+- Required app secrets: `CF_ACCOUNT_ID`, `AI_GATEWAY_ID`, `CF_AI_GATEWAY_TOKEN`.
 - Prefer AI Gateway stored provider keys or unified billing where available.
-- If a provider still requires its own credential, store it in Cloudflare AI Gateway configuration, not as a first-class application secret.
-- Local development may use deterministic stubs when AI Gateway config is missing.
+- Local development may use deterministic stubs when AI Gateway config is missing or stub.
+- **Shipped fail-closed:** a live-configured engine that errors must fail that engine (3/4 soft-fail). It must not return a successful-looking stub answer.
 
-Gateway responsibilities:
+Gateway responsibilities (product policy):
 - Analytics by workspace, brand, engine, run, and plan.
-- Centralized request logging for debugging and trust.
-- Cache repeated prompt+engine calls when freshness allows it.
-- Product soft-fail path uses D1 `engine_cache` first. Gateway edge cache is additive and does not replace D1.
-- Rate limits and spend limits by plan.
+- Centralized request logging.
+- Cache repeated prompt+engine calls when freshness allows it. Product soft-fail path uses D1 `engine_cache` first. Gateway edge cache is additive.
+- **Later / Ops:** spend limits by plan, workspace, and engine in the Cloudflare dashboard.
 - Retries and model fallback for flaky providers.
 - Custom metadata on every request: `workspace_id`, `brand_id`, `run_id`, `engine`, `plan`, `prompt_hash`.
 
 Implementation rule:
 - All model adapters call a single internal `aiGatewayRequest()` helper.
 - No app code should import or read `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, or `XAI_API_KEY`.
-- If direct provider access is temporarily needed during migration, mark it as a dev-only fallback and remove before launch.
 
 ---
 
@@ -238,144 +251,119 @@ Implementation rule:
 
 The rich dashboard is not the cost problem. The cost problem is report generation: brands × prompts × engines × reruns. Product strategy must make the dashboard feel premium while keeping report execution metered and predictable.
 
-**Fixed baseline:** Workers Paid, domain, and basic email/domain tooling start low, roughly **$7-$30/mo** before volume. Cloudflare Workers, D1, KV, R2, Queues, and report storage should remain minor per-customer costs compared with AI/search calls.
+**Fixed baseline (estimate):** Workers Paid, domain, and email/domain tooling start low, roughly **$7–$30/mo** before volume.
 
-**Agency included usage:** 10 brands × 20 prompts × 4 core engines × weekly cadence ≈ **3,400-3,500 engine calls/month** at full use.
+**Agency included usage:** 10 brands × 20 prompts × 4 core engines × weekly cadence ≈ **3,400–3,500 engine calls/month** at full use.
 
-**Per full Agency account at included usage**
+**Per full Agency account at included usage (estimate)**
 | Cost item | Estimate |
 |---|---:|
-| AI/search engine calls | $40-$75/mo |
+| AI/search engine calls | $40–$75/mo |
 | Cloudflare AI Gateway unified billing fee | ~5% of AI spend |
-| Cloudflare Workers/D1/KV/R2/Queues | <$1-$3/mo at scale |
+| Cloudflare Workers/D1/KV/R2/Queues | <$1–$3/mo at scale |
 | PDF/report storage | cents to <$1/mo |
-| Email sending | cents/customer; Resend base plan may apply at volume |
-| Dodo fee on $249 | ~$11-$12 |
-| **Total hard cost** | **~$60-$95/mo** |
+| Email sending | cents/customer (Cloudflare Email Service) |
+| Dodo fee on $249 | ~$11–$12 |
+| **Total hard cost** | **~$60–$95/mo** |
 
 | Plan | List | COGS | Dodo fee | Gross |
 |---|---|---|---|---|
-| Starter | $99 | $5-$15 | ~$5 | ~$79-$89 (80%-90%) |
-| Agency | $249 | $45-$80 | ~$12 | ~$157-$192 (63%-77%) |
-| Studio | $799 | $180-$320 | ~$36 | ~$443-$583 (55%-73%) |
+| Starter | $99 | $5–$15 | ~$5 | ~$79–$89 (80%–90%) |
+| Agency | $249 | $45–$80 | ~$12 | ~$157–$192 (63%–77%) |
+| Studio | $799 | $180–$320 | ~$36 | ~$443–$583 (55%–73%) |
 | Enterprise | $1,499+ | usage-based | contract | target 65%+ |
 
-100 Agency customers at $249: **$24.9k MRR**, roughly **$4.5k-$8k** AI/report COGS, **~$1.2k** Dodo, Cloudflare infra still relatively small. Expected gross margin: **~63%-77%** depending on full usage and caching.
+100 Agency customers at $249: **$24.9k MRR**. Expected gross margin: **~63%–77%** depending on full usage and caching.
 
-Free trial cost:
-- 14-day trial is capped to 1 brand, 20 prompts, 1 full report, 4 engines.
-- Expected hard cost: **~$1.50-$4.00 per trial user**.
-- 100 trial users can cost **~$150-$400** before conversion.
-- Trial must not include unlimited reruns, recurring weekly reports, Studio engines, or bulk sending.
+Free-trial / unpaid cost:
+- Caps: 1 brand, 20 prompts, 1 full report, 4 engines.
+- Expected hard cost: **~$1.50–$4.00 per trial user**.
+- Must not include unlimited reruns, recurring weekly reports, Studio engines, or bulk sending.
 
-Revenue scenarios:
-
-| Customers | Mix | MRR | Notes |
-|---|---|---:|---|
-| 25 | mostly Agency | ~$6k | founder-led, proof of demand |
-| 100 | Agency-heavy | ~$25k | small SaaS business, support still manageable |
-| 300 | Agency + Studio | ~$100k+ | requires support, onboarding, and reliability discipline |
-
-Expansion revenue:
-- Extra brand: $29/mo on Agency and Studio.
-- Extra weekly run: $9-$15 one-time or metered.
+Expansion revenue (list):
+- Extra brand: **$29/mo** on Agency, Studio, Enterprise.
+- Extra weekly run: **$9**.
+- Additional seats: included up to plan cap, then **$15/seat/mo**.
+- Premium engine pack: **$99/mo** list for additional Claude/Grok capacity.
 - White-label custom sender/domain: Studio+.
-- Additional seats: included up to plan cap, then $15/seat/mo.
-- Premium engine pack: $99-$199/mo for additional Claude/Grok capacity.
-- Done-with-you setup: $299-$999 one-time.
-- Quarterly strategy export: Studio add-on later, $99/report, only after core retention is strong.
+- Done-with-you setup: **Ops** founder offer.
+- Quarterly strategy export: **Later**, $99/report, only after core retention is strong.
 
-Cost controls:
+Cost controls **Shipped** in code:
 - Agency includes 1 scheduled weekly report per brand.
-- Agency manual reruns are limited to 2 per brand per week; charge or block after the included cap.
-- Hard-stop at 3× included calls per brand/week.
-- Claude and Grok stay Studio-only with strict included capacity, or a paid premium-engine pack. Never unlimited.
-- AI Overview/browser checks are cached and capped because browser rendering can create hidden spend.
-- Gateway spend limits are mandatory by plan, workspace, and engine.
-- Dashboard features, risk scoring, pipeline views, and opportunity summaries should reuse stored report data before making new model calls.
+- Manual reruns: Starter 1 / Agency+ 2 per brand per week; extra-run meter or credit after the included cap.
+- Hard-stop at 3× included calls per brand/week (`hardStopMultiplier`).
+- Claude and Grok stay Studio / Enterprise / premium pack. Never unlimited.
+- Dashboard/risk/opportunity views reuse stored report data. No hidden model calls on page load.
+
+**Later / Ops:** AI Overview/browser spend caps in Gateway; mandatory Gateway spend limits by plan.
 
 ---
 
 ## 11. Pricing
 
-| Plan | Price | Brands | Prompts | Cadence |
+**Shipped list prices**
+
+| Plan | Price | Brands | Prompts | Seats | Cadence | Email send | Command Center |
+|---|---|---|---|---|---|---|---|
+| Starter | $99/mo | 2 | 20 | 1 | Monthly (first Friday 06:00 local) | No | No (lighter Home) |
+| **Agency** | **$249/mo** | **10** | 20 | **3** | **Weekly** | Yes, approve-before-send | Yes |
+| Studio | $799/mo | 25 | 30 | 10 | Weekly | Yes, bulk approve/send | Yes + export |
+| Enterprise | $1,499+/mo | Contract (code floor 25/30/10 until extras stored) | Custom | Custom | Weekly/custom | Yes | Yes |
+
+Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three cards** plus an Enterprise contract note. Feature Agency at $249. Do not ship a $29 personal plan.
+
+### Trial (not paid Agency)
+
+| | Value |
+|---|---|
+| Marketing / FAQ | 14 days |
+| Caps (unpaid **or** `status: trialing`) | **1 brand / 1 seat / 1 full run** |
+| Continuation plan | Stored `subscriptions.plan` may be starter/agency/studio; **entitlements stay trial-like until `status: active`** |
+| Weekly send, client CC, members, history, Slack, Command Center, email send | Off |
+
+**Shipped:** first verified workspace insert writes `status: "trialing"` + `trialEndsAt` (14 days). After expiry without pay, caps stay unpaid 1/1/1 until `status: active`. Invite join does not mint a new trial.
+
+### Permission matrix (paid `active` only)
+
+| Capability | Starter | Agency | Studio | Enterprise |
 |---|---|---|---|---|
-| Starter | $99/mo | 2 | 20 | Monthly |
-| **Agency** | **$249/mo** | **10** | 20 | **Weekly** |
-| Studio | $799/mo | 25 | 30 | Weekly |
-| Enterprise | $1,499+/mo | Custom | Custom | Weekly/custom |
+| Brands included | 2 | 10 | 25 | 25 floor |
+| Seats included | 1 (owner) | 3 | 10 | 10 floor |
+| Extra brands $29 | No | Yes | Yes | Yes |
+| Extra seats $15 | No | Yes | Yes | Yes |
+| Extra run $9 | Yes (paid) | Yes | Yes | Yes |
+| Weekly Friday send | No (monthly first Friday) | Yes | Yes | Yes |
+| Email send to clients | No | Yes | Yes | Yes |
+| Approve before send | No | Required | Required | Required |
+| Bulk approve / send | No | No | Yes | Yes |
+| Client CC | No | Yes | Yes | Yes |
+| Custom sender name/domain | No | No | Yes | Yes |
+| Members invite (owner only) | No | Yes | Yes | Yes |
+| Slack webhook | No | Yes | Yes | Yes |
+| History / MoM | No | Yes | Yes | Yes |
+| Command Center rollups | No | Yes | Yes | Yes |
+| Weekly send queue `/app/reports` | No | Yes | Yes | Yes |
+| Portfolio CSV export | No | No | Yes | Yes |
+| Claude / Grok | No | Premium pack only | Limited + pack | Yes |
+| Premium engine pack $99 | No | Yes | Yes | Yes |
 
-Annual = 10 months. Trial: 14 days, 1 brand, 1 full run.
+### Plan gates (copy)
 
-Feature Agency at $249. Do not ship $29.
+**Starter:** 2 brands, 1 seat, monthly cadence, CiteBrief sender, PDF download and private client link, basic recommended actions. No weekly automation, no email sending to clients, no portfolio Command Center.
 
-**Plan gates**
+**Agency:** 10 brands, 3 seats, weekly Friday reports, white-label PDF (logo, color, footer), agency-branded client links with expiry and revoke, client CC, report approval before sending, suggested client email, month-over-month history, source evidence / raw output audit, recommended next actions, upsell notes, client risk flags, Command Center, report pipeline, Slack webhook, extra brands $29.
 
-Starter:
-- 2 brands.
-- 1 seat.
-- Monthly report cadence.
-- Limited prompt library.
-- Basic competitor tracking.
-- CiteBrief sender.
-- PDF download and private client link.
-- Basic recommended actions.
-- No weekly automation.
-- No email sending to clients.
-- No portfolio dashboard.
+**Studio:** 25 brands, 30 prompts, 10 seats, everything in Agency, custom sender name/domain, bulk approve and send, advanced portfolio filters + CSV export, limited Claude/Grok, premium pack available. Public `/pricing` also lists client portal archive, priority support, and internal COGS export — those three bullets are **Later** (do not treat as Shipped). Bulk send, custom sender, and extra brands are **Shipped**. The live Studio card does not list “priority processing.”
 
-Agency:
-- 10 client brands.
-- 3 seats.
-- Weekly Friday reports.
-- White-label PDF: agency logo, color, footer.
-- Agency-branded client links with expiry and revoke.
-- Client CC/email report sending.
-- Report approval before sending.
-- Suggested client email summary.
-- Month-over-month history and score trend.
-- Source evidence drawer and raw output audit view.
-- Prompt packs by industry.
-- Recommended next actions on every report.
-- Upsell opportunity notes.
-- Client risk flags.
-- Agency command-center dashboard.
-- Basic report pipeline.
-- Slack webhook.
-- Extra brands at $29/mo.
-
-Studio:
-- 25 brands.
-- 30 prompts/brand.
-- 10 seats.
-- Everything in Agency.
-- Advanced white-label controls.
-- Custom sender name/domain.
-- Client portal archive.
-- Bulk report generation and bulk sending.
-- Advanced portfolio dashboard.
-- Priority processing.
-- Limited Claude/Grok premium-engine capacity.
-- Premium engine pack available for heavier Claude/Grok usage.
-- Priority support.
-- Internal COGS and usage export.
-- Extra brands at $29/mo.
-
-Enterprise:
-- Starts at $1,499/mo or annual contract.
-- Custom brand, prompt, engine, country, and cadence limits.
-- Dedicated onboarding and report QA.
-- Higher premium-engine allocation.
-- SSO and security review support when required.
-- Custom SLA/support terms.
-- Contracted usage floor so gross margin stays at 65%+.
+**Enterprise:** starts at $1,499/mo or annual contract. Custom limits, dedicated onboarding, higher premium-engine allocation, SSO/security review **when required** (**Later** in-app SSO). No self-serve Enterprise checkout on `/pricing`.
 
 **Pricing psychology**
 - Starter is for freelancers and solo consultants testing the workflow.
-- Agency is the main plan and must look like the obvious choice: 10 client brands at $24.90/client/month.
-- Studio is for agencies already reselling AI-search reporting across a client book; it should not be priced like a thin analytics dashboard.
-- Enterprise is for high-volume/custom usage where limits, support, and legal/security requirements need a contract.
-- No free forever plan. Free creates hobby usage and support load.
+- Agency is the main plan: 10 client brands at $24.90/client/month.
+- Studio is for agencies already reselling AI-search reporting across a client book.
+- Enterprise is high-volume/custom usage on a contract.
+- No free forever plan.
 
 ---
 
@@ -399,31 +387,10 @@ Win on agency workflow and the white-label Friday report, not analytic depth.
 ---
 
 ## 13. Metrics
-Activation:
-- Time to first PDF.
-- % trials that generate a report.
-- % trials that copy/share/send the report.
-- Time to second brand.
-
-Revenue:
-- Trial-to-paid by plan.
-- MRR, expansion MRR, downgrade/cancel MRR.
-- Average brands/workspace.
-- Extra brand attach rate.
-- Annual prepay rate.
-
-Retention:
-- m2 logo retention.
-- Weekly report send rate.
-- Client link opens.
-- PDFs CC'd to client.
-- Number of consecutive Friday reports per brand.
-
-Cost/reliability:
-- COGS/report.
-- Engine success rate.
-- PDF generation success rate.
-- Support tickets per 100 workspaces.
+Activation: time to first PDF; % trials that generate a report; % that copy/share/send; time to second brand.  
+Revenue: trial-to-paid by plan; MRR; expansion; average brands/workspace; extra brand attach; annual prepay.  
+Retention: m2 logo retention; weekly report send rate; client link opens; PDFs CC'd to client; consecutive Friday reports per brand.  
+Cost/reliability: COGS/report; engine success rate; PDF success rate; support tickets per 100 workspaces.
 
 North star: **paid workspaces that sent a PDF to a client this month**.
 
@@ -432,7 +399,7 @@ North star: **paid workspaces that sent a PDF to a client this month**.
 ## 14. Risks
 Engine drift → official APIs, store raw.  
 AIO layout change → fail soft, ship 3-engine PDF.  
-Cost spike → AI Gateway spend limits, cache, mid models, plan caps.  
+Cost spike → AI Gateway spend limits (**Ops**), cache, mid models, plan caps.  
 “Not Peec” → stay the report layer.  
 Report not trusted → expose sources, raw output audit drawer, and engine timestamps.  
 Too much agency setup → 6-field onboarding, reusable prompt packs, duplicate brand.  
@@ -441,7 +408,9 @@ Race to cheap tracking → keep white-label, sending, history, and team workflow
 
 ---
 
-## 15. Build week
+## 15. Historical build week
+Week 1–6 below is the original sequencing. It is not a current backlog.
+
 Week 1 Foundation: Next.js + OpenNext Worker, Better Auth, D1, app shell, marketing shell.  
 Week 2 First revenue artifact: onboarding, brand setup, generated 20 prompts, AI Gateway engine fan-out, first polished PDF.  
 Week 3 Paid workflow: Dodo checkout/webhooks, plan limits, report download, private client link, white-label logo/color.  
@@ -453,9 +422,32 @@ Week 6 Revenue hardening: extra brand/run billing, billing portal, dunning, usag
 
 ## 16. Data model
 Better Auth: users, sessions, accounts, verifications  
-`workspaces` · `workspace_members` · `brands` · `competitors` · `prompts` · `runs` · `run_rows` · `reports` · `subscriptions` (dodo_customer_id, dodo_subscription_id, plan, status) · `webhook_events`
 
-R2: `reports/{workspace}/{brand}/{yyyy-mm-dd}.pdf`
+App (D1):
+- `workspaces` (timezone, sender name/domain, default engines, Slack webhook, minutes-saved-per-report)
+- `workspace_members` (owner / admin / member)
+- `workspace_invites`
+- `brands` (client_owner, archive)
+- `competitors` · `prompts` · `runs` (extra_run, consume_credit, billed_at) · `run_rows` (gateway request id, confidence, engine_at, raw)
+- `reports` (scores, share token/expiry/revoke/opens, sent_at, approval_state, suggested email)
+- `subscriptions` (dodo ids, plan, status, extras, premium_engine_pack, billing_interval, trial_ends_at)
+- `webhook_events` (idempotent event id)
+- `brand_kits`
+- `audit_logs`
+- `opportunity_plans`
+- `engine_cache`
+
+R2: `reports/{workspace}/{brand}/{yyyy-mm-dd}.pdf` and `.html`
+
+**Migrations 0008–0012 (apply in every environment that runs the app)**
+
+| Id | What |
+|---|---|
+| 0008 | Client owner, recommended score, share open tracking, engine_at, sender_domain, extra seats/credits, billing interval |
+| 0009 | Run extra_run / consume_credit / billed_at (meter after a report exists) |
+| 0010 | Share revoke, `audit_logs` |
+| 0011 | Premium engine pack, report approval + suggested email |
+| 0012 | `minutes_saved_per_report`, `opportunity_plans` |
 
 ---
 
@@ -626,7 +618,7 @@ cache_policy: "fresh" | "allow_24h"
 
 ## E. Extractor (per prompt × engine)
 
-Run on Workers AI through AI Gateway, or another low-cost gateway-routed model. Cheap. Deterministic.
+Cheap. Deterministic in code today (Workers AI through AI Gateway is **Later**).
 
 ```
 Brand: {brand}
@@ -723,51 +715,51 @@ Include the year on every "best" prompt.
 - Thought-leadership topics the buyer will never ask an assistant
 - 50 near-duplicate “best X” rewrites (keep 2, spend the rest on comparisons)
 
-Those burn $1.45/run and do not change a retainer conversation.
+Those burn ~$1.45/run and do not change a retainer conversation.
 
 ---
 
 ## 17. Launch
 Launch goal: prove agencies will forward the report to clients and pay for recurring delivery.
 
-**Founder-led launch**
+**Founder-led launch (Ops)**
 - 30 agency DMs from a narrow segment: B2B SaaS SEO/content agencies first.
 - Offer: "Send me one client and I will generate the first Friday AI-search report."
 - Qualification: they must have at least 5 active clients and already sell SEO/content/PR retainers.
 - Success condition: they forward the report to the client or ask to white-label it.
-- Sales call asks: "What would make this report worth adding to your retainer deck?"
 
 **Launch offer**
-- 14-day trial, 1 brand, 1 full report.
+- Trial: 14 days (`trialing` + `trialEndsAt` on first workspace), 1 brand, 1 full report, not paid Agency entitlements.
 - Agency plan at $249/mo.
-- Annual founder plan: $2,490/year for first 25 agencies, locked for 12 months.
-- Done-with-you setup for the first 20 paid agencies.
+- Annual founder plan: $2,490/year for first 25 agencies, locked for 12 months (**Ops**).
+- Done-with-you setup for the first 20 paid agencies (**Ops**).
 
-**Website**
+**Website (Shipped)**
 - Hero is the PDF, not a dashboard screenshot.
-- Show the sample report before asking for signup.
-- Pricing page anchors on Agency.
+- Sample report at `/report` before signup.
+- Pricing page anchors on Agency; three cards + Enterprise note.
 - Main CTA: "Send a Friday report."
-
-**Early proof points to collect**
-- Time saved per report.
-- Whether the report was forwarded to clients.
-- Whether the agency added it to retainers.
-- Before/after screenshots of manual reporting workflow.
-- Quotes from account managers, not only founders.
+- No `/playbooks` site pages.
 
 ---
 
 ## 18. Complete product (not an MVP)
 
 ### 18.1 Marketing site
+
+**Shipped primary IA**
 - `/` landing
-- `/pricing` 3 plans + FAQ
+- `/pricing` — 3 plan cards + add-on note + Enterprise contract note + FAQ (6 questions)
 - `/report` sample PDF viewer (public, anonymized)
-- `/login` `/signup`
-- `/legal/privacy` `/legal/terms`
-- Comparison pages later: `/alternatives/otterly`, `/for-seo-agencies`, `/for-pr-agencies`
-- ROI calculator later: report hours saved × clients × loaded AM cost
+- `/login` `/signup` (noindex, follow)
+- Legal: `/legal/privacy` `/legal/terms` `/legal/dpa` `/legal/security` `/legal/subprocessors` `/legal/retention` `/legal/cookies` `/legal/disclaimer`
+
+**Shipped commercial SEO pages (indexable; not playbooks)**  
+`/for-seo-agencies` `/for-pr-agencies` `/white-label-ai-visibility-reports` `/ai-visibility-report-template` `/geo-reporting-for-agencies` `/ai-search-reporting-for-agencies` `/alternatives/otterly` `/alternatives/profound` `/compare/peec` `/compare/ai-rank-lab` `/compare/aeo-vision`
+
+**Not shipped**
+- `/playbooks` or `/playbooks/*`
+- ROI calculator
 
 Marketing message hierarchy:
 1. The Friday AI-search report your client actually reads.
@@ -776,241 +768,161 @@ Marketing message hierarchy:
 4. Built for agencies managing multiple clients.
 
 ### 18.2 App
-| Area | What it does |
-|---|---|
-| **Command Center** | Portfolio health, client risk alerts, reports due, reports ready, reports sent, upsell opportunities, estimated hours saved |
-| **Home** | Defaults to Command Center. This week’s client actions, report pipeline, score changes, brands needing attention |
-| **Brands** | List, add, duplicate, archive. Logo, site, competitors, vertical, client owner |
-| **Brand home** | Latest score, recommendation score, trend, last PDF, next Friday, top missing questions |
-| **Opportunities** | Revenue opportunities found from reports: comparison page, source refresh, PR/source placement, content update, technical SEO cleanup, GEO package |
-| **Client risk** | Clients marked Stable, Watch, or At risk based on visibility drops, competitor wins, no recommendations, failed reports, or unsent reports |
-| **Report pipeline** | Not configured, ready to run, running, needs review, approved, sent |
-| **Prompts** | 20-set editor, templates, lock mix 4+4+4+4+4, reject vanity, industry packs |
-| **Runs** | Queue, live status per engine, retry failed engine only, cost estimate |
-| **Report** | In-app PDF viewer, Friday summary, recommended actions, upsell notes, approval state, download, copy share link, CC client, send test |
-| **History** | All PDFs, MoM mentioned/recommended, who-won chart, export CSV |
-| **Client link** | Read-only page, agency-branded, no login, 90-day expiry, open tracking |
-| **Members** | Invite AM (Agency+). Roles: owner, admin, member |
-| **Brand kit** | Logo, color, footer, “Prepared by”, sender identity |
-| **Billing** | Plan, usage (brands, runs, seats), Dodo portal, invoices, upgrade prompts |
-| **Settings** | Workspace, timezone (cron), default engines, email sender name |
-| **Onboarding** | 6 fields → generated 20 → first run → PDF → send/share |
 
-Polish requirements:
+| Area | Status | What it does |
+|---|---|---|
+| **Command Center** | **Shipped** Agency+ | Portfolio health, risk, pipeline, opportunities, ROI hours saved |
+| **Home** | **Shipped** | Agency+: Command Center. Trial/Starter: lighter Home (brands, runs, pipeline, actions; no risk/opportunity rollups) |
+| **Reports** `/app/reports` | **Shipped** Agency+ weekly queue | Pipeline + send queue; Studio bulk approve/send |
+| **Risks** `/app/risks` | **Shipped** Agency+ | Stable / Watch / At risk from stored reports |
+| **Opportunities** `/app/opportunities` | **Shipped** Agency+ | Upsell cards; copy recommendation; mark planned |
+| **Brands** | **Shipped** | List, add, duplicate, archive. Logo, site, competitors, vertical, client owner |
+| **Brand home** | **Shipped** | Latest score, rec score, trend, last PDF, cadence, top missing |
+| **Prompts** | **Shipped** | 20-set editor, 4+4+4+4+4 mix, vanity reject, generate pack |
+| **Runs** | **Shipped** | Queue, per-engine status, retry failed engine, extra-run meter |
+| **Report** | **Shipped** | HTML viewer, suggested email, approval, download, share link, revoke/rotate, CC, send |
+| **History** | **Shipped** Agency+ | PDFs, MoM sparkline, CSV export |
+| **Client link** `/r/[token]` | **Shipped** | Read-only, agency-branded, no login, 90-day expiry, open tracking, revoke, noindex |
+| **Members** | **Shipped** Agency+ | Owner invites only. Roles: owner, admin, member. Seat cap includes pending invites |
+| **Brand kit** | **Shipped** | Logo, color, footer, Prepared by |
+| **Billing** | **Shipped** | Plan, usage, Dodo portal, cancel at period end, add-ons, upgrade prompts |
+| **Settings** | **Shipped** | Workspace, timezone (cron), default engines, sender, Slack, hours-saved (Agency+) |
+| **Onboarding** | **Shipped** | 6 fields → generated 20 → first run → PDF → send/share |
+| **Client portal archive** | **Later** | Listed on Studio pricing copy; no dedicated portal |
+| **Command palette ⌘K** | **Later** | |
+| **SSO** | **Later** | Enterprise sales promise |
+
+Polish requirements (still the bar):
 - Every empty state must lead to revenue behavior: add brand, generate prompts, run report, send report, upgrade.
 - Every plan limit must show the upgrade value, not just an error.
-- Every generated report must have a "send test to myself" path.
-- Every client-facing link must hide CiteBrief branding unless the plan requires it.
+- Every generated report should have a send-to-myself path on Agency+ (send `to` defaults to the signed-in user).
+- Every client-facing link must hide CiteBrief branding unless the plan requires CiteBrief sender.
 - Account managers must never see raw technical failures before seeing whether the report can still ship.
-- The dashboard must not feel thin at $249. It must show clients, risks, reports to send, and revenue opportunities this week.
-- Dashboard summaries must reuse stored report data by default. Do not create hidden AI spend just because a user opens Home.
+- Dashboard summaries must reuse stored report data. Do not create hidden AI spend on Home.
 
-Command Center required modules:
-- **Portfolio health:** active clients, average visibility, reports ready, reports sent, failed/partial runs.
-- **Client risk alerts:** visibility dropped, competitor overtook, client named but not recommended, no presence for key buyer prompts, unsent report.
-- **Revenue opportunities:** count and list of upsellable work with client, reason, recommended service, and report evidence.
-- **This week’s actions:** review report, approve report, send report, create recommendation, refresh source, rerun failed engine.
-- **Report pipeline:** counts by not configured, ready to run, running, needs review, approved, sent.
-- **Agency ROI:** reports generated, estimated account-manager hours saved, client brands monitored, opportunities found, reports sent.
-
-Opportunity types:
-- Comparison page or alternatives page.
-- Pricing/proof update.
-- Source-worthy content refresh.
-- PR or third-party source placement.
-- Technical SEO cleanup.
-- Review/listing authority work.
-- GEO retainer or content package.
-
-Report approval workflow:
-1. Report is generated.
+Report approval workflow **Shipped** (Agency+):
+1. Report is generated (`needs_review`).
 2. Account manager reviews findings and suggested email.
-3. Account manager edits notes if needed.
-4. Report is approved.
-5. Report is sent or shared with the client.
+3. Report is approved.
+4. Report is sent (email) or shared (client link). Send is blocked until approved.
 
 ### 18.2.1 Dashboard / Command Center
-The dashboard is the paid product surface that justifies Agency at $249. It must not feel like a thin list of brands. It should feel like the agency's weekly operating room: which clients are healthy, which clients are exposed, which reports need action, and where the agency can sell more work.
+**Shipped** for paid Agency / Studio / Enterprise. Trial and Starter get a **lighter Home** only. `/app/reports`, `/app/risks`, and `/app/opportunities` show an upgrade prompt when the plan does not allow the module.
+
+The dashboard is the paid product surface that justifies Agency at $249.
 
 **Primary dashboard promise**
 
 > In five minutes, an agency owner or account manager should know what changed this week, which clients need attention, which reports are ready to send, and which client conversations can create revenue.
 
-**Default layout**
-- Top strip: portfolio health, reports ready, clients at risk, opportunities found, estimated hours saved.
-- Left/main area: client portfolio table with health, visibility, recommendation count, competitor wins, trend, pipeline status, next action.
-- Right rail: this week’s actions, urgent risks, upcoming Friday send queue.
-- Bottom area: opportunities, report pipeline, recent sends, failed/partial runs.
+**Default layout (Shipped)**
+- Top strip: clients monitored, average named, at risk, opportunities, hours saved; then reports ready, reports sent, failed/partial (Agency+).
+- Portfolio table (“This week”): brand, owner, risk, named, recommended, week-over-week change, pipeline, next action.
+- This week’s actions; opportunity cards with copy + mark planned; clickable pipeline strip → `/app/reports?stage=`.
 
-**Dashboard KPIs**
+**Not shipped as a distinct chrome:** dedicated right-rail + bottom-area three-pane layout from the original mock. Function is on Home plus `/app/reports` `/app/risks` `/app/opportunities`. Sidebar: Home, Brands, Reports, Opportunities, Risks, Settings.
+
+**Dashboard KPIs (Shipped, stored data only)**
+
 | KPI | Meaning |
 |---|---|
-| Portfolio visibility | Average named/recommended rate across active clients |
-| Clients monitored | Active client brands in the workspace |
-| Reports ready | Generated reports waiting for review or approval |
-| Reports sent | Reports sent/shared this week |
-| Clients at risk | Clients with visibility drop, no recommendations, competitor wins, failed report, or unsent report |
+| Portfolio visibility | Average named rate across active clients |
+| Clients monitored | Active client brands |
+| Reports ready | Latest report exists and is not sent (`needs_review` + `ready_to_send`) |
+| Reports sent | Latest report has `sentAt` |
+| Clients at risk | At-risk count from risk rules |
 | Opportunities found | Monetizable recommendations from latest reports |
-| Estimated hours saved | Reports generated × estimated manual reporting time saved |
-| Full-use COGS | Internal-only or owner-only view of estimated report cost |
+| Estimated hours saved | Reports generated × workspace minutes (45–90, default 60) |
+| Failed / partial | Latest run `failed` or `partial` |
+| Full-use COGS | **Later** on owner Home; **Shipped** as internal admin per-run estimate |
 
-**Client portfolio table**
-Each row must show:
-- Client/brand name and owner.
-- Visibility score: named / total prompts.
-- Recommendation score: recommended / total prompts.
-- Competitor leader: top competitor winning buyer questions.
-- Week-over-week change.
-- Risk status: `Stable`, `Watch`, `At risk`.
-- Pipeline status: `Not configured`, `Ready to run`, `Running`, `Needs review`, `Approved`, `Sent`.
-- Next action: one specific action, not generic text.
-- Primary CTA: open report, review, approve, send, configure prompts, or rerun failed engine.
+**Client portfolio table (Shipped)**  
+Brand, owner, risk, named, recommended, week-over-week change, pipeline, next action CTA.  
+**Later** on Home: competitor-leader column (the value is computed for risk rules and Studio CSV, not shown on the Home table).
 
-**Risk rules**
-Risk should be derived from stored report/run data:
-- `At risk`: visibility drops by 25%+, zero recommendations, report failed, report unsent after scheduled send day, or competitor leads 50%+ of prompts.
-- `Watch`: visibility drops by 10%-24%, partial report, missing sources, or client is named but rarely recommended.
-- `Stable`: report sent, no major drop, no urgent competitor pattern.
+**Risk rules (Shipped, from stored report/run data)**
+- `At risk`: visibility drops ≥25%, zero recommendations, report failed, send overdue after scheduled send day, or competitor leads ≥50% of prompts.
+- `Watch`: drop 10%–24%, partial report, missing sources, named but rarely recommended, no prompts, no report, or unsent.
+- `Stable`: otherwise (typically sent, no major drop).
 
-Risk labels must explain why:
-- "Dropped from 9/20 to 5/20 named."
-- "Competitor leads 12 buyer questions."
-- "Report ready but not sent."
-- "No recommendations this week."
+Risk labels explain why (examples): "Dropped from 9/20 to 5/20 named." / "Competitor leads 12 buyer questions." / "Report ready but not sent." / "No recommendations this week."
 
-**Revenue opportunities**
-The dashboard must show opportunity cards with:
-- Client name.
-- Opportunity type.
-- Evidence from the report.
-- Recommended agency service.
-- Suggested client-facing wording.
-- Estimated value label: `Small`, `Medium`, `High`.
-- CTA: open report, copy recommendation, mark as planned.
+**Revenue opportunities (Shipped keys)**  
+`geo_package`, `comparison_page`, `source_refresh`, `pr_placement`, `technical_seo`.  
+Each card: client, type, evidence, recommended service, suggested wording, Small/Medium/High, CTA open report / copy / mark planned.
 
-Opportunity examples:
-- Comparison page: competitor repeatedly wins "best X vs Y" prompts.
-- Pricing/proof update: AI answers mention unclear pricing or weak proof.
-- Source refresh: AI cites outdated or low-quality pages.
-- PR/source placement: competitor wins because third-party sources mention them more.
-- GEO package: client missing across many high-intent prompts.
-- Technical SEO cleanup: source pages are discoverable but not being cited.
+**Later opportunity types** from the original list (not separate keys): pricing/proof update, review/listing authority as first-class types.
 
-**This week’s actions**
-Actions must be generated from actual workflow state:
-- Add prompts for clients with no prompt set.
-- Run first report.
-- Review partial report.
-- Approve report.
-- Send report.
-- Rerun failed engine.
-- Follow up with client at risk.
-- Turn opportunity into client recommendation.
+**This week’s actions (Shipped)**  
+Generated from workflow state: generate prompts, run report, review partial, approve, send, rerun failed engine, follow up at risk, create recommendation from an opportunity.
 
-Every action needs:
-- Client.
-- Reason.
-- Due status.
-- One CTA.
+**Report pipeline (Shipped)**
 
-**Report pipeline**
-Pipeline stages:
-- Not configured: brand exists but missing prompts or required fields.
-- Ready to run: prompts exist and included run is available.
-- Running: report job is queued/running.
-- Needs review: report generated but not approved.
-- Approved: report approved but not sent/shared.
-- Sent: client email sent or share link copied/sent.
+| Stage | Meaning |
+|---|---|
+| Not configured | Brand exists but no prompt set |
+| Ready to run | Prompts exist, no report |
+| Running | Queued/running |
+| Needs review | Report generated, not approved |
+| Approved (`ready_to_send`) | Approved, not sent |
+| Sent | `sentAt` set |
 
-The pipeline must show counts and a filtered list when clicked.
+Home and `/app/reports` show counts; clicking a stage filters `/app/reports?stage=`.
 
-**Agency ROI panel**
-Show:
-- Reports generated this month.
-- Reports sent this month.
-- Estimated hours saved.
-- Client brands monitored.
-- Opportunities found.
-- Extra revenue conversations created.
+**Empty states (Shipped)**
+- No brands: one CTA — Add a brand → `/app/onboarding` (no second empty-home CTA).
+- One brand, no report: generate prompts, run report, and view sample.
+- Reports exist, no opportunities: a short explanation, not a blank panel.
 
-Default estimate:
-- 45-90 minutes saved per generated client report.
-- Let workspace owners adjust this later in settings.
+**Agency ROI panel (Shipped)**  
+Reports generated / sent, hours saved, brands, opportunities. Owners set 45–90 minutes saved per report in workspace settings.
 
-**Plan behavior**
-- Trial: dashboard shows one brand only, with upgrade prompts on multi-client portfolio modules.
-- Starter: basic dashboard, no portfolio health depth, no risk/opportunity rollups, no weekly send queue.
-- Agency: full Command Center with portfolio health, risk, opportunities, pipeline, actions, ROI.
-- Studio: Agency plus bulk approve/send, advanced portfolio filters, premium-engine usage, client portfolio export.
-- Enterprise: Studio plus custom dimensions, SSO/security views where needed, SLA/support indicators.
+**Plan behavior (Shipped)**
+- Trial / unpaid: lighter Home, 1 brand cap, upgrade prompts on Reports / Risks / Opportunities.
+- Starter: lighter Home, no portfolio health depth, no risk/opportunity rollups, no weekly send queue.
+- Agency: full Command Center.
+- Studio: Agency plus bulk approve/send and portfolio CSV export.
+- Enterprise: same gates as Studio in code until custom dimensions exist.
 
-**Dashboard filters**
-Agency+ must support:
-- Owner/account manager.
-- Risk status.
-- Pipeline status.
-- Report cadence.
-- Opportunity type.
-- Brand/client.
-- Sent/not sent.
+**Dashboard filters (Shipped on Agency+ lists)**  
+Owner, risk, pipeline, opportunity type, brand, sent/not sent.  
+**Later:** report cadence as a dedicated filter.
 
-**No hidden cost rule**
-Dashboard load must not trigger new model calls. It should read from stored reports, runs, extracted findings, source metadata, and cached opportunity records. New AI calls happen only when the user explicitly generates, reruns, summarizes, or approves a report-related action.
-
-**Empty state**
-If no brands exist, show one path: add first client brand.  
-If one brand exists but no report exists, show: generate prompts, run report, view sample output.  
-If reports exist but no opportunities exist, show a client-safe explanation and the next useful action, not a blank panel.
+**No hidden cost rule (Shipped)**  
+Dashboard load does not trigger new model calls.
 
 ### 18.3 Engine + report engine
-- 4 core engines v1 routed through Cloudflare AI Gateway where API-based
-- Claude/Grok are premium engines: limited Studio capacity, paid premium-engine pack for heavier usage, or Enterprise allocation
-- 24h cache on identical prompt+engine via AI Gateway and D1 cache metadata
-- Soft-fail: 3 of 4 engines still ship the PDF
-- Writer + extractor as specified in Prompts
-- HTML report + PDF (R2)
-- Email to agency; optional client CC
+**Shipped**
+- 4 core engines routed through Cloudflare AI Gateway where API-based; AIO via Browser Rendering
+- Claude/Grok on Studio, Enterprise, or premium pack
+- 24h D1 `engine_cache` on identical prompt+engine
+- Soft-fail: 3 of 4 **core** engines still ship the PDF
+- HTML report + PDF on R2
+- Email to agency and optional client CC (Agency+)
 - Slack incoming webhook (Agency+)
-- Store raw engine responses for audit and support
-- Store engine timestamp, source URLs, extraction confidence, and AI Gateway request id
-- Default report hides raw outputs; audit drawer shows them inside app
-- Gateway spend limits prevent runaway manual re-runs
-- Gateway analytics feed COGS/report and plan-level usage reporting
+- Store raw engine responses, timestamp, source URLs, extraction confidence, AI Gateway request id
+- Default report hides raw outputs; audit drawer in app
+- Live-configured engine failures throw; they do not stub-succeed
+
+**Later / Ops:** Gateway spend limits; Workers AI extractor/writer; writer "technical mode."
 
 ### 18.4 Billing product
-- Starter / Agency / Studio / Enterprise
-- Extra brand addon
-- Extra seat addon
-- Extra run meter (Dodo usage)
-- Premium engine pack addon
-- Trial 14d, 1 brand, 1 full run
-- No free forever plan
-- No recurring weekly reports until paid
-- No Studio engines in trial
-- Dunning email on `subscription.failed`
-- Cancel at period end; PDFs stay 90 days
-- Upgrade prompts at natural moments: 3rd Starter brand, weekly cadence, client CC, white-label sender, extra seats
-- Annual prepay with 2 months free
-- Workspace usage screen shows included vs billable usage before charges happen
+**Shipped:** Starter / Agency / Studio / Enterprise; extra brand / seat / run; premium pack flag; unpaid/trial 1/1/1; no free forever; no recurring weekly send until paid; no Studio engines in unpaid/trial; dunning on failed subscription; cancel at period end; PDFs 90 days after end; upgrade prompts; annual = 10 months; usage screen.
 
-Revenue moments:
-- User adds 3rd Starter brand → upgrade to Agency.
-- User wants weekly reports on Starter → upgrade to Agency.
-- User wants custom sender/domain → upgrade to Studio.
-- User exceeds 10 Agency brands → add extra brand or upgrade Studio.
-- User invites 4th Agency teammate → add seat or upgrade Studio.
-- User needs more premium-engine capacity → premium engine pack or Enterprise.
-- User needs custom limits, SSO, SLA, or security review → Enterprise.
-- User manually re-runs often → extra run meter.
+**In-app billing UI (Shipped):** `/app/settings/billing` highlights **one** plan (badge Current plan / After trial / Selected — never two green cards). Add-on purchase is hidden until paid `active`. Public `/pricing` stays three cards + Enterprise note; the in-app plan grid includes Enterprise at the $1,499 floor.
+
+Revenue moments (still the intended prompts): 3rd Starter brand → Agency; weekly on Starter → Agency; custom sender → Studio; 11th Agency brand → extra brand or Studio; 4th Agency seat → extra seat or Studio; more Claude/Grok → pack or Enterprise; custom/SSO/SLA → Enterprise; frequent reruns → extra run meter.
 
 ### 18.5 Admin (internal)
-- Impersonate workspace (support)
-- COGS per run
+**Shipped** at `/app/admin` + `/api/internal/admin/*` (Bearer `INTERNAL_ADMIN_SECRET`; production never accepts stub/`dev-admin`):
+- Impersonate workspace
+- COGS per run (estimate)
 - Failed webhook replay
-- Engine failure dashboard
-- Top prompts by failure/cost
-- Plan usage by workspace
-- Report quality review queue for early customers
+- Engine failure counts + top failing prompts (`/api/internal/admin/engines`)
+- Plan usage by workspace (`/api/internal/admin/usage`)
+- Audit log viewer
+
+**Later:** report quality review queue for early customers as a dedicated queue UI.
 
 ### 18.6 What “complete” still is not
 Not a GEO optimizer. Not a content factory. Not Peec.  
@@ -1033,27 +945,35 @@ The product can seriously generate revenue only if these are true:
 ## 19. Information architecture
 
 ```
-/                       marketing
-/pricing
-/r/[token]              public client report
-/signup  /login
-/app                    Command Center / dashboard
+/                       marketing (index)
+/pricing                3 cards + Enterprise note (index)
+/report                 sample (index)
+/legal/*                legal (index)
+/for-* /compare/* /alternatives/*   commercial SEO (index)
+/r/[token]              public client report (noindex)
+/signup  /login         noindex
+/invite/[token]         noindex
+/app                    Home (Command Center or light)
 /app/brands
 /app/brands/[id]
 /app/brands/[id]/prompts
 /app/brands/[id]/runs/[runId]
 /app/brands/[id]/reports/[reportId]
-/app/reports            report pipeline and send queue
-/app/opportunities      agency upsell opportunities
-/app/risks              client risk view
+/app/brands/[id]/history
+/app/reports            pipeline and send queue
+/app/opportunities
+/app/risks
 /app/settings
 /app/settings/brand-kit
 /app/settings/members
 /app/settings/billing
+/app/admin              internal
 /api/auth/*             Better Auth
 /api/checkout           Dodo
 /api/webhooks/dodo
 ```
+
+No `/playbooks`.
 
 ---
 
@@ -1098,27 +1018,22 @@ No purple. No gradient mesh. Accent comes from the agency kit on PDFs and client
 
 **Marketing**
 - Nav: logo left, Pricing + Sample report + Sign in, CTA “Send a Friday report” right
-- Hero: serif headline, one sentence, two CTAs (start trial / view sample PDF). Right side = **real PDF page**, not a fake dashboard
-- Logo row only if real
-- Bento 2×2: Named / Who won / Next action / Friday send — each cell one artifact
-- Pricing: 3 cards, Agency outlined as recommended, monthly toggle
-- FAQ accordion, 5 objections
-- Footer thin, legal + status
+- Hero: serif H1 from §18.1 (“The Friday AI-search report your client actually reads.”), supporting copy from the same hierarchy, two CTAs (**Send a Friday report** / **View sample report**). Right side = PDF preview (not a dashboard)
+- Pricing: 3 cards, Agency outlined as recommended, monthly/annual toggle
+- FAQ accordion (6 questions in `src/lib/pricing-faq.ts`)
+- Footer: product + legal (privacy, terms, security, DPA). No Status link. No playbooks.
 
 **App shell**
-- Sidebar **240px**, persistent. Logo, Home, Brands, Settings. Bottom: workspace + avatar
-- Top bar: brand switcher, “Run now”, user
-- Primary action **top right** always
+- Sidebar **240px**, persistent. Logo, Home, Brands, Reports, Opportunities, Risks, Settings. Bottom: workspace + avatar
+- Primary action **top right**
 - Tables: row height **48px**, sticky header, mono scores
-- Status pills: Named / Missing / Running / Failed — color + word, not icon-only
-- Empty states: one line + CTA (“Add a brand”, “Generate 20 prompts”)
-- Toasts: bottom, 3s, no stack of 6
-- Command palette later (`⌘K` jump to brand)
+- Empty states: one line + CTA
+- Toasts: bottom, 3s
+- Command palette **Later** (`⌘K` jump to brand)
 
 **Report viewer**
 - Full-bleed paper on `#FAFAF8`
-- Left thumbnails, right page
-- Top: Download PDF · Copy client link · CC client
+- Top: Download PDF · Copy client link · send / CC (plan-gated)
 - Score as a big mono number, not a gauge chart
 
 **Onboarding (3 steps, one column)**
@@ -1139,7 +1054,7 @@ No purple. No gradient mesh. Accent comes from the agency kit on PDFs and client
 - **Base-ui / Radix** underneath
 - Icons: **Lucide**, 16–18px, 1.5 stroke
 - Charts: **Recharts** only for MoM sparkline. No 3D.
-- PDF preview: react-pdf or page images from Worker
+- PDF/report preview: stored HTML from R2 (not a required react-pdf dependency)
 - Fonts: `next/font` (Geist + Newsreader)
 
 ### 20.7 States every screen must have
@@ -1147,8 +1062,10 @@ Default · Loading (skeleton, not spinner wall) · Empty · Error · Partial (3/
 
 ### 20.8 Copy voice
 Specific. No “unlock AI search”.  
-Headline example: **“The Friday PDF your client actually reads.”**  
-CTA: **Start the first report** / **View a sample**.  
+Live landing H1: **“The Friday AI-search report your client actually reads.”**  
+SEO/meta title still uses **“The Friday PDF your client actually reads.”**  
+Nav and hero primary CTA: **Send a Friday report**. Secondary: **View sample report**.  
+Signup page heading: **Start the first report**.  
 In-app: verbs on buttons (Run, Send, Copy link).
 
 ### 20.9 Anti-patterns (ban)
@@ -1160,55 +1077,108 @@ Lighthouse marketing > 90. Mobile landing works. App can be desktop-first (1280+
 ---
 
 ## 21. Technical notes (Workers + Next)
-- `@opennextjs/cloudflare` + Wrangler. Compatibility date 2026. `nodejs_compat`.
-- KV binding for ISR / Better Auth rate limit.
-- Bindings read with `getCloudflareContext()` from `better-auth-cloudflare` examples — never `process.env.DB`.
-- Queue consumer is a **separate Worker** or Workflow. Next app only `env.RUNS_QUEUE.send()`.
-- Images via Cloudflare Images or R2 public URLs for logos.
-- Preview: `opennextjs-cloudflare build && wrangler dev`.
+- `@opennextjs/cloudflare` + Wrangler. Compatibility date 2026-09-12. `nodejs_compat`.
+- KV binding for ISR / Better Auth / **route rate limits**. Production **fail-closed** if KV is missing on rate-limited routes (503).
+- Bindings read with `getCloudflareContext()` — never `process.env.DB`.
+- Queue consumer is **this Worker** (`worker.ts` `queue()`). Next app only `env.RUNS_QUEUE.send()`.
+- Logos are HTTPS URLs on the brand kit (not R2). Report HTML/PDF objects live in R2.
+- Preview: `opennextjs-cloudflare build && opennextjs-cloudflare preview` (`npm run preview`).
+- Cron: `"0 * * * *"`; `runFridayCron` enqueues when the workspace timezone is Friday 06:00 (Starter: first Friday of the month).
+
+### 21.1 Email (Shipped)
+Cloudflare Email Service via Wrangler `send_email` binding **`EMAIL`**. Default From: `CiteBrief <auth@getcitebrief.com>` (`CF_EMAIL_FROM`). Templates in `src/emails/`.
+
+| Mail | Chrome |
+|---|---|
+| Verify email, magic link, invite, dunning, deletion | CiteBrief mark + getcitebrief.com footer |
+| Friday report send and client CC | Agency logo/name, kit accent, prepared-by footer (no CiteBrief chrome) |
+| Friday queued / report-ready (internal) | CiteBrief chrome |
+
+Production without `EMAIL.send` **fails closed** (throw). Local `next dev` stubs.
+
+Studio custom sender: display name + `reports@{sender_domain}` when custom sender is allowed.
+
+### 21.2 Security (Shipped)
+
+**Headers:** CSP (`frame-ancestors 'none'`; production script-src `'self' 'unsafe-inline'` without `unsafe-eval`; `unsafe-eval` only in development), `X-Frame-Options: DENY`, Referrer-Policy, Permissions-Policy, `X-Content-Type-Options`, HSTS.
+
+**Worker secret gate:** production with stub/`dev-admin` `BETTER_AUTH_SECRET`, `INTERNAL_ADMIN_SECRET`, `INTERNAL_PROCESS_SECRET`, or `CRON_SECRET` returns 503 for all traffic except health.
+
+**Billing:** production never stub-checkouts or persists fake paid rows. Missing Dodo keys → 503.
+
+**Engines:** live-configured providers that error fail the engine. Deterministic stubs only when the engine is not live-configured (local/dev).
+
+**Rate limits (KV):**
+
+| Bucket | Limit | Window |
+|---|---|---|
+| auth | 30 | 1 min |
+| run create | 10 | 1 hour |
+| report send | 20 | 1 hour |
+| invite | 10 | 1 hour |
+| public report token | 60 | 1 min |
+| internal | 30 | 1 min |
+| export | 5 | 1 hour |
+| share manage | 20 | 1 hour |
+| billing | 20 | 1 hour |
+
+Better Auth also rate-limits (window 60s, max 20).
+
+**Roles:** owner (billing, invites, members); owner/admin (workspace settings); member (operate brands/reports). Impersonation bypasses role checks for support.
 
 ---
 
-## 22. Highest-level launch bar
+## 22. Indexation
+
+Canonical origin: `https://getcitebrief.com`. Sitemap is `INDEXABLE_PATHS` only.
+
+| Surface | Index | Follow |
+|---|---|---|
+| `/`, `/pricing`, `/report`, legal, commercial SEO pages | Yes | Yes |
+| `/login`, `/signup` | No | Yes |
+| `/app/*`, `/api/*`, `/r/*`, `/invite/*` | No | No (`robots.txt` disallow) |
+
+---
+
+## 23. Highest-level launch bar
 
 CiteBrief is only ready for a premium public launch when these are true.
 
-### 22.1 Product proof
+### 23.1 Product proof
 - A new agency can create a workspace, add one client, generate 20 prompts, run the first report, and share it in under 8 minutes.
 - The sample report is good enough to be the homepage hero and the sales demo.
 - The report can be sent to a real client without a disclaimer that the product is early.
-- The dashboard feels worth $249: it shows portfolio health, client risk, report pipeline, weekly actions, upsell opportunities, and agency ROI without needing to open every brand.
+- Agency Home feels worth $249: portfolio health, client risk, report pipeline, weekly actions, upsell opportunities, and hours saved without opening every brand.
 - Every report has inspectable evidence: engine, timestamp, source URLs, raw answer drawer, and AI Gateway request id when available.
-- Partial failure still feels professional: 3/4 engines ship with a clear note and no broken-looking UI.
+- Partial failure still feels professional: 3/4 engines ship with a clear note.
 
-### 22.2 Commercial proof
+### 23.2 Commercial proof (Ops)
 - At least 10 agencies have received a generated report.
 - At least 5 agencies forwarded it to a client or asked to white-label it.
 - At least 3 agencies gave pricing feedback on $249 Agency.
 - At least 1 agency pays or verbally commits before broad launch.
-- At least 3 agencies say the Command Center would help them manage client risk or find upsell work.
-- The free trial is capped to 1 brand, 20 prompts, 1 full report, no recurring weekly send until paid.
+- Free trial stays capped to 1 brand, 20 prompts, 1 full report, no recurring weekly send until paid.
 - Free trial COGS stays under $4/trial on average.
 
-### 22.3 Technical proof
+### 23.3 Technical proof (Ops)
 - `npm test`, `npm run lint`, and `npm run build` pass before every deploy.
-- OpenNext preview runs with D1, KV, R2, Queue, and Browser Rendering bindings configured.
-- AI Gateway live calls are verified for ChatGPT, Perplexity, Gemini, extractor, and writer.
-- Dodo live checkout, webhook idempotency, portal, cancellation, and failed-payment handling are verified.
-- Friday cron is verified across at least 3 tenant timezones.
-- Run COGS and engine failures are visible in internal admin.
-- Gateway spend limits are configured by plan, workspace, and engine before public launch.
-- Dashboard/risk/opportunity views reuse stored report data and do not trigger hidden model calls on page load.
-- Full Agency usage margin is modeled and reviewed: 10 brands, 20 prompts, 4 engines, weekly cadence.
+- Migrations through **0012** applied on production D1.
+- OpenNext preview runs with D1, KV, R2, Queue, Browser Rendering, and EMAIL bindings configured.
+- AI Gateway live calls verified for ChatGPT, Perplexity, Gemini, extractor, and writer.
+- Dodo live checkout, webhook idempotency, portal, cancellation, and failed-payment handling verified.
+- Friday cron verified across at least 3 tenant timezones.
+- Run COGS and engine failures visible in internal admin.
+- Gateway spend limits configured by plan, workspace, and engine before public launch.
+- Dashboard/risk/opportunity views do not trigger hidden model calls on page load.
 
-### 22.4 Trust proof
-- Privacy and terms pages clearly state that reports reflect third-party AI answers and may be incomplete.
-- Client links expire and do not require auth.
-- Single-domain Better Auth is enforced on `getcitebrief.com`.
-- Optional domains only redirect; they never share auth sessions.
-- Report emails have a tested sender identity and do not land in spam during pilot.
+### 23.4 Trust proof
+- Privacy and terms pages clearly state that reports reflect third-party AI answers and may be incomplete. **Shipped.**
+- Client links expire, revoke, and do not require auth. **Shipped.**
+- Single-domain Better Auth on `getcitebrief.com`. **Shipped.**
+- Optional domains only redirect. **Shipped** in Worker.
+- Report emails have a tested sender identity and do not land in spam during pilot. **Ops.**
 
-### 22.5 Brand proof
+### 23.5 Brand proof
 - The app feels calm and operational, not like a generic AI landing page.
 - The PDF prints cleanly in black and white.
 - The homepage shows the actual report, not decorative dashboard art.

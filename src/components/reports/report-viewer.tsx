@@ -75,12 +75,14 @@ export function ReportViewer({
   const [liveExpires, setLiveExpires] = useState(shareExpiresAt ?? null);
   const [revoked, setRevoked] = useState(Boolean(shareRevokedAt));
   const [approved, setApproved] = useState(approvalState === "approved" || Boolean(sentAt));
+  const [sent, setSent] = useState(Boolean(sentAt));
   const [approveBusy, setApproveBusy] = useState(false);
   const [emailSubject, setEmailSubject] = useState(suggestedEmailSubject);
   const [emailDraft, setEmailDraft] = useState(suggestedEmailBody);
   const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const lastSaved = useRef({ subject: suggestedEmailSubject, body: suggestedEmailBody });
-  const needsApprove = allowApproval && !approved && !sentAt;
+  const needsApprove = allowApproval && !approved && !sent;
   const canSend = allowSend && !needsApprove;
 
   function flash(next: string) {
@@ -100,15 +102,32 @@ export function ReportViewer({
     flash(error ?? "Could not send. Try again.");
   }
 
+  useEffect(() => {
+    setApproved(approvalState === "approved" || Boolean(sentAt));
+    setSent(Boolean(sentAt));
+  }, [reportId, approvalState, sentAt]);
+
+  useEffect(() => {
+    setEmailSubject(suggestedEmailSubject);
+    setEmailDraft(suggestedEmailBody);
+    setDraftError(null);
+    lastSaved.current = { subject: suggestedEmailSubject, body: suggestedEmailBody };
+  }, [reportId, suggestedEmailSubject, suggestedEmailBody]);
+
   async function saveDraft(showToast = false) {
     if (!allowSend) return false;
     const subject = emailSubject.trim();
     const body = emailDraft.trim();
     if (!subject || !body) {
-      if (showToast) flash("Subject and body are required.");
+      const err = "Subject and body are required.";
+      setDraftError(err);
+      if (showToast) flash(err);
       return false;
     }
-    if (subject === lastSaved.current.subject && body === lastSaved.current.body) return true;
+    if (subject === lastSaved.current.subject && body === lastSaved.current.body) {
+      setDraftError(null);
+      return true;
+    }
     setDraftBusy(true);
     try {
       const response = await fetch(`/api/reports/${reportId}/email-draft`, {
@@ -118,10 +137,13 @@ export function ReportViewer({
       });
       const data = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
-        if (showToast) flash(data.error ?? "Could not save the email draft.");
+        const err = data.error ?? "Could not save the email draft.";
+        setDraftError(err);
+        if (showToast) flash(err);
         return false;
       }
       lastSaved.current = { subject, body };
+      setDraftError(null);
       if (showToast) flash("Suggested email saved");
       return true;
     } finally {
@@ -228,6 +250,7 @@ export function ReportViewer({
         const data = (await response.json().catch(() => ({}))) as { error?: string };
         handleSendDenied(response.status, data.error);
       } else {
+        setSent(true);
         flash("Test send queued to you.");
       }
     } finally {
@@ -270,6 +293,7 @@ export function ReportViewer({
           flash(data.error ?? "Could not send. Try again.");
         }
       } else {
+        setSent(true);
         flash("Report queued to the client.");
         setCcOpen(false);
         setCcEmail("");
@@ -291,7 +315,7 @@ export function ReportViewer({
             {scoreMentioned == null ? "-/20" : `${scoreMentioned}/${scoreTotal}`}
             {scoreRecommended != null ? ` · rec ${scoreRecommended}/${scoreTotal}` : ""}
             {allowSend
-              ? sentAt
+              ? sent
                 ? " · Sent"
                 : allowApproval
                   ? approved
@@ -397,7 +421,7 @@ export function ReportViewer({
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-medium">Review before you send</h2>
             <p className="text-xs text-cb-muted">
-              {sentAt
+              {sent
                 ? "Sent"
                 : allowApproval
                   ? approved
@@ -449,7 +473,7 @@ export function ReportViewer({
                 {draftBusy ? "Saving…" : "Save email"}
               </Button>
             ) : null}
-            {allowApproval && !sentAt ? (
+            {allowApproval && !sent ? (
               <Button type="button" size="sm" disabled={approveBusy || approved} onClick={() => void approveReport()}>
                 {approveBusy ? "Approving…" : approved ? "Approved" : "Approve"}
               </Button>
@@ -460,6 +484,7 @@ export function ReportViewer({
               </Button>
             ) : null}
           </div>
+          {draftError ? <p className="mt-3 text-xs text-cb-danger">{draftError}</p> : null}
           {needsApprove ? (
             <p className="mt-3 text-xs text-cb-muted">Approve this report before Send test or CC client.</p>
           ) : null}

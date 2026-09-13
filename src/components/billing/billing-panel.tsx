@@ -118,8 +118,8 @@ export function BillingPanel({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [annual, setAnnual] = useState(usage.billingInterval === "annual");
   const selectedPlan = resolveSelectedPlan(usage.plan);
-  const isTrialing = usage.trialing;
   const isPaid = usage.paid;
+  const isTrialing = usage.trialing && !isPaid;
   const paymentFailed = usage.status === "failed" || usage.status === "past_due";
   const extraBrandPrice = EXTRA_BRAND_USD[selectedPlan];
   const canBuyAddons = isPaid;
@@ -152,6 +152,10 @@ export function BillingPanel({
             ? `Test checkout activated ${PLANS[plan].name}${annual ? " annual" : ""}.`
             : "Test checkout did not activate a paid plan. Try Billing again.",
         );
+        if (data.paid) {
+          window.location.reload();
+          return;
+        }
       } else if (data.message) {
         setMessage(data.message);
       }

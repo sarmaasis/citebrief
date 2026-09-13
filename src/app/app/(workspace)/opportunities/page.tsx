@@ -70,8 +70,9 @@ export default async function OpportunitiesPage({
       </div>
       {items.length === 0 ? (
         <p className="mt-8 text-sm text-cb-muted">
-          No comparison gaps or visibility drops in the latest reports. Run or review a report to find the next piece of
-          work.
+          {filters.opportunityType || filters.owner || filters.brandId
+            ? "No opportunities in this filter."
+            : "No comparison gaps or visibility drops in the latest reports. Run or review a report to find the next piece of work."}
         </p>
       ) : (
         <div className="mt-8 grid gap-4">

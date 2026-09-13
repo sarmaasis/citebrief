@@ -161,6 +161,17 @@ assert.ok(
   "production secret checks must run before serving fetch traffic",
 );
 assert.match(workerFetch, /problems\.length/);
+const workerQueue = workerSrc.slice(workerSrc.indexOf("async queue"), workerSrc.indexOf("async scheduled"));
+assert.match(workerQueue, /productionTrafficBlocked/);
+assert.match(workerSrc.slice(workerSrc.indexOf("async scheduled")), /productionTrafficBlocked/);
+
+const addonSrc = readFileSync(join(process.cwd(), "src/app/api/billing/addon/route.ts"), "utf8");
+assert.match(addonSrc, /if\s*\(\s*!ent\.paid\s*\)/);
+assert.doesNotMatch(addonSrc, /addon !== "extra_run"/);
+
+const workspaceSrc = readFileSync(join(process.cwd(), "src/lib/workspace.ts"), "utf8");
+assert.match(workspaceSrc, /trialSubscriptionPatch/);
+assert.match(workspaceSrc, /insert\(subscriptions\)/);
 
 async function runAsyncChecks() {
   const first = await consumeRateLimit(store, { bucket: "t", limit: 2, windowMs: 60_000 }, "s", 1);

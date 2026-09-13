@@ -131,11 +131,11 @@ export function planCardState(args: {
 
 export function billingPageIntro(args: { trialing: boolean; paid: boolean; plan: PlanId }): string {
   const name = PLANS[args.plan].name;
-  if (args.trialing) {
-    return `You are on a ${TRIAL_DAYS}-day trial — 1 brand, 1 seat, 1 report. After trial you continue as ${name} if you subscribe.`;
-  }
   if (args.paid) {
     return `${name} plan, included usage, and expansion. Invoices and cards live in the billing portal.`;
+  }
+  if (args.trialing) {
+    return `You are on a ${TRIAL_DAYS}-day trial — 1 brand, 1 seat, 1 report. After trial you continue as ${name} if you subscribe.`;
   }
   return `${name} is selected. Subscribe to unlock it. Invoices and cards live in the billing portal.`;
 }
@@ -209,6 +209,18 @@ export function stubPaidSubscriptionPatch(args: {
     billingInterval: args.interval,
     currentPeriodEnd: new Date(now.getTime() + days * 24 * 60 * 60 * 1000),
     trialEndsAt: null,
+    cancelAtPeriodEnd: false,
+  };
+}
+
+/** First workspace: 14-day clock. Caps stay 1/1/1 until status is active. */
+export function trialSubscriptionPatch(now = new Date()) {
+  return {
+    plan: "agency" as const,
+    status: "trialing" as const,
+    billingInterval: "monthly" as const,
+    trialEndsAt: new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+    currentPeriodEnd: null,
     cancelAtPeriodEnd: false,
   };
 }
