@@ -4,6 +4,8 @@ import { LegalArticleView } from "@/components/marketing/article-views";
 import { LEGAL_ARTICLES, legalBySlug } from "@/lib/legal-articles";
 import { legalMetadata } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
+
 export function generateStaticParams() {
   return LEGAL_ARTICLES.map((article) => ({ slug: article.slug }));
 }

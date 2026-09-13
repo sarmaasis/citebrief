@@ -1,3 +1,12 @@
+import {
+  ANNUAL_MONTHS_CHARGED,
+  EXTRA_BRAND_USD,
+  PLANS,
+  TRIAL_BRAND_CAP,
+  TRIAL_DAYS,
+  TRIAL_RUN_CAP,
+} from "@/lib/billing";
+
 export type LegalArticle = {
   slug: string;
   path: `/legal/${string}`;
@@ -95,7 +104,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
       {
         heading: "Plans",
         paragraphs: [
-          "Starter is $149/mo, Agency $249/mo, Studio $499/mo. Annual billing is 10 months prepaid when Dodo annual products are configured. Trial is 14 days, 1 brand, and 1 full report. Cancel at period end. Generated PDFs remain available for 90 days after cancel.",
+          `Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands, Agency $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, Studio $${PLANS.studio.amountUsd}/mo for ${PLANS.studio.brands} brands. Extra brands are $${EXTRA_BRAND_USD.agency}/mo on Agency and $${EXTRA_BRAND_USD.studio}/mo on Studio. Annual billing is ${ANNUAL_MONTHS_CHARGED} months prepaid when Dodo annual products are configured. Trial is ${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, and ${TRIAL_RUN_CAP} full report. Cancel at period end. Generated PDFs remain available for 90 days after cancel.`,
         ],
       },
       {

@@ -3,6 +3,7 @@ import {
   parsePlanId,
   planAllowsClientCc,
   planAllowsCustomSender,
+  planAllowsEmailSend,
   planAllowsHistory,
   planAllowsMembers,
   planAllowsSlack,
@@ -64,12 +65,26 @@ export function subscriptionEndedAt(sub: SubscriptionLike): Date | null {
 /** Block report-send side effects (email, Slack, sentAt) when any plan gate fails. */
 export function reportSendBlockedReason(args: {
   ccClient?: string | null;
+  allowsEmailSend: boolean;
   allowsClientCc: boolean;
 }): string | null {
+  if (!args.allowsEmailSend) {
+    return "Email sending requires Agency or Studio.";
+  }
   if (args.ccClient?.trim() && !args.allowsClientCc) {
     return "Client CC requires Agency or Studio.";
   }
   return null;
+}
+
+/** Permission-only send result: 403 upgrade, or null so the route can proceed (200 after send). */
+export function reportSendDenial(args: {
+  ccClient?: string | null;
+  allowsEmailSend: boolean;
+  allowsClientCc: boolean;
+}): { status: 403; error: string } | null {
+  const error = reportSendBlockedReason(args);
+  return error ? { status: 403, error } : null;
 }
 
 export function pdfRetentionExpired(sub: SubscriptionLike, now = Date.now()): boolean {
@@ -95,6 +110,7 @@ export type WorkspaceEntitlements = {
   allowsWeeklyCadence: boolean;
   allowsMonthlyCadence: boolean;
   allowsClientCc: boolean;
+  allowsEmailSend: boolean;
   allowsCustomSender: boolean;
   allowsHistory: boolean;
   allowsStudioEngines: boolean;
@@ -134,6 +150,7 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
       allowsWeeklyCadence: false,
       allowsMonthlyCadence: false,
       allowsClientCc: false,
+      allowsEmailSend: false,
       allowsCustomSender: false,
       allowsHistory: false,
       allowsStudioEngines: false,
@@ -163,6 +180,7 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
     allowsWeeklyCadence: planAllowsWeeklyCadence(plan),
     allowsMonthlyCadence: PLANS[plan].cadence === "monthly",
     allowsClientCc: planAllowsClientCc(plan),
+    allowsEmailSend: planAllowsEmailSend(plan),
     allowsCustomSender: planAllowsCustomSender(plan),
     allowsHistory: planAllowsHistory(plan),
     allowsStudioEngines: planAllowsStudioEngines(plan),
@@ -180,7 +198,7 @@ export function upgradeHintForBrandCap(ent: WorkspaceEntitlements): string {
     return `Trial allows ${ent.trialBrandCap} brand. Upgrade to add more.`;
   }
   if (ent.plan === "starter") {
-    return `Starter includes ${PLANS.starter.brands} brands. Upgrade to Agency for 8 brands and weekly Friday reports.`;
+    return `Starter includes ${PLANS.starter.brands} brands. Upgrade to Agency for ${PLANS.agency.brands} brands and weekly Friday reports.`;
   }
   if (ent.plan === "agency") {
     return `Agency includes ${PLANS.agency.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.agency}/mo) or upgrade to Studio.`;
@@ -193,7 +211,7 @@ export function upgradeHintForSeatCap(ent: WorkspaceEntitlements): string {
     return "Member invites require Agency or Studio.";
   }
   if (ent.plan === "agency") {
-    return `Seat cap reached (${ent.seatCap}). Add a seat ($15/mo) or upgrade to Studio (10 seats).`;
+    return `Seat cap reached (${ent.seatCap}). Add a seat ($15/mo) or upgrade to Studio (${PLANS.studio.seats} seats).`;
   }
   return `Seat cap reached (${ent.seatCap}). Add a seat ($15/mo).`;
 }

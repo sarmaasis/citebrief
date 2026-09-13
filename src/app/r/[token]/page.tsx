@@ -73,6 +73,7 @@ export async function generateMetadata({
 export default async function ClientSharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   let rateLimited = false;
+  let rateUnavailable = false;
   try {
     const { env } = await getCloudflareContext({ async: true });
     const hdrs = await headers();
@@ -82,6 +83,7 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
       RATE_LIMITS.publicReport,
     );
     rateLimited = Boolean(limited);
+    rateUnavailable = limited?.status === 503;
   } catch {
     // Preview without KV still renders the report.
   }
@@ -89,8 +91,12 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
   if (rateLimited) {
     return (
       <main className="mx-auto max-w-xl px-6 py-24 text-center">
-        <h1 className="text-xl font-semibold">Too many requests</h1>
-        <p className="mt-3 text-sm text-cb-muted">Wait a minute and open the client link again.</p>
+        <h1 className="text-xl font-semibold">{rateUnavailable ? "Report unavailable" : "Too many requests"}</h1>
+        <p className="mt-3 text-sm text-cb-muted">
+          {rateUnavailable
+            ? "This link cannot be opened right now. Ask your agency to resend it shortly."
+            : "Wait a minute and open the client link again."}
+        </p>
       </main>
     );
   }

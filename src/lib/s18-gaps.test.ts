@@ -4,7 +4,10 @@ import { estimateRunCogs } from "./cogs";
 import { planBrandLimit, planAllowsStudioEngines, TRIAL_BRAND_CAP, TRIAL_RUN_CAP } from "./billing";
 
 assert.equal(buildCacheKey("chatgpt", " Best CRM "), "chatgpt:best crm");
-assert.equal(planBrandLimit("agency", 2), 10);
+assert.equal(planBrandLimit("agency"), 10);
+assert.equal(planBrandLimit("agency", 2), 12);
+assert.equal(planBrandLimit("starter"), 2);
+assert.equal(planBrandLimit("studio"), 25);
 assert.equal(planAllowsStudioEngines("studio"), true);
 assert.equal(planAllowsStudioEngines("agency"), false);
 assert.equal(TRIAL_BRAND_CAP, 1);

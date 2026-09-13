@@ -13,7 +13,11 @@ import {
   type PlanId,
 } from "@/lib/billing";
 import { loginHref, postAuthPath, readPlanAndInterval } from "@/lib/marketing-cta";
+import { getMarketingAuth } from "@/lib/session";
 import { metadataPages } from "@/lib/seo";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = metadataPages.signup;
 
@@ -50,7 +54,7 @@ function signupCopy(
   }
   return {
     title: "Start the first report",
-    body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Agency is $${PLANS.agency.amountUsd}/mo for weekly Friday reports on ${PLANS.agency.brands} brands.`,
+    body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. No weekly send until paid. Agency is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, and ${PLANS.agency.seats} seats.`,
   };
 }
 
@@ -62,6 +66,11 @@ export default async function SignupPage({
   const params = await searchParams;
   const invite = params.invite?.trim() || null;
   const { planId, interval } = invite ? { planId: null, interval: "monthly" as const } : readPlanAndInterval(params);
+  const auth = await getMarketingAuth();
+  if (auth.signedIn) {
+    if (invite) redirect(`/invite/${invite}`);
+    redirect(postAuthPath({ plan: planId, interval }));
+  }
   const copy = signupCopy(planId, interval, invite);
 
   return (

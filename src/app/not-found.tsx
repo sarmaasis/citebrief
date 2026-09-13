@@ -2,6 +2,8 @@ import Link from "next/link";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingHeader } from "@/components/marketing/header";
 
+export const dynamic = "force-dynamic";
+
 export default function NotFound() {
   return (
     <div className="min-h-screen">

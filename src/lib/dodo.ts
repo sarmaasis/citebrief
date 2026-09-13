@@ -1,6 +1,23 @@
 import DodoPayments from "dodopayments";
 import { createCheckoutSession } from "@dodopayments/core";
 import { isStubSecret, type PlanId, PLANS } from "@/lib/billing";
+import { isProductionRuntime } from "@/lib/runtime-env";
+
+export const DODO_UNAVAILABLE_MESSAGE = "Billing is not configured. Try again later or contact support.";
+
+export function dodoAllowsStub(env?: { NEXTJS_ENV?: string; BETTER_AUTH_URL?: string } | null) {
+  return !isProductionRuntime(env);
+}
+
+function checkoutStubOrUnavailable(
+  env: CloudflareEnv,
+  stub: { url: string; message: string },
+): DodoCheckoutResult {
+  if (dodoAllowsStub(env)) {
+    return { mode: "stub", url: stub.url, message: stub.message };
+  }
+  return { mode: "unavailable", message: DODO_UNAVAILABLE_MESSAGE };
+}
 
 export type DodoCheckoutResult =
   | { mode: "redirect"; url: string }
@@ -80,11 +97,10 @@ export async function createDodoCheckout(args: {
   const stubUrl = `${args.returnUrl}${successPath}&stub=1`;
 
   if (isStubSecret(args.env.DODO_PAYMENTS_API_KEY)) {
-    return {
-      mode: "stub",
+    return checkoutStubOrUnavailable(args.env, {
       url: stubUrl,
       message: "Dodo API key missing. Using stub checkout success URL.",
-    };
+    });
   }
 
   const annualId = interval === "annual" ? dodoAnnualProductId(args.env, args.plan) : null;
@@ -123,7 +139,10 @@ export async function createDodoCheckout(args: {
 
     const url = session.checkout_url;
     if (!url) {
-      return { mode: "stub", url: stubUrl, message: "Dodo response missing URL; stub used." };
+      return checkoutStubOrUnavailable(args.env, {
+        url: stubUrl,
+        message: "Dodo response missing URL; stub used.",
+      });
     }
     return { mode: "redirect", url };
   } catch (error) {
@@ -143,12 +162,18 @@ export async function createDodoCheckout(args: {
     });
     const url = session.checkout_url;
     if (!url) {
-      return { mode: "stub", url: stubUrl, message: "Dodo SDK missing URL; stub used." };
+      return checkoutStubOrUnavailable(args.env, {
+        url: stubUrl,
+        message: "Dodo SDK missing URL; stub used.",
+      });
     }
     return { mode: "redirect", url };
   } catch (error) {
     console.info("[dodo] checkout error", error);
-    return { mode: "stub", url: stubUrl, message: "Dodo unreachable; stub URL used." };
+    return checkoutStubOrUnavailable(args.env, {
+      url: stubUrl,
+      message: "Dodo unreachable; stub URL used.",
+    });
   }
 }
 
@@ -158,7 +183,7 @@ export function verifyDodoWebhookSignature(args: {
   signature: string | null;
 }): boolean {
   if (isStubSecret(args.env.DODO_PAYMENTS_WEBHOOK_KEY)) {
-    return true;
+    return dodoAllowsStub(args.env);
   }
   if (!args.signature) {
     return false;
@@ -220,8 +245,15 @@ export async function createDodoCustomerPortal(args: {
   env: CloudflareEnv;
   customerId: string;
   returnUrl: string;
-}): Promise<{ mode: "redirect" | "stub"; url: string; message?: string }> {
+}): Promise<
+  | { mode: "redirect"; url: string }
+  | { mode: "stub"; url: string; message?: string }
+  | { mode: "unavailable"; message: string }
+> {
   if (isStubSecret(args.env.DODO_PAYMENTS_API_KEY) || !args.customerId) {
+    if (!dodoAllowsStub(args.env)) {
+      return { mode: "unavailable", message: DODO_UNAVAILABLE_MESSAGE };
+    }
     return {
       mode: "stub",
       url: `${args.returnUrl}/app/settings/billing?portal=stub`,
@@ -234,11 +266,17 @@ export async function createDodoCustomerPortal(args: {
       return_url: `${args.returnUrl}/app/settings/billing`,
     });
     if (!session.link) {
+      if (!dodoAllowsStub(args.env)) {
+        return { mode: "unavailable", message: DODO_UNAVAILABLE_MESSAGE };
+      }
       return { mode: "stub", url: `${args.returnUrl}/app/settings/billing?portal=missing`, message: "Portal link missing." };
     }
     return { mode: "redirect", url: session.link };
   } catch (error) {
     console.info("[dodo] customer portal error", error);
+    if (!dodoAllowsStub(args.env)) {
+      return { mode: "unavailable", message: DODO_UNAVAILABLE_MESSAGE };
+    }
     return {
       mode: "stub",
       url: `${args.returnUrl}/app/settings/billing?portal=error`,
@@ -253,6 +291,9 @@ export async function scheduleDodoCancelAtPeriodEnd(args: {
   cancel: boolean;
 }): Promise<{ ok: boolean; stubbed: boolean; message?: string }> {
   if (isStubSecret(args.env.DODO_PAYMENTS_API_KEY) || !args.subscriptionId) {
+    if (!dodoAllowsStub(args.env)) {
+      return { ok: false, stubbed: false, message: DODO_UNAVAILABLE_MESSAGE };
+    }
     return { ok: true, stubbed: true, message: "Cancel-at-period-end recorded locally (Dodo stub)." };
   }
   try {
@@ -277,6 +318,9 @@ export async function recordDodoExtraRunUsage(args: {
   runId?: string;
 }): Promise<{ ok: boolean; stubbed: boolean }> {
   if (isStubSecret(args.env.DODO_PAYMENTS_API_KEY) || !args.customerId) {
+    if (!dodoAllowsStub(args.env)) {
+      return { ok: false, stubbed: false };
+    }
     console.info("[dodo stub] extra run usage", { workspaceId: args.workspaceId, runId: args.runId });
     return { ok: true, stubbed: true };
   }
@@ -315,7 +359,10 @@ export async function createDodoAddonCheckout(args: {
   const successPath = `/app/billing/success?addon=${args.addon}`;
   const stubUrl = `${args.returnUrl}${successPath}&stub=1`;
   if (isStubSecret(args.env.DODO_PAYMENTS_API_KEY)) {
-    return { mode: "stub", url: stubUrl, message: "Dodo API key missing. Stub addon checkout." };
+    return checkoutStubOrUnavailable(args.env, {
+      url: stubUrl,
+      message: "Dodo API key missing. Stub addon checkout.",
+    });
   }
   const productId =
     args.addon === "extra_brand"
@@ -340,10 +387,18 @@ export async function createDodoAddonCheckout(args: {
       },
     );
     const url = session.checkout_url;
-    if (!url) return { mode: "stub", url: stubUrl, message: "Addon checkout missing URL." };
+    if (!url) {
+      return checkoutStubOrUnavailable(args.env, {
+        url: stubUrl,
+        message: "Addon checkout missing URL.",
+      });
+    }
     return { mode: "redirect", url };
   } catch (error) {
     console.info("[dodo] addon checkout error", error);
-    return { mode: "stub", url: stubUrl, message: "Addon checkout unreachable; stub used." };
+    return checkoutStubOrUnavailable(args.env, {
+      url: stubUrl,
+      message: "Addon checkout unreachable; stub used.",
+    });
   }
 }

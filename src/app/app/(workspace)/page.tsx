@@ -32,12 +32,14 @@ export default async function AppHomePage() {
   const rows = await listHomeRows(ctx);
   const friday = formatShortDate(nextFriday());
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
-  const allowsWeekly = workspaceEntitlements(sub).allowsWeeklyCadence;
-  const needsSend = rows.filter((row) => row.latestReport && !row.latestReport.sentAt);
+  const ent = workspaceEntitlements(sub);
+  const allowsWeekly = ent.allowsWeeklyCadence;
+  const allowsEmailSend = ent.allowsEmailSend;
+  const needsSend = allowsEmailSend ? rows.filter((row) => row.latestReport && !row.latestReport.sentAt) : [];
   const needsAttention = rows.filter((row) => {
     if (row.promptCount === 0) return true;
     if (row.latestRun?.status === "failed") return true;
-    if (row.latestReport && !row.latestReport.sentAt) return true;
+    if (allowsEmailSend && row.latestReport && !row.latestReport.sentAt) return true;
     if (!row.latestReport) return true;
     return false;
   });
@@ -76,7 +78,12 @@ export default async function AppHomePage() {
           label="Runs this week"
           value={String(rows.filter((row) => row.latestRun && row.latestRun.status !== "failed").length)}
         />
-        <Stat label="Needs send" value={String(needsSend.length)} />
+        <Stat
+          label={allowsEmailSend ? "Needs send" : "Reports ready"}
+          value={String(
+            allowsEmailSend ? needsSend.length : rows.filter((row) => Boolean(row.latestReport)).length,
+          )}
+        />
       </div>
 
       {needsAttention.length ? (
@@ -166,7 +173,13 @@ export default async function AppHomePage() {
                       <StatusPill status={pill.status}>{pill.label}</StatusPill>
                     </td>
                     <td className="px-4 text-cb-muted">
-                      {row.latestReport ? (sent ? "Sent" : "Not sent") : "No PDF"}
+                      {!row.latestReport
+                        ? "No PDF"
+                        : !allowsEmailSend
+                          ? "Download / share"
+                          : sent
+                            ? "Sent"
+                            : "Not sent"}
                     </td>
                     <td className="px-4 text-xs text-cb-muted">
                       {allowsWeekly ? `Friday ${friday}` : "Monthly"}

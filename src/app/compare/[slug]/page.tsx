@@ -4,6 +4,8 @@ import { PublicArticleView } from "@/components/marketing/article-views";
 import { articleByPath, PUBLIC_ARTICLES } from "@/lib/public-articles";
 import { articleMetadata } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
+
 const PREFIX = "/compare/";
 
 export function generateStaticParams() {

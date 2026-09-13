@@ -28,7 +28,7 @@ Current options create a gap:
 
 The pain is not only measurement. The pain is proving visible work every month so the retainer survives.
 
-**Revenue thesis:** if CiteBrief saves an agency 6-10 reporting hours/month and helps them defend or upsell even one $3k+ retainer, $149-$499/month is an easy operating expense.
+**Revenue thesis:** if CiteBrief saves an agency 6-10 reporting hours/month and helps them defend or upsell even one $3k+ retainer, $99-$1,499+/month is an easy operating expense.
 
 ## 3. Who
 **Primary buyer:** agency owner, strategy lead, SEO director, or account director with 5-40 active clients.  
@@ -88,11 +88,15 @@ Dodo has a first-party Cloudflare + Hono adapter. Do not use Stripe.
 **Products in Dodo dashboard**
 | Product | Amount | Interval |
 |---|---|---|
-| CiteBrief Starter | $149 | month |
+| CiteBrief Starter | $99 | month |
 | CiteBrief Agency | $249 | month |
-| CiteBrief Studio | $499 | month |
-| Extra brand | $39 Agency / $29 Studio | month addon |
-| Extra run | $9 | one-time or usage meter |
+| CiteBrief Studio | $799 | month |
+| CiteBrief Enterprise | $1,499+ | month or annual contract |
+| Extra brand | $29 Agency / $29 Studio | month addon |
+| Extra seat | $15 | month addon |
+| Extra run | $9-$15 | one-time or usage meter |
+| Premium engine pack | $99-$199 | month addon |
+| Done-with-you setup | $299-$999 | one-time |
 
 **Worker flow**
 1. Logged-in user hits `GET /api/checkout?plan=agency`
@@ -116,6 +120,8 @@ See §18 for the complete feature map. Shipping order is phased, but the product
 - The first report must look polished enough to forward to a client.
 - The account manager must understand what changed without reading raw engine output.
 - The agency must be able to add multiple client brands quickly.
+- The dashboard must feel like an agency command center, not a thin table of report runs.
+- The product must surface client risk, recommended actions, and upsell opportunities every week.
 - The owner must see plan limits, usage, invoices, and expansion paths clearly.
 - Client-facing pages must look like the agency, not CiteBrief.
 
@@ -124,6 +130,8 @@ Time-to-first-PDF: **< 8 minutes**.
 Time-to-second-client: **< 3 minutes** once the workspace is configured.
 
 Polish bar: a paying agency should be able to send the first report without saying "this is a beta."
+
+Agency value bar: a paying agency should feel CiteBrief gives them a new recurring deliverable they can attach to retainers. The app must answer "which clients need attention, which reports should go out, and what can we sell next?" without requiring the user to open every brand.
 
 ---
 
@@ -197,7 +205,7 @@ What goes through AI Gateway:
 - OpenAI / ChatGPT-style answer generation.
 - Perplexity answer generation.
 - Gemini answer generation.
-- Studio add-on model calls such as Claude or Grok when enabled.
+- Premium engine calls such as Claude or Grok when enabled for Studio, premium engine packs, or Enterprise.
 - Extractor and writer calls when they use Workers AI or another model provider.
 
 What does not go through AI Gateway:
@@ -228,18 +236,37 @@ Implementation rule:
 
 ## 10. Unit economics
 
-**Fixed:** Workers Paid $5 + domain/email ~$2 = **~$7/mo**
+The rich dashboard is not the cost problem. The cost problem is report generation: brands × prompts × engines × reruns. Product strategy must make the dashboard feel premium while keeping report execution metered and predictable.
 
-**Per brand per run:** 20 × 4 engines = 80 grounded calls + writer + PDF ≈ **$1.45**  
-Weekly × 8 brands ≈ **$29 COGS** vs $249 price.
+**Fixed baseline:** Workers Paid, domain, and basic email/domain tooling start low, roughly **$7-$30/mo** before volume. Cloudflare Workers, D1, KV, R2, Queues, and report storage should remain minor per-customer costs compared with AI/search calls.
+
+**Agency included usage:** 10 brands × 20 prompts × 4 core engines × weekly cadence ≈ **3,400-3,500 engine calls/month** at full use.
+
+**Per full Agency account at included usage**
+| Cost item | Estimate |
+|---|---:|
+| AI/search engine calls | $40-$75/mo |
+| Cloudflare AI Gateway unified billing fee | ~5% of AI spend |
+| Cloudflare Workers/D1/KV/R2/Queues | <$1-$3/mo at scale |
+| PDF/report storage | cents to <$1/mo |
+| Email sending | cents/customer; Resend base plan may apply at volume |
+| Dodo fee on $249 | ~$11-$12 |
+| **Total hard cost** | **~$60-$95/mo** |
 
 | Plan | List | COGS | Dodo fee | Gross |
 |---|---|---|---|---|
-| Starter | $149 | $8–12 | ~$7 | ~$130 (87%) |
-| Agency | $249 | $30–45 | ~$12 | ~$192 (77%) |
-| Studio | $499 | $80–140 | ~$23 | ~$336 (67%) |
+| Starter | $99 | $5-$15 | ~$5 | ~$79-$89 (80%-90%) |
+| Agency | $249 | $45-$80 | ~$12 | ~$157-$192 (63%-77%) |
+| Studio | $799 | $180-$320 | ~$36 | ~$443-$583 (55%-73%) |
+| Enterprise | $1,499+ | usage-based | contract | target 65%+ |
 
-100 Agency customers at $249: **$24.9k MRR**, ~$4.5k LLM/PDF COGS, ~$1.2k Dodo, CF still near included. **~77% gross.**
+100 Agency customers at $249: **$24.9k MRR**, roughly **$4.5k-$8k** AI/report COGS, **~$1.2k** Dodo, Cloudflare infra still relatively small. Expected gross margin: **~63%-77%** depending on full usage and caching.
+
+Free trial cost:
+- 14-day trial is capped to 1 brand, 20 prompts, 1 full report, 4 engines.
+- Expected hard cost: **~$1.50-$4.00 per trial user**.
+- 100 trial users can cost **~$150-$400** before conversion.
+- Trial must not include unlimited reruns, recurring weekly reports, Studio engines, or bulk sending.
 
 Revenue scenarios:
 
@@ -247,16 +274,25 @@ Revenue scenarios:
 |---|---|---:|---|
 | 25 | mostly Agency | ~$6k | founder-led, proof of demand |
 | 100 | Agency-heavy | ~$25k | small SaaS business, support still manageable |
-| 300 | Agency + Studio | ~$90k+ | requires support, onboarding, and reliability discipline |
+| 300 | Agency + Studio | ~$100k+ | requires support, onboarding, and reliability discipline |
 
 Expansion revenue:
-- Extra brand: $39/mo on Agency, $29/mo on Studio.
-- Extra weekly run: $9 one-time or metered.
-- White-label custom sender/domain: Studio only.
+- Extra brand: $29/mo on Agency and Studio.
+- Extra weekly run: $9-$15 one-time or metered.
+- White-label custom sender/domain: Studio+.
 - Additional seats: included up to plan cap, then $15/seat/mo.
+- Premium engine pack: $99-$199/mo for additional Claude/Grok capacity.
+- Done-with-you setup: $299-$999 one-time.
 - Quarterly strategy export: Studio add-on later, $99/report, only after core retention is strong.
 
-Caps: 2 manual re-runs / brand / week on Agency. Hard-stop at 3× included calls.
+Cost controls:
+- Agency includes 1 scheduled weekly report per brand.
+- Agency manual reruns are limited to 2 per brand per week; charge or block after the included cap.
+- Hard-stop at 3× included calls per brand/week.
+- Claude and Grok stay Studio-only with strict included capacity, or a paid premium-engine pack. Never unlimited.
+- AI Overview/browser checks are cached and capped because browser rendering can create hidden spend.
+- Gateway spend limits are mandatory by plan, workspace, and engine.
+- Dashboard features, risk scoring, pipeline views, and opportunity summaries should reuse stored report data before making new model calls.
 
 ---
 
@@ -264,9 +300,10 @@ Caps: 2 manual re-runs / brand / week on Agency. Hard-stop at 3× included calls
 
 | Plan | Price | Brands | Prompts | Cadence |
 |---|---|---|---|---|
-| Starter | $149/mo | 3 | 20 | Monthly |
-| **Agency** | **$249/mo** | **8** | 20 | **Weekly** |
-| Studio | $499/mo | 20 | 30 | Weekly |
+| Starter | $99/mo | 2 | 20 | Monthly |
+| **Agency** | **$249/mo** | **10** | 20 | **Weekly** |
+| Studio | $799/mo | 25 | 30 | Weekly |
+| Enterprise | $1,499+/mo | Custom | Custom | Weekly/custom |
 
 Annual = 10 months. Trial: 14 days, 1 brand, 1 full run.
 
@@ -275,36 +312,69 @@ Feature Agency at $249. Do not ship $29.
 **Plan gates**
 
 Starter:
-- 3 brands.
+- 2 brands.
+- 1 seat.
 - Monthly report cadence.
+- Limited prompt library.
+- Basic competitor tracking.
 - CiteBrief sender.
 - PDF download and private client link.
-- 1 seat.
+- Basic recommended actions.
+- No weekly automation.
+- No email sending to clients.
+- No portfolio dashboard.
 
 Agency:
-- 8 brands.
-- Weekly Friday reports.
-- Agency logo/color/footer.
-- Client CC sending.
-- History and score trend.
+- 10 client brands.
 - 3 seats.
+- Weekly Friday reports.
+- White-label PDF: agency logo, color, footer.
+- Agency-branded client links with expiry and revoke.
+- Client CC/email report sending.
+- Report approval before sending.
+- Suggested client email summary.
+- Month-over-month history and score trend.
+- Source evidence drawer and raw output audit view.
+- Prompt packs by industry.
+- Recommended next actions on every report.
+- Upsell opportunity notes.
+- Client risk flags.
+- Agency command-center dashboard.
+- Basic report pipeline.
 - Slack webhook.
-- Extra brands.
+- Extra brands at $29/mo.
 
 Studio:
-- 20 brands.
+- 25 brands.
 - 30 prompts/brand.
+- 10 seats.
+- Everything in Agency.
+- Advanced white-label controls.
 - Custom sender name/domain.
 - Client portal archive.
-- Claude/Grok add-on engines.
-- 10 seats.
+- Bulk report generation and bulk sending.
+- Advanced portfolio dashboard.
+- Priority processing.
+- Limited Claude/Grok premium-engine capacity.
+- Premium engine pack available for heavier Claude/Grok usage.
 - Priority support.
 - Internal COGS and usage export.
+- Extra brands at $29/mo.
+
+Enterprise:
+- Starts at $1,499/mo or annual contract.
+- Custom brand, prompt, engine, country, and cadence limits.
+- Dedicated onboarding and report QA.
+- Higher premium-engine allocation.
+- SSO and security review support when required.
+- Custom SLA/support terms.
+- Contracted usage floor so gross margin stays at 65%+.
 
 **Pricing psychology**
-- Starter is for small agencies proving the workflow.
-- Agency is the main plan and must look like the obvious choice.
-- Studio is for agencies already reselling AI-search reporting across a client book.
+- Starter is for freelancers and solo consultants testing the workflow.
+- Agency is the main plan and must look like the obvious choice: 10 client brands at $24.90/client/month.
+- Studio is for agencies already reselling AI-search reporting across a client book; it should not be priced like a thin analytics dashboard.
+- Enterprise is for high-volume/custom usage where limits, support, and legal/security requirements need a contract.
 - No free forever plan. Free creates hobby usage and support load.
 
 ---
@@ -708,12 +778,16 @@ Marketing message hierarchy:
 ### 18.2 App
 | Area | What it does |
 |---|---|
-| **Home** | This week’s runs, send status, score changes, brands needing attention |
+| **Command Center** | Portfolio health, client risk alerts, reports due, reports ready, reports sent, upsell opportunities, estimated hours saved |
+| **Home** | Defaults to Command Center. This week’s client actions, report pipeline, score changes, brands needing attention |
 | **Brands** | List, add, duplicate, archive. Logo, site, competitors, vertical, client owner |
 | **Brand home** | Latest score, recommendation score, trend, last PDF, next Friday, top missing questions |
+| **Opportunities** | Revenue opportunities found from reports: comparison page, source refresh, PR/source placement, content update, technical SEO cleanup, GEO package |
+| **Client risk** | Clients marked Stable, Watch, or At risk based on visibility drops, competitor wins, no recommendations, failed reports, or unsent reports |
+| **Report pipeline** | Not configured, ready to run, running, needs review, approved, sent |
 | **Prompts** | 20-set editor, templates, lock mix 4+4+4+4+4, reject vanity, industry packs |
 | **Runs** | Queue, live status per engine, retry failed engine only, cost estimate |
-| **Report** | In-app PDF viewer, download, copy share link, CC client, send test |
+| **Report** | In-app PDF viewer, Friday summary, recommended actions, upsell notes, approval state, download, copy share link, CC client, send test |
 | **History** | All PDFs, MoM mentioned/recommended, who-won chart, export CSV |
 | **Client link** | Read-only page, agency-branded, no login, 90-day expiry, open tracking |
 | **Members** | Invite AM (Agency+). Roles: owner, admin, member |
@@ -728,10 +802,36 @@ Polish requirements:
 - Every generated report must have a "send test to myself" path.
 - Every client-facing link must hide CiteBrief branding unless the plan requires it.
 - Account managers must never see raw technical failures before seeing whether the report can still ship.
+- The dashboard must not feel thin at $249. It must show clients, risks, reports to send, and revenue opportunities this week.
+- Dashboard summaries must reuse stored report data by default. Do not create hidden AI spend just because a user opens Home.
+
+Command Center required modules:
+- **Portfolio health:** active clients, average visibility, reports ready, reports sent, failed/partial runs.
+- **Client risk alerts:** visibility dropped, competitor overtook, client named but not recommended, no presence for key buyer prompts, unsent report.
+- **Revenue opportunities:** count and list of upsellable work with client, reason, recommended service, and report evidence.
+- **This week’s actions:** review report, approve report, send report, create recommendation, refresh source, rerun failed engine.
+- **Report pipeline:** counts by not configured, ready to run, running, needs review, approved, sent.
+- **Agency ROI:** reports generated, estimated account-manager hours saved, client brands monitored, opportunities found, reports sent.
+
+Opportunity types:
+- Comparison page or alternatives page.
+- Pricing/proof update.
+- Source-worthy content refresh.
+- PR or third-party source placement.
+- Technical SEO cleanup.
+- Review/listing authority work.
+- GEO retainer or content package.
+
+Report approval workflow:
+1. Report is generated.
+2. Account manager reviews findings and suggested email.
+3. Account manager edits notes if needed.
+4. Report is approved.
+5. Report is sent or shared with the client.
 
 ### 18.3 Engine + report engine
-- 4 engines v1 routed through Cloudflare AI Gateway where API-based
-- Claude/Grok as Studio add-on through AI Gateway/provider-native routes
+- 4 core engines v1 routed through Cloudflare AI Gateway where API-based
+- Claude/Grok are premium engines: limited Studio capacity, paid premium-engine pack for heavier usage, or Enterprise allocation
 - 24h cache on identical prompt+engine via AI Gateway and D1 cache metadata
 - Soft-fail: 3 of 4 engines still ship the PDF
 - Writer + extractor as specified in Prompts
@@ -745,10 +845,15 @@ Polish requirements:
 - Gateway analytics feed COGS/report and plan-level usage reporting
 
 ### 18.4 Billing product
-- Starter / Agency / Studio
+- Starter / Agency / Studio / Enterprise
 - Extra brand addon
+- Extra seat addon
 - Extra run meter (Dodo usage)
+- Premium engine pack addon
 - Trial 14d, 1 brand, 1 full run
+- No free forever plan
+- No recurring weekly reports until paid
+- No Studio engines in trial
 - Dunning email on `subscription.failed`
 - Cancel at period end; PDFs stay 90 days
 - Upgrade prompts at natural moments: 4th brand, weekly cadence, client CC, white-label sender, extra seats
@@ -756,11 +861,13 @@ Polish requirements:
 - Workspace usage screen shows included vs billable usage before charges happen
 
 Revenue moments:
-- User adds 4th Starter brand → upgrade to Agency.
+- User adds 3rd Starter brand → upgrade to Agency.
 - User wants weekly reports on Starter → upgrade to Agency.
 - User wants custom sender/domain → upgrade to Studio.
-- User exceeds 8 Agency brands → add extra brand or upgrade Studio.
+- User exceeds 10 Agency brands → add extra brand or upgrade Studio.
 - User invites 4th Agency teammate → add seat or upgrade Studio.
+- User needs more premium-engine capacity → premium engine pack or Enterprise.
+- User needs custom limits, SSO, SLA, or security review → Enterprise.
 - User manually re-runs often → extra run meter.
 
 ### 18.5 Admin (internal)
@@ -934,6 +1041,7 @@ CiteBrief is only ready for a premium public launch when these are true.
 - A new agency can create a workspace, add one client, generate 20 prompts, run the first report, and share it in under 8 minutes.
 - The sample report is good enough to be the homepage hero and the sales demo.
 - The report can be sent to a real client without a disclaimer that the product is early.
+- The dashboard feels worth $249: it shows portfolio health, client risk, report pipeline, weekly actions, upsell opportunities, and agency ROI without needing to open every brand.
 - Every report has inspectable evidence: engine, timestamp, source URLs, raw answer drawer, and AI Gateway request id when available.
 - Partial failure still feels professional: 3/4 engines ship with a clear note and no broken-looking UI.
 
@@ -942,7 +1050,9 @@ CiteBrief is only ready for a premium public launch when these are true.
 - At least 5 agencies forwarded it to a client or asked to white-label it.
 - At least 3 agencies gave pricing feedback on $249 Agency.
 - At least 1 agency pays or verbally commits before broad launch.
+- At least 3 agencies say the Command Center would help them manage client risk or find upsell work.
 - The free trial is capped to 1 brand, 20 prompts, 1 full report, no recurring weekly send until paid.
+- Free trial COGS stays under $4/trial on average.
 
 ### 22.3 Technical proof
 - `npm test`, `npm run lint`, and `npm run build` pass before every deploy.
@@ -951,6 +1061,9 @@ CiteBrief is only ready for a premium public launch when these are true.
 - Dodo live checkout, webhook idempotency, portal, cancellation, and failed-payment handling are verified.
 - Friday cron is verified across at least 3 tenant timezones.
 - Run COGS and engine failures are visible in internal admin.
+- Gateway spend limits are configured by plan, workspace, and engine before public launch.
+- Dashboard/risk/opportunity views reuse stored report data and do not trigger hidden model calls on page load.
+- Full Agency usage margin is modeled and reviewed: 10 brands, 20 prompts, 4 engines, weekly cadence.
 
 ### 22.4 Trust proof
 - Privacy and terms pages clearly state that reports reflect third-party AI answers and may be incomplete.

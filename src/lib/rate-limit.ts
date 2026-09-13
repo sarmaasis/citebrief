@@ -81,15 +81,32 @@ export function rateLimitResponse(retryAfterSec: number) {
   );
 }
 
+export function rateLimitUnavailableResponse() {
+  return NextResponse.json(
+    { error: "Rate limiting is unavailable. Try again shortly." },
+    {
+      status: 503,
+      headers: { "Cache-Control": "no-store" },
+    },
+  );
+}
+
 export async function consumeRouteRateLimit(
   request: Request,
   env: CloudflareEnv | undefined,
   spec: RateLimitSpec,
   subject?: string,
 ): Promise<NextResponse | null> {
+  const production = isProductionRuntime(env);
+  if (!env?.KV) {
+    if (production) {
+      console.error("[rate-limit] KV missing in production; denying request");
+      return rateLimitUnavailableResponse();
+    }
+    return null;
+  }
   const id = subject || clientIp(request);
-  const result = await consumeRateLimit(env?.KV, spec, id);
+  const result = await consumeRateLimit(env.KV, spec, id);
   if (result.ok) return null;
-  if (!env?.KV && !isProductionRuntime(env)) return null;
   return rateLimitResponse(result.retryAfterSec);
 }

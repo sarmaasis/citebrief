@@ -1,5 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { isStubSecret } from "@/lib/billing";
+import { isProductionRuntime } from "@/lib/runtime-env";
 import { createDodoCheckoutHono, planProductHint } from "@/server/dodo-hono";
 import { jsonError, jsonOk } from "@/server/json";
 
@@ -12,6 +13,9 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const { env } = await getCloudflareContext({ async: true });
   if (isStubSecret(env.DODO_PAYMENTS_API_KEY)) {
+    if (isProductionRuntime(env)) {
+      return jsonError("Billing is not configured.", 503);
+    }
     return jsonOk({
       mode: "stub",
       message: "Set DODO_PAYMENTS_API_KEY to use @dodopayments/hono Checkout.",

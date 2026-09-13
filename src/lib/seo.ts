@@ -31,6 +31,13 @@ export type IndexablePath = (typeof INDEXABLE_PATHS)[number];
 /** Private or authenticated surfaces that must not be crawled. */
 export const ROBOTS_DISALLOW = ["/app/", "/api/", "/r/", "/invite/"] as const;
 
+/** List prices and Agency limits from billing.ts (AGENCY_PLAN_UPDATE.md, 14 Sep 2026). */
+export const SEO_PLAN_OFFERS = [
+  { name: PLANS.starter.name, price: PLANS.starter.amountUsd, brands: PLANS.starter.brands, cadence: "Monthly reports" },
+  { name: PLANS.agency.name, price: PLANS.agency.amountUsd, brands: PLANS.agency.brands, cadence: "Weekly Friday reports" },
+  { name: PLANS.studio.name, price: PLANS.studio.amountUsd, brands: PLANS.studio.brands, cadence: "Weekly Friday reports" },
+] as const;
+
 export const PAGE_COPY = {
   home: {
     path: "/" as const,
@@ -41,7 +48,7 @@ export const PAGE_COPY = {
   pricing: {
     path: "/pricing" as const,
     title: "Simple pricing for agency retainers",
-    description: `Starter $${PLANS.starter.amountUsd}, Agency $${PLANS.agency.amountUsd}, Studio $${PLANS.studio.amountUsd}. White-label Friday PDFs. Agency is the plan to buy—not a $29 vanity score.`,
+    description: `Starter $${PLANS.starter.amountUsd}, Agency $${PLANS.agency.amountUsd}, Studio $${PLANS.studio.amountUsd}. Agency includes weekly white-label Friday reports for ${PLANS.agency.brands} client brands. Not a $29 vanity score.`,
   },
   report: {
     path: "/report" as const,
@@ -240,16 +247,17 @@ function softwareApplicationNode() {
     featureList: [
       "White-label Friday PDF reports",
       "Buyer questions across ChatGPT, Perplexity, Gemini, and Google AI Overviews",
+      `Weekly reports for ${PLANS.agency.brands} Agency client brands`,
       "Private client links",
-      "Agency workflow for multiple client brands",
+      "Recommended next actions on each report",
     ],
-    offers: Object.values(PLANS).map((plan) => ({
+    offers: SEO_PLAN_OFFERS.map((plan) => ({
       "@type": "Offer",
       name: `${SITE_NAME} ${plan.name}`,
-      price: String(plan.amountUsd),
+      price: String(plan.price),
       priceCurrency: "USD",
       url: canonicalPath("/pricing"),
-      description: "Monthly subscription",
+      description: `${plan.cadence}. ${plan.brands} client brands.`,
     })),
     publisher: { "@id": `${CANONICAL_ORIGIN}/#organization` },
   };

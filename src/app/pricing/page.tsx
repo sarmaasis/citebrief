@@ -6,9 +6,10 @@ import { MarketingHeader } from "@/components/marketing/header";
 import { JsonLd } from "@/components/seo/json-ld";
 import { parseBillingInterval, type PlanId } from "@/lib/billing";
 import { dodoAnnualProductId } from "@/lib/dodo";
-import { getAppContext } from "@/lib/session";
+import { getMarketingAuth } from "@/lib/session";
 import { metadataPages, pricingJsonLd } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = metadataPages.pricing;
 
 async function annualProductsLive(): Promise<Record<PlanId, boolean>> {
@@ -31,14 +32,14 @@ export default async function PricingPage({
   searchParams: Promise<{ interval?: string }>;
 }) {
   const params = await searchParams;
-  const [ctx, annualLive] = await Promise.all([getAppContext(), annualProductsLive()]);
+  const [auth, annualLive] = await Promise.all([getMarketingAuth(), annualProductsLive()]);
 
   return (
     <div className="min-h-screen">
       <JsonLd json={pricingJsonLd()} />
       <MarketingHeader />
       <PricingView
-        signedIn={Boolean(ctx)}
+        signedIn={auth.signedIn}
         annualProductsLive={annualLive}
         initialAnnual={parseBillingInterval(params.interval) === "annual"}
       />

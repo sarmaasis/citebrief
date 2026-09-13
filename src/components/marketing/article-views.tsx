@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingHeader } from "@/components/marketing/header";
+import { MarketingPrimaryCta } from "@/components/marketing/primary-cta";
 import { JsonLd } from "@/components/seo/json-ld";
 import type { LegalArticle } from "@/lib/legal-articles";
 import { articleByPath, type PublicArticle } from "@/lib/public-articles";
@@ -50,9 +51,7 @@ export function PublicArticleView({ article }: { article: PublicArticle }) {
           </ul>
         ) : null}
         <div className="mt-10 flex flex-wrap gap-3">
-          <Button asChild>
-            <Link href="/signup?plan=agency">Start the first report</Link>
-          </Button>
+          <MarketingPrimaryCta signedOutLabel="Start the first report" />
           <Button asChild variant="outline">
             <Link href="/report">View a sample</Link>
           </Button>
@@ -100,6 +99,7 @@ export function LegalArticleView({ article }: { article: LegalArticle }) {
 export function staticArticlePage(path: string) {
   const article = articleByPath(path);
   return {
+    dynamic: "force-dynamic" as const,
     metadata: article ? articleMetadata(article) : { title: "CiteBrief" },
     Page() {
       if (!article) notFound();

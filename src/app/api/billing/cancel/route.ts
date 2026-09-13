@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { subscriptions } from "@/db/schema";
-import { scheduleDodoCancelAtPeriodEnd } from "@/lib/dodo";
+import { DODO_UNAVAILABLE_MESSAGE, scheduleDodoCancelAtPeriodEnd } from "@/lib/dodo";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { requireOwner } from "@/lib/permissions";
@@ -29,7 +29,10 @@ export async function POST(request: Request) {
     subscriptionId: sub.dodoSubscriptionId || "",
     cancel,
   });
-  if (!remote.ok) return jsonError(remote.message || "Could not update cancellation.", 502);
+  if (!remote.ok) {
+    const status = remote.message === DODO_UNAVAILABLE_MESSAGE ? 503 : 502;
+    return jsonError(remote.message || "Could not update cancellation.", status);
+  }
 
   await ctx.db
     .update(subscriptions)

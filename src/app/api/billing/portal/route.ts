@@ -24,6 +24,9 @@ export async function POST(request: Request) {
     customerId: sub?.dodoCustomerId || "",
     returnUrl: origin,
   });
+  if (portal.mode === "unavailable") {
+    return jsonError(portal.message, 503);
+  }
   await writeAuditLog(ctx.db, {
     action: "billing.portal",
     workspaceId: ctx.workspace.id,

@@ -3,11 +3,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingHeader } from "@/components/marketing/header";
+import { MarketingPrimaryCta } from "@/components/marketing/primary-cta";
 import { PdfPreview } from "@/components/marketing/pdf-preview";
 import { SAMPLE_REPORT } from "@/components/marketing/sample-report-data";
 import { JsonLd } from "@/components/seo/json-ld";
+import { PLANS, TRIAL_BRAND_CAP, TRIAL_DAYS, TRIAL_RUN_CAP } from "@/lib/billing";
 import { homeJsonLd, metadataPages } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = metadataPages.home;
 
 const bento = [
@@ -86,23 +89,23 @@ export default function HomePage() {
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-2 lg:py-24">
           <div>
             <h1 className="font-serif text-[56px] leading-[1.05] tracking-tight text-cb-text lg:text-[64px]">
-              The Friday PDF your client actually reads.
+              The Friday AI-search report agencies send to clients.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-cb-muted">
-              Track twenty buyer questions across ChatGPT, Perplexity, Gemini, and AI Overviews,
-              then send a white-label Friday PDF with who won, where you were missing, and what to
-              do next.
+              CiteBrief checks ChatGPT, Perplexity, Gemini, and Google AI Overviews, then turns the
+              results into a white-label client report with competitor wins, source evidence, and
+              recommended next actions.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href="/signup?plan=agency">Start the first report</Link>
-              </Button>
+              <MarketingPrimaryCta signedOutLabel="Generate your first client report" size="lg" />
               <Button asChild variant="outline" size="lg">
-                <Link href="/report">View a sample</Link>
+                <Link href="/report">View sample report</Link>
               </Button>
             </div>
             <p className="mt-4 text-sm text-cb-muted">
-              14-day trial. 1 brand. 1 full report. Built for agencies managing multiple clients.
+              {TRIAL_DAYS}-day trial. {TRIAL_BRAND_CAP} brand. {TRIAL_RUN_CAP} full report. No
+              weekly send until paid. Agency is ${PLANS.agency.amountUsd}/mo for{" "}
+              {PLANS.agency.brands} brands.
             </p>
           </div>
           <PdfPreview />
@@ -174,18 +177,17 @@ export default function HomePage() {
         <section className="border-t border-cb-line">
           <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-6 py-16 md:flex-row md:items-center lg:py-24">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Agency retainers need a Friday artifact.</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">Agency is the weekly reporting system.</h2>
               <p className="mt-2 max-w-xl text-sm text-cb-muted">
-                Start with one brand. Agency is $249/mo for weekly Friday reports. If this saves
-                reporting hours and helps defend one $3k retainer, it is an operating expense.
+                ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands, weekly Friday reports,
+                white-label, client CC, history, Slack, and {PLANS.agency.seats} seats. A repeatable
+                client deliverable, not a dashboard seat.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button asChild>
-                <Link href="/signup?plan=agency">Send a Friday report</Link>
-              </Button>
+              <MarketingPrimaryCta signedOutLabel="Generate your first client report" />
               <Button asChild variant="outline">
-                <Link href="/pricing">See Agency at $249</Link>
+                <Link href="/pricing">See Agency at ${PLANS.agency.amountUsd}</Link>
               </Button>
             </div>
           </div>

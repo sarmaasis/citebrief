@@ -123,12 +123,14 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
         await processRun(db, env, runId);
       }
 
-      await sendTransactionalEmail({
-        to: notifyTo,
-        subject: `${brand.name} Friday report queued`,
-        html: `<p>Friday 06:00 (${tz}) enqueued ${brand.name} for ${workspace.name}.</p><p>runId=${runId}</p>`,
-        env,
-      });
+      if (ent.allowsEmailSend) {
+        await sendTransactionalEmail({
+          to: notifyTo,
+          subject: `${brand.name} Friday report queued`,
+          html: `<p>Friday 06:00 (${tz}) enqueued ${brand.name} for ${workspace.name}.</p><p>runId=${runId}</p>`,
+          env,
+        });
+      }
 
       try {
         if (ent.allowsSlack && workspace.slackWebhookUrl) {

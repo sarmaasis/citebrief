@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
-import { parseBillingInterval, parsePlanId, TRIAL_DAYS } from "@/lib/billing";
+import { parseBillingInterval, parsePlanId, shouldWriteStubPaidSubscription, stubPaidSubscriptionPatch } from "@/lib/billing";
 import { createDodoCheckout } from "@/lib/dodo";
+import { isProductionRuntime } from "@/lib/runtime-env";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { requireOwner } from "@/lib/permissions";
@@ -43,6 +44,9 @@ export async function GET(request: Request) {
   if (checkout.mode === "unavailable") {
     return jsonError(checkout.message, 503);
   }
+  if (checkout.mode === "stub" && isProductionRuntime(env)) {
+    return jsonError("Billing is not configured.", 503);
+  }
 
   await writeAuditLog(ctx.db, {
     action: "billing.checkout",
@@ -61,33 +65,50 @@ export async function GET(request: Request) {
     .where(eq(subscriptions.workspaceId, ctx.workspace.id))
     .limit(1);
 
-  if (!existing) {
-    const trialEnds = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+  const persistStubPaid = shouldWriteStubPaidSubscription({
+    mode: checkout.mode,
+    isProduction: isProductionRuntime(env),
+  });
+
+  if (persistStubPaid) {
+    const patch = stubPaidSubscriptionPatch({ plan, interval });
+    if (!existing) {
+      await ctx.db.insert(subscriptions).values({
+        id: crypto.randomUUID(),
+        workspaceId: ctx.workspace.id,
+        ...patch,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    } else {
+      await ctx.db
+        .update(subscriptions)
+        .set({
+          ...patch,
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.id, existing.id));
+    }
+  } else if (!existing && checkout.mode === "redirect") {
     await ctx.db.insert(subscriptions).values({
       id: crypto.randomUUID(),
       workspaceId: ctx.workspace.id,
       plan,
-      status: checkout.mode === "stub" ? "trialing" : "none",
+      status: "none",
       billingInterval: interval,
-      trialEndsAt: trialEnds,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-  } else if (checkout.mode === "stub") {
-    await ctx.db
-      .update(subscriptions)
-      .set({
-        plan,
-        status: "trialing",
-        billingInterval: interval,
-        trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-      })
-      .where(eq(subscriptions.id, existing.id));
   }
 
   if (url.searchParams.get("redirect") === "0") {
-    return jsonOk({ plan, interval, ...checkout });
+    return jsonOk({
+      ...checkout,
+      plan,
+      interval,
+      paid: persistStubPaid,
+      status: persistStubPaid ? "active" : existing?.status ?? "none",
+    });
   }
 
   return Response.redirect(checkout.url, 302);

@@ -55,6 +55,16 @@ async function createAuth() {
         },
         baseURL,
         trustedOrigins: [baseURL],
+        // Same-origin marketing (`/`) and app (`/app`) must share the session cookie.
+        advanced: {
+          useSecureCookies: baseURL.startsWith("https://"),
+          defaultCookieAttributes: {
+            path: "/",
+            sameSite: "lax",
+            httpOnly: true,
+            secure: baseURL.startsWith("https://"),
+          },
+        },
         emailAndPassword: {
           enabled: true,
           requireEmailVerification: !isStubValue(env.RESEND_API_KEY),

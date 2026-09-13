@@ -7,6 +7,8 @@ type EnvLike = {
   INTERNAL_ADMIN_SECRET?: string;
   INTERNAL_PROCESS_SECRET?: string;
   CRON_SECRET?: string;
+  DODO_PAYMENTS_API_KEY?: string;
+  DODO_PAYMENTS_WEBHOOK_KEY?: string;
 };
 
 export function isProductionRuntime(env?: EnvLike | null) {
@@ -41,10 +43,30 @@ export function productionSecretProblems(env?: EnvLike | null): string[] {
   return PRODUCTION_SECRET_NAMES.filter((name) => isForbiddenProductionSecret(env[name]));
 }
 
+export function productionBillingSecretProblems(env?: EnvLike | null): string[] {
+  if (!isProductionRuntime(env) || !env) return [];
+  return (["DODO_PAYMENTS_API_KEY", "DODO_PAYMENTS_WEBHOOK_KEY"] as const).filter((name) =>
+    isForbiddenProductionSecret(env[name]),
+  );
+}
+
+/** Auth/admin/cron stubs must not serve app traffic. Billing stubs fail closed on billing routes. */
+export function productionTrafficBlocked(env?: EnvLike | null) {
+  return productionSecretProblems(env).length > 0;
+}
+
+export function isHealthPath(pathname: string) {
+  return pathname === "/api/health" || pathname === "/health";
+}
+
 export function logProductionSecretProblems(env?: EnvLike | null) {
   const problems = productionSecretProblems(env);
+  const billing = productionBillingSecretProblems(env);
   if (problems.length) {
     console.error("[security] production refuses stub/dev-admin secrets", problems);
+  }
+  if (billing.length) {
+    console.error("[security] production billing secrets missing or stub", billing);
   }
   return problems;
 }

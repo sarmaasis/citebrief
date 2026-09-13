@@ -35,6 +35,26 @@ export function planCtaHref(opts: {
   return opts.signedIn ? checkoutHref(opts.plan, opts.interval) : signupHref(opts.plan, opts.interval);
 }
 
+export function marketingHeaderAuthLink(signedIn: boolean) {
+  return signedIn ? { href: "/app" as const, label: "Open app" } : { href: "/login" as const, label: "Sign in" };
+}
+
+export function marketingPrimaryCta(opts: {
+  signedIn: boolean;
+  appHref?: "/app" | "/app/onboarding";
+  signedOutLabel: string;
+  signedOutHref?: string;
+}) {
+  if (!opts.signedIn) {
+    return { href: opts.signedOutHref ?? "/signup?plan=agency", label: opts.signedOutLabel };
+  }
+  const appHref = opts.appHref ?? "/app";
+  return {
+    href: appHref,
+    label: appHref === "/app/onboarding" ? "Add a brand" : "Open workspace",
+  };
+}
+
 /** After signup/login, annual plan picks continue into checkout so interval is not dropped. */
 export function postAuthPath(opts: {
   inviteToken?: string | null;

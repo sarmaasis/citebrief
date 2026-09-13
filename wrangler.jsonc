@@ -57,8 +57,22 @@
     "binding": "BROWSER"
   },
   "vars": {
-    "BETTER_AUTH_URL": "https://citebrief.sarmaasis.workers.dev",
+    "BETTER_AUTH_URL": "https://getcitebrief.com",
     "DODO_PAYMENTS_ENVIRONMENT": "test_mode"
+  },
+  "env": {
+    "preview": {
+      "vars": {
+        "BETTER_AUTH_URL": "https://citebrief.sarmaasis.workers.dev",
+        "DODO_PAYMENTS_ENVIRONMENT": "test_mode"
+      }
+    },
+    "dev": {
+      "vars": {
+        "BETTER_AUTH_URL": "http://localhost:3000",
+        "DODO_PAYMENTS_ENVIRONMENT": "test_mode"
+      }
+    }
   },
   "triggers": {
     "crons": ["0 * * * *"]

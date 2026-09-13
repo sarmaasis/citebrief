@@ -349,7 +349,10 @@ export async function processRun(
     await settleBillableExtraRun({ db, env, workspaceId: bundle.workspace.id, runId });
   }
 
-  if (options?.notifyEmail) {
+  const sub = await getWorkspaceSubscription(db, bundle.workspace.id);
+  const ent = workspaceEntitlements(sub);
+
+  if (options?.notifyEmail && ent.allowsEmailSend) {
     try {
       await sendTransactionalEmail({
         to: options.notifyEmail,
@@ -363,8 +366,6 @@ export async function processRun(
   }
 
   try {
-    const sub = await getWorkspaceSubscription(db, bundle.workspace.id);
-    const ent = workspaceEntitlements(sub);
     if (ent.allowsSlack && bundle.workspace.slackWebhookUrl) {
       await postSlackIncomingWebhook({
         webhookUrl: bundle.workspace.slackWebhookUrl,

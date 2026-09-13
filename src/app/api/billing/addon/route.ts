@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const ent = workspaceEntitlements(sub);
 
   if (addon === "extra_brand" && !ent.allowsExtraBrands) {
-    return jsonError("Extra brands are available on Agency and Studio. Upgrade from Starter to add a 4th brand.", 402);
+    return jsonError("Extra brands are available on Agency and Studio. Upgrade from Starter to add more brands.", 402);
   }
   if (addon === "extra_seat" && !ent.allowsExtraSeats) {
     return jsonError("Additional seats require Agency or Studio.", 402);
@@ -50,6 +50,10 @@ export async function POST(request: Request) {
     returnUrl: origin,
     addon,
   });
+
+  if (checkout.mode === "unavailable") {
+    return jsonError(checkout.message, 503);
+  }
 
   if (checkout.mode === "stub") {
     if (addon === "extra_brand") await bumpExtraBrands(ctx.db, ctx.workspace.id, 1);

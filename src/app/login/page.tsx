@@ -4,8 +4,11 @@ import { AuthForm } from "@/components/auth/auth-form";
 import { Logo } from "@/components/brand/logo";
 import { AuthLegalLinks } from "@/components/marketing/footer";
 import { postAuthPath, readPlanAndInterval, signupHref } from "@/lib/marketing-cta";
+import { getMarketingAuth } from "@/lib/session";
 import { metadataPages } from "@/lib/seo";
+import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = metadataPages.login;
 
 export default async function LoginPage({
@@ -16,6 +19,11 @@ export default async function LoginPage({
   const params = await searchParams;
   const invite = params.invite?.trim() || null;
   const { planId, interval } = invite ? { planId: null, interval: "monthly" as const } : readPlanAndInterval(params);
+  const auth = await getMarketingAuth();
+  if (auth.signedIn) {
+    if (invite) redirect(`/invite/${invite}`);
+    redirect(postAuthPath({ plan: planId, interval }));
+  }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">

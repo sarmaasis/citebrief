@@ -97,6 +97,7 @@ export default async function ReportPage({
   });
 
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+  const ent = workspaceEntitlements(sub);
 
   return (
     <ReportViewer
@@ -116,7 +117,8 @@ export default async function ReportPage({
       sentAt={row.report.sentAt ? new Date(row.report.sentAt).toISOString() : null}
       shareOpenCount={row.report.shareOpenCount}
       auditRows={auditRows}
-      allowClientCc={workspaceEntitlements(sub).allowsClientCc}
+      allowClientCc={ent.allowsClientCc}
+      allowSend={ent.allowsEmailSend}
       showSources
     />
   );

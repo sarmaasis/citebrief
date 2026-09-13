@@ -4,8 +4,10 @@ import { default as handler } from "./.open-next/worker.js";
 import { dbFromEnv } from "./src/db";
 import { runFridayCron } from "./src/lib/cron-friday";
 import { processRun } from "./src/lib/run-processor";
-import { canonicalRedirectLocation, logProductionSecretProblems } from "./src/lib/runtime-env";
+import { canonicalRedirectLocation, isHealthPath, logProductionSecretProblems } from "./src/lib/runtime-env";
 import { applySecurityHeaders, canonicalRedirectResponse } from "./src/lib/security-headers";
+
+let productionSecretGate: "ok" | "blocked" | null = null;
 
 export type RunQueueMessage = {
   runId?: string;
@@ -18,9 +20,28 @@ export type RunQueueMessage = {
 export default {
   async fetch(request, env, ctx) {
     const location = canonicalRedirectLocation(request);
-    if (location) return canonicalRedirectResponse(location);
+    if (location) return canonicalRedirectResponse(location, env);
+
+    const url = new URL(request.url);
+    if (productionSecretGate === null) {
+      const problems = logProductionSecretProblems(env);
+      productionSecretGate = problems.length > 0 ? "blocked" : "ok";
+    }
+    if (productionSecretGate === "blocked" && !isHealthPath(url.pathname)) {
+      return applySecurityHeaders(
+        new Response(JSON.stringify({ error: "Service misconfigured." }), {
+          status: 503,
+          headers: {
+            "content-type": "application/json",
+            "cache-control": "no-store",
+          },
+        }),
+        env,
+      );
+    }
+
     const response = await handler.fetch(request, env, ctx);
-    return applySecurityHeaders(response);
+    return applySecurityHeaders(response, env);
   },
 
   async queue(batch, env): Promise<void> {

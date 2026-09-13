@@ -1,3 +1,5 @@
+import { PLANS, TRIAL_BRAND_CAP, TRIAL_DAYS, TRIAL_RUN_CAP } from "@/lib/billing";
+
 export type PublicArticle = {
   path: string;
   kind: "audience" | "compare" | "alternative";
@@ -10,8 +12,7 @@ export type PublicArticle = {
   related?: { href: string; label: string }[];
 };
 
-const ctaNote =
-  "14-day trial is 1 brand and 1 full report. Agency at $249/mo is the plan for weekly Friday sending, client CC, and seats.";
+const ctaNote = `${TRIAL_DAYS}-day trial is ${TRIAL_BRAND_CAP} brand and ${TRIAL_RUN_CAP} full report. No weekly send until paid. Agency at $${PLANS.agency.amountUsd}/mo is the plan for ${PLANS.agency.brands} brands, weekly Friday sending, client CC, and ${PLANS.agency.seats} seats.`;
 
 export const PUBLIC_ARTICLES: PublicArticle[] = [
   {
@@ -43,7 +44,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
       },
     ],
     related: [
-      { href: "/pricing", label: "See Agency at $249" },
+      { href: "/pricing", label: `See Agency at $${PLANS.agency.amountUsd}` },
       { href: "/geo-reporting-for-agencies", label: "GEO reporting for agencies" },
     ],
   },
@@ -102,7 +103,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
     ],
     related: [
       { href: "/report", label: "View the sample Friday report" },
-      { href: "/pricing", label: "See Agency at $249" },
+      { href: "/pricing", label: `See Agency at $${PLANS.agency.amountUsd}` },
     ],
   },
   {
@@ -153,7 +154,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
     ],
     related: [
       { href: "/ai-search-reporting-for-agencies", label: "AI-search reporting for agencies" },
-      { href: "/pricing", label: "See Agency at $249" },
+      { href: "/pricing", label: `See Agency at $${PLANS.agency.amountUsd}` },
     ],
   },
   {
@@ -197,7 +198,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
           "You want named / recommended / who won in client-safe language",
         ],
         paragraphs: [
-          "If you need the deepest prompt research workspace, keep a tracker. CiteBrief does not try to win that category. Agency is $249/mo for weekly sending.",
+          `If you need the deepest prompt research workspace, keep a tracker. CiteBrief does not try to win that category. Agency is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands and weekly sending.`,
         ],
       },
     ],
@@ -226,7 +227,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
     ],
     related: [
       { href: "/white-label-ai-visibility-reports", label: "White-label reports" },
-      { href: "/pricing", label: "Agency at $249" },
+      { href: "/pricing", label: `Agency at $${PLANS.agency.amountUsd}` },
     ],
   },
   {
@@ -269,7 +270,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
       {
         paragraphs: [
           "Use AI Rank Lab if your team lives in rank tracking. Use CiteBrief if the account manager has to send something by Friday that a CMO can read in four minutes.",
-          "Plans start at $149/mo Starter. Weekly Friday sending is Agency at $249/mo.",
+          `Plans start at $${PLANS.starter.amountUsd}/mo Starter. Weekly Friday sending is Agency at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands.`,
         ],
       },
     ],

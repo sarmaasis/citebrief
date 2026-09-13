@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { CORE_ENGINES, ENGINES, type EngineState } from "@/lib/engines";
 import { type PromptDraft, validatePromptSet } from "@/lib/prompts";
+import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
 const steps = ["Brand", "Prompts", "Report"] as const;
 
-export function OnboardingFlow() {
+export function OnboardingFlow({ allowSend = false }: { allowSend?: boolean }) {
   const [step, setStep] = useState(1);
   const [fields, setFields] = useState<BrandFieldValues>(emptyBrandFields);
   const [brandId, setBrandId] = useState<string | null>(null);
@@ -180,7 +181,7 @@ export function OnboardingFlow() {
   }
 
   async function sendTest() {
-    if (!reportId) return;
+    if (!allowSend || !reportId) return;
     setTestBusy(true);
     setTestMessage(null);
     try {
@@ -334,7 +335,7 @@ export function OnboardingFlow() {
                   <Link href={`/app/brands/${brandId}`}>Brand home</Link>
                 </Button>
               )}
-              {reportId ? (
+              {reportId && allowSend ? (
                 <Button type="button" variant="outline" disabled={testBusy} onClick={() => void sendTest()}>
                   {testBusy ? "Sending…" : "Send test"}
                 </Button>
@@ -356,6 +357,15 @@ export function OnboardingFlow() {
             </p>
           )}
           {testMessage ? <p className="mt-3 text-sm text-cb-muted">{testMessage}</p> : null}
+          {reportReady && !allowSend ? (
+            <div className="mt-6">
+              <UpgradePrompt
+                title={UPGRADE_COPY.sendStarter.title}
+                body={UPGRADE_COPY.sendStarter.body}
+                cta={UPGRADE_COPY.sendStarter.cta}
+              />
+            </div>
+          ) : null}
         </>
       ) : null}
 

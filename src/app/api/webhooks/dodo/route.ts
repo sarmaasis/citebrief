@@ -1,6 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getDb } from "@/db";
 import { isStubSecret } from "@/lib/billing";
+import { isProductionRuntime } from "@/lib/runtime-env";
 import { verifyDodoWebhookSignature, type DodoWebhookEvent } from "@/lib/dodo";
 import { applyDodoWebhookPayload, createDodoWebhookHono } from "@/server/dodo-hono";
 import { jsonError, jsonOk } from "@/server/json";
@@ -15,6 +16,10 @@ export async function POST(request: Request) {
   if (!isStubSecret(env.DODO_PAYMENTS_WEBHOOK_KEY)) {
     const app = createDodoWebhookHono(env, db);
     return app.fetch(request);
+  }
+
+  if (isProductionRuntime(env)) {
+    return jsonError("Dodo webhooks are not configured.", 503);
   }
 
   // Stub/dev path: accept payloads so idempotent handling can be tested.

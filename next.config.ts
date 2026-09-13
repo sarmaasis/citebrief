@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { SECURITY_HEADER_LIST } from "./src/lib/security-headers";
+import { securityHeaderList } from "./src/lib/security-headers";
 
 const nextConfig: NextConfig = {
   agentRules: false,
@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/:path*",
-        headers: SECURITY_HEADER_LIST,
+        headers: securityHeaderList(),
       },
     ];
   },

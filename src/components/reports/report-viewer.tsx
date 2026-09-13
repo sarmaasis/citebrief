@@ -27,6 +27,7 @@ export function ReportViewer({
   shareOpenCount,
   auditRows = [],
   allowClientCc = false,
+  allowSend = false,
   showSources = true,
 }: {
   brandId: string;
@@ -46,6 +47,7 @@ export function ReportViewer({
   shareOpenCount?: number | null;
   auditRows?: AuditEngineRow[];
   allowClientCc?: boolean;
+  allowSend?: boolean;
   showSources?: boolean;
 }) {
   const [toast, setToast] = useState<string | null>(null);
@@ -56,6 +58,7 @@ export function ReportViewer({
   const [shareBusy, setShareBusy] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [ccUpgrade, setCcUpgrade] = useState(false);
+  const [sendUpgrade, setSendUpgrade] = useState(false);
   const [liveToken, setLiveToken] = useState(shareToken);
   const [liveExpires, setLiveExpires] = useState(shareExpiresAt ?? null);
   const [revoked, setRevoked] = useState(Boolean(shareRevokedAt));
@@ -107,6 +110,10 @@ export function ReportViewer({
   }
 
   async function sendTest() {
+    if (!allowSend) {
+      setSendUpgrade(true);
+      return;
+    }
     setTestBusy(true);
     try {
       const response = await fetch(`/api/reports/${reportId}/send`, {
@@ -116,7 +123,11 @@ export function ReportViewer({
       });
       if (!response.ok) {
         const data = (await response.json().catch(() => ({}))) as { error?: string };
-        flash(data.error ?? "Could not send a test. Try again.");
+        if (response.status === 402 || response.status === 403) {
+          setSendUpgrade(true);
+        } else {
+          flash(data.error ?? "Could not send a test. Try again.");
+        }
       } else {
         flash("Test send queued to you.");
       }
@@ -173,7 +184,7 @@ export function ReportViewer({
           <p className="font-mono text-xs tabular-nums text-cb-accent">
             {scoreMentioned == null ? "-/20" : `${scoreMentioned}/${scoreTotal}`}
             {scoreRecommended != null ? ` · rec ${scoreRecommended}/${scoreTotal}` : ""}
-            {sentAt ? " · Sent" : " · Not sent"}
+            {allowSend ? (sentAt ? " · Sent" : " · Not sent") : " · Email on Agency"}
             {shareOpenCount ? ` · ${shareOpenCount} opens` : ""}
           </p>
         </div>
@@ -193,23 +204,31 @@ export function ReportViewer({
           >
             {shareBusy ? "Updating…" : revoked ? "New client link" : "Revoke link"}
           </Button>
-          <Button type="button" variant="outline" size="sm" disabled={testBusy} onClick={() => void sendTest()}>
-            {testBusy ? "Sending…" : "Send test"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (!allowClientCc) {
-                setCcUpgrade(true);
-                return;
-              }
-              setCcOpen(true);
-            }}
-          >
-            CC client
-          </Button>
+          {allowSend ? (
+            <Button type="button" variant="outline" size="sm" disabled={testBusy} onClick={() => void sendTest()}>
+              {testBusy ? "Sending…" : "Send test"}
+            </Button>
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={() => setSendUpgrade(true)}>
+              Email on Agency
+            </Button>
+          )}
+          {allowSend ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!allowClientCc) {
+                  setCcUpgrade(true);
+                  return;
+                }
+                setCcOpen(true);
+              }}
+            >
+              CC client
+            </Button>
+          ) : null}
           {showSources ? (
             <Button type="button" variant="outline" size="sm" onClick={() => setSourcesOpen(true)}>
               Sources
@@ -224,6 +243,17 @@ export function ReportViewer({
       {partial ? (
         <div className="border-b border-cb-line bg-cb-pending-subtle px-6 py-3 text-sm text-cb-pending">
           This PDF still shipped. One source did not return; numbers use what we have.
+        </div>
+      ) : null}
+
+      {sendUpgrade ? (
+        <div className="border-b border-cb-line px-6 py-4">
+          <UpgradePrompt
+            title={UPGRADE_COPY.sendStarter.title}
+            body={UPGRADE_COPY.sendStarter.body}
+            cta={UPGRADE_COPY.sendStarter.cta}
+            onDismiss={() => setSendUpgrade(false)}
+          />
         </div>
       ) : null}
 

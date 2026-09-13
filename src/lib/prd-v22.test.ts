@@ -6,14 +6,18 @@ import {
   PLANS,
   planAllowsClientCc,
   planAllowsCustomSender,
+  planAllowsEmailSend,
   planAllowsWeeklyCadence,
   planSeatCap,
 } from "./billing";
 import { isEngineApiConfigured, usesDeterministicStub } from "./engine-adapters";
 
-assert.equal(PLANS.starter.amountUsd, 149);
+assert.equal(PLANS.starter.amountUsd, 99);
 assert.equal(PLANS.agency.amountUsd, 249);
 assert.equal(PLANS.studio.amountUsd, 499);
+assert.equal(PLANS.starter.brands, 2);
+assert.equal(PLANS.agency.brands, 10);
+assert.equal(PLANS.studio.brands, 25);
 assert.equal(PLANS.starter.seats, 1);
 assert.equal(PLANS.agency.seats, 3);
 assert.equal(PLANS.studio.seats, 10);
@@ -21,8 +25,8 @@ assert.equal(planSeatCap("agency"), 3);
 assert.equal(planSeatCap("studio"), 10);
 assert.equal(planSeatCap("starter"), 1);
 
-assert.equal(EXTRA_BRAND_USD.agency, 39);
-assert.equal(EXTRA_BRAND_USD.studio, 29);
+assert.equal(EXTRA_BRAND_USD.agency, 29);
+assert.equal(EXTRA_BRAND_USD.studio, 19);
 assert.equal(EXTRA_RUN_USD.agency, 9);
 assert.equal(EXTRA_RUN_USD.studio, 9);
 
@@ -30,6 +34,9 @@ assert.equal(planAllowsWeeklyCadence("starter"), false);
 assert.equal(planAllowsWeeklyCadence("agency"), true);
 assert.equal(planAllowsClientCc("starter"), false);
 assert.equal(planAllowsClientCc("agency"), true);
+assert.equal(planAllowsEmailSend("starter"), false);
+assert.equal(planAllowsEmailSend("agency"), true);
+assert.equal(planAllowsEmailSend("studio"), true);
 assert.equal(planAllowsCustomSender("agency"), false);
 assert.equal(planAllowsCustomSender("studio"), true);
 

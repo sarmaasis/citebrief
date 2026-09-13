@@ -3,10 +3,13 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingHeader } from "@/components/marketing/header";
+import { MarketingPrimaryCta } from "@/components/marketing/primary-cta";
 import { SampleReportDoc } from "@/components/marketing/sample-report-doc";
 import { JsonLd } from "@/components/seo/json-ld";
+import { PLANS, TRIAL_BRAND_CAP, TRIAL_DAYS, TRIAL_RUN_CAP } from "@/lib/billing";
 import { metadataPages, reportJsonLd } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = metadataPages.report;
 
 const bullets = [
@@ -34,23 +37,21 @@ export default function SampleReportPage() {
               ))}
             </ul>
           </div>
-          <Button asChild size="lg">
-            <Link href="/signup?plan=agency">Start the first report</Link>
-          </Button>
+          <MarketingPrimaryCta signedOutLabel="Generate your first client report" size="lg" />
         </div>
         <div className="rounded-cb-panel border border-cb-line bg-cb-bg p-4 sm:p-10">
           <SampleReportDoc />
         </div>
         <div className="mt-10 flex flex-col items-start justify-between gap-4 border-t border-cb-line pt-10 sm:flex-row sm:items-center">
           <p className="max-w-xl text-sm text-cb-muted">
-            14-day trial. 1 brand. 1 full report. Then Agency at $249/mo for weekly Friday sending.
+            {TRIAL_DAYS}-day trial. {TRIAL_BRAND_CAP} brand. {TRIAL_RUN_CAP} full report. Then Agency
+            at ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands and weekly Friday
+            sending.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button asChild>
-              <Link href="/signup?plan=agency">Start the first report</Link>
-            </Button>
+            <MarketingPrimaryCta signedOutLabel="Generate your first client report" />
             <Button asChild variant="outline">
-              <Link href="/pricing">See Agency at $249</Link>
+              <Link href="/pricing">See Agency at ${PLANS.agency.amountUsd}</Link>
             </Button>
           </div>
         </div>

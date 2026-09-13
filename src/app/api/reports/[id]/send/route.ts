@@ -2,7 +2,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq } from "drizzle-orm";
 import { brands, reports, workspaces } from "@/db/schema";
 import { sendTransactionalEmail } from "@/lib/email";
-import { reportSendBlockedReason, workspaceEntitlements } from "@/lib/entitlements";
+import { reportSendDenial, workspaceEntitlements } from "@/lib/entitlements";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { writeAuditLog } from "@/lib/audit";
 import { getAppContext } from "@/lib/session";
@@ -40,12 +40,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const ent = workspaceEntitlements(sub);
   const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
 
-  const blocked = reportSendBlockedReason({
+  const denial = reportSendDenial({
     ccClient: body.ccClient,
+    allowsEmailSend: ent.allowsEmailSend,
     allowsClientCc: ent.allowsClientCc,
   });
-  if (blocked) {
-    return jsonError(blocked, 403);
+  if (denial) {
+    return jsonError(denial.error, denial.status);
   }
 
   await sendTransactionalEmail({

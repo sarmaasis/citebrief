@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { desc, eq } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
@@ -7,6 +8,7 @@ import { workspaceMembers, workspaces } from "@/db/schema";
 import { actAsCookieName, parseActAsCookieValue, readActAsFromRequest } from "@/lib/admin-impersonate";
 import { parseWorkspaceRole, type WorkspaceRole } from "@/lib/permissions";
 import { isForbiddenProductionSecret, isProductionRuntime } from "@/lib/runtime-env";
+import { countActiveBrands } from "@/lib/usage";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
 
 export type AppUser = {
@@ -55,13 +57,55 @@ async function resolveActAsWorkspaceId(requestHeaders: Headers, env: CloudflareE
   return parseActAsCookieValue(raw, secret);
 }
 
+export type MarketingAuth = {
+  signedIn: boolean;
+  /** Workspace home, or onboarding when the user has no active brand. */
+  appHref: "/app" | "/app/onboarding";
+};
+
+/**
+ * Request-scoped session for marketing chrome. Reads the Better Auth cookie
+ * (path `/`, same origin as `/app`) without requiring a workspace membership.
+ */
+export const getMarketingAuth = cache(async (): Promise<MarketingAuth> => {
+  try {
+    const session = await getAuthSession();
+    if (!session?.user?.id || !session.user.email) {
+      return { signedIn: false, appHref: "/app" };
+    }
+
+    try {
+      const db = await getDb();
+      const [row] = await db
+        .select({ workspaceId: workspaceMembers.workspaceId })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.userId, session.user.id))
+        .orderBy(desc(workspaceMembers.createdAt))
+        .limit(1);
+      if (!row) {
+        return { signedIn: true, appHref: "/app/onboarding" };
+      }
+      const brands = await countActiveBrands(db, row.workspaceId);
+      return { signedIn: true, appHref: brands === 0 ? "/app/onboarding" : "/app" };
+    } catch {
+      return { signedIn: true, appHref: "/app" };
+    }
+  } catch {
+    return { signedIn: false, appHref: "/app" };
+  }
+});
+
+async function getAuthSession() {
+  const auth = await initAuth();
+  return auth.api.getSession({
+    headers: await headers(),
+  });
+}
+
 export async function getAppContext(): Promise<AppContext | null> {
   try {
-    const auth = await initAuth();
     const requestHeaders = await headers();
-    const session = await auth.api.getSession({
-      headers: requestHeaders,
-    });
+    const session = await getAuthSession();
     if (!session?.user?.id || !session.user.email) {
       return null;
     }

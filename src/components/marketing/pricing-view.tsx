@@ -24,7 +24,7 @@ const plans = [
     name: "Starter",
     monthly: PLANS.starter.amountUsd,
     recommended: false,
-    pitch: "For small agencies proving the workflow.",
+    pitch: "For freelancers and solo consultants testing AI-search reporting.",
     monthlyCta: "Start trial",
     annualCta: "Start annual",
     bullets: [
@@ -41,17 +41,18 @@ const plans = [
     name: "Agency",
     monthly: PLANS.agency.amountUsd,
     recommended: true,
-    pitch: "The plan most retainers should be on.",
+    pitch: "The weekly reporting system for real agency workflows.",
     monthlyCta: "Start Agency trial",
     annualCta: "Start Agency annual",
     bullets: [
-      `${PLANS.agency.brands} brands`,
+      `${PLANS.agency.brands} client brands`,
       `${PLANS.agency.prompts} buyer questions per brand`,
-      "Weekly Friday reports",
-      "White-label logo, color, footer",
-      "Client CC sending",
-      "History and score trend",
       `${PLANS.agency.seats} seats`,
+      "Weekly Friday reports",
+      "White-label PDF, logo, color, footer",
+      "Client CC and private client links",
+      "History and score trend",
+      "Recommended next actions on every report",
       "Slack webhook",
       `Extra brands at $${EXTRA_BRAND_USD.agency}/mo`,
     ],
@@ -103,8 +104,8 @@ export function PricingView({
     <main id="main" className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
       <h1 className="font-serif text-5xl tracking-tight">Simple pricing for agency retainers</h1>
       <p className="mt-4 max-w-2xl text-lg text-cb-muted">
-        White-label Friday PDFs. Agency at ${PLANS.agency.amountUsd} is the plan to buy. Not a $29
-        vanity score.
+        Agency at ${PLANS.agency.amountUsd}/mo is the plan to buy: {PLANS.agency.brands} brands,
+        weekly Friday reports, white-label, and {PLANS.agency.seats} seats. Not a $29 vanity score.
       </p>
 
       <div className="mt-8 inline-flex rounded-cb-control border border-cb-line bg-cb-surface p-1">

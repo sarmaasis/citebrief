@@ -1,14 +1,23 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
+import { marketingHeaderAuthLink, marketingPrimaryCta } from "@/lib/marketing-cta";
+import { getMarketingAuth } from "@/lib/session";
 
-const nav = [
+const productNav = [
   { href: "/pricing", label: "Pricing" },
   { href: "/report", label: "Sample report" },
-  { href: "/login", label: "Sign in" },
 ];
 
-export function MarketingHeader() {
+export async function MarketingHeader() {
+  const auth = await getMarketingAuth();
+  const account = marketingHeaderAuthLink(auth.signedIn);
+  const primary = marketingPrimaryCta({
+    signedIn: auth.signedIn,
+    appHref: auth.appHref,
+    signedOutLabel: "Send a Friday report",
+  });
+
   return (
     <header className="sticky top-0 z-20 border-b border-cb-line bg-cb-bg/95">
       <a
@@ -20,18 +29,21 @@ export function MarketingHeader() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
         <Logo />
         <nav className="hidden items-center gap-6 text-sm text-cb-muted md:flex">
-          {nav.map((item) => (
+          {productNav.map((item) => (
             <Link key={item.href} href={item.href} className="hover:text-cb-text">
               {item.label}
             </Link>
           ))}
+          <Link href={account.href} className="hover:text-cb-text">
+            {account.label}
+          </Link>
         </nav>
         <div className="flex items-center gap-3">
-          <Link href="/login" className="text-sm text-cb-muted hover:text-cb-text md:hidden">
-            Sign in
+          <Link href={account.href} className="text-sm text-cb-muted hover:text-cb-text md:hidden">
+            {account.label}
           </Link>
           <Button asChild>
-            <Link href="/signup?plan=agency">Send a Friday report</Link>
+            <Link href={primary.href}>{primary.label}</Link>
           </Button>
         </div>
       </div>

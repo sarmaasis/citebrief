@@ -1,4 +1,12 @@
-import { ANNUAL_MONTHS_CHARGED, SEAT_OVERAGE_USD, TRIAL_BRAND_CAP, TRIAL_DAYS, TRIAL_RUN_CAP } from "@/lib/billing";
+import {
+  ANNUAL_MONTHS_CHARGED,
+  EXTRA_BRAND_USD,
+  PLANS,
+  SEAT_OVERAGE_USD,
+  TRIAL_BRAND_CAP,
+  TRIAL_DAYS,
+  TRIAL_RUN_CAP,
+} from "@/lib/billing";
 
 /** Shared with the pricing page so FAQ schema cannot drift from on-page copy. */
 export const PRICING_FAQS = [
@@ -16,11 +24,11 @@ export const PRICING_FAQS = [
   },
   {
     q: "What is included in the trial?",
-    a: `${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, ${TRIAL_RUN_CAP} full report. No free forever plan. After the trial, Starter is monthly; weekly Friday sending is Agency and Studio.`,
+    a: `${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, ${TRIAL_RUN_CAP} full report. No weekly send until paid. No free forever plan. After the trial, Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands on a monthly cadence; weekly Friday sending is Agency ($${PLANS.agency.amountUsd}/mo, ${PLANS.agency.brands} brands) and Studio.`,
   },
   {
     q: "What if I outgrow Starter?",
-    a: `Move to Agency for weekly Friday reports, white-label, client CC, history, Slack, extra brands, and 3 seats. Studio adds a custom sender, 20 brands, 30 questions, 10 seats, and Claude/Grok add-on engines. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are Agency and Studio only.`,
+    a: `Move to Agency at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, history, Slack, extra brands, and ${PLANS.agency.seats} seats. Studio adds a custom sender, ${PLANS.studio.brands} brands, ${PLANS.studio.prompts} questions, ${PLANS.studio.seats} seats, and Claude/Grok add-on engines. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are $${EXTRA_BRAND_USD.agency}/mo on Agency and $${EXTRA_BRAND_USD.studio}/mo on Studio only.`,
   },
   {
     q: "Can I pay annually?",
