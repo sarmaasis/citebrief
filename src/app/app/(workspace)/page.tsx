@@ -69,7 +69,7 @@ export default async function AppHomePage() {
         <div className="flex flex-wrap items-center gap-2">
           {ent.allowsPortfolioExport ? <PortfolioExport /> : null}
           <Button asChild>
-            <Link href="/app/onboarding">Add a brand</Link>
+            <Link href="/app/onboarding?new=1">Add a brand</Link>
           </Button>
         </div>
       </div>
@@ -346,7 +346,7 @@ function LightHome({
           <p className="mt-1 text-sm text-cb-muted">This week’s runs, send status, and brands that still need a report.</p>
         </div>
         <Button asChild>
-          <Link href="/app/onboarding">Add a brand</Link>
+          <Link href="/app/onboarding?new=1">Add a brand</Link>
         </Button>
       </div>
 

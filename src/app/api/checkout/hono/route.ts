@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { isStubSecret } from "@/lib/billing";
+import { ENTERPRISE_CONTACT_SALES_MESSAGE, isStubSecret, parsePlanId } from "@/lib/billing";
 import { isProductionRuntime } from "@/lib/runtime-env";
 import { createDodoCheckoutHono } from "@/server/dodo-hono";
 import { jsonError } from "@/server/json";
@@ -17,6 +17,10 @@ export async function GET(request: Request) {
       return jsonError("Billing is not configured.", 503);
     }
     const url = new URL(request.url);
+    const plan = parsePlanId(url.searchParams.get("plan") || "agency");
+    if (plan === "enterprise") {
+      return jsonError(ENTERPRISE_CONTACT_SALES_MESSAGE, 403);
+    }
     const dest = new URL("/api/checkout", url.origin);
     dest.searchParams.set("plan", url.searchParams.get("plan") || "agency");
     dest.searchParams.set("interval", url.searchParams.get("interval") || "monthly");

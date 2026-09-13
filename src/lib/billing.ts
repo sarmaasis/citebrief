@@ -191,8 +191,30 @@ export function isStubSecret(value: string | undefined) {
   return !value || value === "stub" || value.startsWith("stub-");
 }
 
-/** Local/dev stub checkout only. Production must never persist a fake paid row. */
-export function shouldWriteStubPaidSubscription(args: { mode: string; isProduction: boolean }) {
+export const ENTERPRISE_CONTACT_SALES_MESSAGE =
+  "Enterprise is contract-only. Contact sales.";
+
+/**
+ * Hidden `/api/checkout?plan=enterprise` is not self-serve.
+ * Impersonation or an already-paid Enterprise workspace may continue to a live Dodo product.
+ */
+export function selfServeEnterpriseCheckoutDenied(args: {
+  plan: PlanId;
+  alreadyEnterprise?: boolean;
+  impersonating?: boolean;
+}): string | null {
+  if (args.plan !== "enterprise") return null;
+  if (args.impersonating || args.alreadyEnterprise) return null;
+  return ENTERPRISE_CONTACT_SALES_MESSAGE;
+}
+
+/** Local/dev stub checkout only. Never persist a fake paid Enterprise row. */
+export function shouldWriteStubPaidSubscription(args: {
+  mode: string;
+  isProduction: boolean;
+  plan?: PlanId;
+}) {
+  if (args.plan === "enterprise") return false;
   return args.mode === "stub" && !args.isProduction;
 }
 

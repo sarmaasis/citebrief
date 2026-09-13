@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { FormNoticeText, type FormNotice } from "@/components/ui/form-notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
@@ -52,7 +53,7 @@ export function MembersForm({
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"member" | "admin">("member");
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<FormNotice | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -69,7 +70,7 @@ export function MembersForm({
       return;
     }
     setBusy("invite");
-    setMessage(null);
+    setNotice(null);
     setInviteLink(null);
     try {
       const response = await fetch("/api/settings/members", {
@@ -82,11 +83,11 @@ export function MembersForm({
         link?: string;
       };
       if (!response.ok) {
-        setMessage(data.error ?? "Invite failed.");
+        setNotice({ type: "error", text: data.error ?? "Invite failed." });
         if (response.status === 402 || response.status === 403) setShowSeatUpgrade(true);
         return;
       }
-      setMessage(`Invite sent to ${email}.`);
+      setNotice({ type: "success", text: `Invite sent to ${email}.` });
       setInviteLink(data.link ?? null);
       setEmail("");
       router.refresh();
@@ -98,17 +99,17 @@ export function MembersForm({
   async function removeMember(userId: string) {
     if (!isOwner) return;
     setBusy(userId);
-    setMessage(null);
+    setNotice(null);
     try {
       const response = await fetch(`/api/settings/members?userId=${encodeURIComponent(userId)}`, {
         method: "DELETE",
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "Could not remove that member.");
+        setNotice({ type: "error", text: data.error ?? "Could not remove that member." });
         return;
       }
-      setMessage("Member removed.");
+      setNotice({ type: "success", text: "Member removed." });
       router.refresh();
     } finally {
       setBusy(null);
@@ -123,7 +124,7 @@ export function MembersForm({
   async function revokeInvite(inviteId: string) {
     if (!mayRevoke) return;
     setBusy(`invite:${inviteId}`);
-    setMessage(null);
+    setNotice(null);
     try {
       const response = await fetch(`/api/settings/members?inviteId=${encodeURIComponent(inviteId)}`, {
         method: "DELETE",
@@ -133,7 +134,7 @@ export function MembersForm({
         flash(data.error ?? "Could not revoke that invite.");
         return;
       }
-      setMessage("Invite revoked.");
+      setNotice({ type: "success", text: "Invite revoked." });
       router.refresh();
     } finally {
       setBusy(null);
@@ -146,7 +147,7 @@ export function MembersForm({
       return;
     }
     setBusy("seat");
-    setMessage(null);
+    setNotice(null);
     try {
       const response = await fetch("/api/billing/addon", {
         method: "POST",
@@ -155,12 +156,12 @@ export function MembersForm({
       });
       const data = (await response.json()) as { url?: string; error?: string; mode?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "Could not add a seat.");
+        setNotice({ type: "error", text: data.error ?? "Could not add a seat." });
         if (response.status === 402) setShowSeatUpgrade(true);
         return;
       }
       if (data.mode === "stub") {
-        setMessage("Extra seat added. Send the invite.");
+        setNotice({ type: "success", text: "Extra seat added. Send the invite." });
         router.refresh();
         return;
       }
@@ -305,20 +306,7 @@ export function MembersForm({
           <Button type="submit" disabled={busy !== null || !allowsMembers || atCap}>
             {busy === "invite" ? "Inviting…" : "Send invite"}
           </Button>
-          {message ? (
-            <p
-              className={
-                message.startsWith("Invite sent") ||
-                message.startsWith("Member removed") ||
-                message.startsWith("Invite revoked") ||
-                message.startsWith("Extra seat")
-                  ? "text-sm text-cb-muted"
-                  : "text-sm text-cb-danger"
-              }
-            >
-              {message}
-            </p>
-          ) : null}
+          <FormNoticeText notice={notice} />
           {inviteLink ? (
             <div className="flex flex-wrap items-center gap-2">
               <p className="break-all text-xs text-cb-muted">{inviteLink}</p>

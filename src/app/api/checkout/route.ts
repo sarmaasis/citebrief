@@ -1,6 +1,14 @@
 import { eq } from "drizzle-orm";
-import { parseBillingInterval, parsePlanId, shouldWriteStubPaidSubscription, stubPaidSubscriptionPatch } from "@/lib/billing";
+import {
+  ENTERPRISE_CONTACT_SALES_MESSAGE,
+  parseBillingInterval,
+  parsePlanId,
+  selfServeEnterpriseCheckoutDenied,
+  shouldWriteStubPaidSubscription,
+  stubPaidSubscriptionPatch,
+} from "@/lib/billing";
 import { createDodoCheckout } from "@/lib/dodo";
+import { isPaidActive } from "@/lib/entitlements";
 import { isProductionRuntime } from "@/lib/runtime-env";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
@@ -27,6 +35,23 @@ export async function GET(request: Request) {
   }
   const interval = parseBillingInterval(url.searchParams.get("interval"));
 
+  const [existing] = await ctx.db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.workspaceId, ctx.workspace.id))
+    .limit(1);
+
+  const enterpriseDenied = selfServeEnterpriseCheckoutDenied({
+    plan,
+    impersonating: Boolean(ctx.impersonating),
+    alreadyEnterprise: Boolean(
+      existing && existing.plan === "enterprise" && isPaidActive(existing),
+    ),
+  });
+  if (enterpriseDenied) {
+    return jsonError(enterpriseDenied, 403);
+  }
+
   const { env } = await getCloudflareContext({ async: true });
   const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.billing, ctx.workspace.id);
   if (limited) return limited;
@@ -42,10 +67,10 @@ export async function GET(request: Request) {
   });
 
   if (checkout.mode === "unavailable") {
-    return jsonError(checkout.message, 503);
+    return jsonError(checkout.message, plan === "enterprise" ? 403 : 503);
   }
-  if (checkout.mode === "stub" && isProductionRuntime(env)) {
-    return jsonError("Billing is not configured.", 503);
+  if (checkout.mode === "stub" && (isProductionRuntime(env) || plan === "enterprise")) {
+    return jsonError(plan === "enterprise" ? ENTERPRISE_CONTACT_SALES_MESSAGE : "Billing is not configured.", plan === "enterprise" ? 403 : 503);
   }
 
   await writeAuditLog(ctx.db, {
@@ -59,15 +84,10 @@ export async function GET(request: Request) {
     metadata: { interval, mode: checkout.mode },
   });
 
-  const [existing] = await ctx.db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.workspaceId, ctx.workspace.id))
-    .limit(1);
-
   const persistStubPaid = shouldWriteStubPaidSubscription({
     mode: checkout.mode,
     isProduction: isProductionRuntime(env),
+    plan,
   });
 
   if (persistStubPaid) {

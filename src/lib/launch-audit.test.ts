@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { shouldWriteStubPaidSubscription } from "./billing";
+import { ENTERPRISE_CONTACT_SALES_MESSAGE, shouldWriteStubPaidSubscription } from "./billing";
 import {
   createDodoAddonCheckout,
   createDodoCheckout,
@@ -229,6 +229,25 @@ async function runAsyncChecks() {
   assert.notEqual(stubCheckout.mode, "stub");
   assert.equal(stubCheckout.mode, "unavailable");
   assert.equal(shouldWriteStubPaidSubscription({ mode: stubCheckout.mode, isProduction: true }), false);
+
+  const stubEnterprise = await createDodoCheckout({
+    env: {
+      DODO_PAYMENTS_API_KEY: "stub",
+      DODO_PAYMENTS_ENVIRONMENT: "test_mode",
+      NEXTJS_ENV: "development",
+    } as CloudflareEnv,
+    plan: "enterprise",
+    workspaceId: "ws_1",
+    customerEmail: "owner@example.com",
+    customerName: "Owner",
+    returnUrl: "http://localhost:3000",
+  });
+  assert.equal(stubEnterprise.mode, "unavailable");
+  assert.equal(stubEnterprise.message, ENTERPRISE_CONTACT_SALES_MESSAGE);
+  assert.equal(
+    shouldWriteStubPaidSubscription({ mode: stubEnterprise.mode, isProduction: false, plan: "enterprise" }),
+    false,
+  );
 
   const stubAddon = await createDodoAddonCheckout({
     env: stubProdEnv,

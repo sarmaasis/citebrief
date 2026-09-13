@@ -6,6 +6,7 @@ import { EnginePicker } from "@/components/settings/engine-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormNoticeText, type FormNotice } from "@/components/ui/form-notice";
 import { NativeSelect } from "@/components/ui/native-select";
 
 const TIMEZONES = [
@@ -51,7 +52,7 @@ export function WorkspaceForm({
   const [defaultEngines, setDefaultEngines] = useState(initial.defaultEngines);
   const [slackWebhookUrl, setSlackWebhookUrl] = useState(initial.slackWebhookUrl);
   const [minutesSavedPerReport, setMinutesSavedPerReport] = useState(String(initial.minutesSavedPerReport));
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<FormNotice | null>(null);
   const [busy, setBusy] = useState(false);
   const [showSenderUpgrade, setShowSenderUpgrade] = useState(false);
   const timezoneOptions = TIMEZONES.includes(timezone) ? TIMEZONES : [timezone, ...TIMEZONES];
@@ -59,7 +60,7 @@ export function WorkspaceForm({
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
-    setMessage(null);
+    setNotice(null);
     try {
       const response = await fetch("/api/settings/workspace", {
         method: "PUT",
@@ -76,13 +77,13 @@ export function WorkspaceForm({
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "Could not save workspace.");
+        setNotice({ type: "error", text: data.error ?? "Could not save workspace." });
         if (data.error?.toLowerCase().includes("sender")) {
           setShowSenderUpgrade(true);
         }
         return;
       }
-      setMessage("Workspace saved. Friday cron uses this timezone at 06:00.");
+      setNotice({ type: "success", text: "Workspace saved. Friday cron uses this timezone at 06:00." });
     } finally {
       setBusy(false);
     }
@@ -192,11 +193,7 @@ export function WorkspaceForm({
         <Button type="submit" disabled={busy}>
           {busy ? "Saving…" : "Save workspace"}
         </Button>
-        {message ? (
-          <p className={message.startsWith("Workspace saved") ? "text-sm text-cb-muted" : "text-sm text-cb-danger"}>
-            {message}
-          </p>
-        ) : null}
+        <FormNoticeText notice={notice} />
       </form>
     </div>
   );

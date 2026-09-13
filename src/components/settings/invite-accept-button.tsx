@@ -3,15 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { FormNoticeText, type FormNotice } from "@/components/ui/form-notice";
 
 export function InviteAcceptButton({ token }: { token: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<FormNotice | null>(null);
 
   async function accept() {
     setBusy(true);
-    setMessage(null);
+    setNotice(null);
     try {
       const response = await fetch("/api/invites/accept", {
         method: "POST",
@@ -20,10 +21,10 @@ export function InviteAcceptButton({ token }: { token: string }) {
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "Could not accept invite.");
+        setNotice({ type: "error", text: data.error ?? "Could not accept invite." });
         return;
       }
-      setMessage("Joined workspace.");
+      setNotice({ type: "success", text: "Joined workspace." });
       router.push("/app");
       router.refresh();
     } finally {
@@ -36,7 +37,7 @@ export function InviteAcceptButton({ token }: { token: string }) {
       <Button type="button" disabled={busy} onClick={() => void accept()}>
         {busy ? "Joining…" : "Accept invite"}
       </Button>
-      {message ? <p className="text-sm text-cb-muted">{message}</p> : null}
+      <FormNoticeText notice={notice} />
     </div>
   );
 }

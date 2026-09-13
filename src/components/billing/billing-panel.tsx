@@ -7,6 +7,7 @@ import {
   EXTRA_BRAND_USD,
   EXTRA_RUN_USD,
   PLANS,
+  PUBLIC_PLAN_IDS,
   planCardState,
   resolveSelectedPlan,
   SEAT_OVERAGE_USD,
@@ -16,7 +17,7 @@ import {
 } from "@/lib/billing";
 import { cn } from "@/lib/utils";
 
-const PLAN_VALUE: Record<PlanId, string[]> = {
+const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
   starter: [
     `${PLANS.starter.brands} client brands`,
     "Monthly cadence",
@@ -40,13 +41,6 @@ const PLAN_VALUE: Record<PlanId, string[]> = {
     "Claude / Grok add-on",
     `${PLANS.studio.seats} seats`,
     "Priority support",
-  ],
-  enterprise: [
-    `Starts at $${PLANS.enterprise.amountUsd}/mo`,
-    "Custom brand, prompt, and cadence limits",
-    "Studio features plus contract floor",
-    "SSO and security review support",
-    "Dedicated onboarding",
   ],
 };
 
@@ -423,7 +417,7 @@ export function BillingPanel({
             : "Annual is 10 months prepaid. Choosing a plan starts checkout for the interval selected above."}
         </p>
         <div className="grid items-stretch gap-4 md:grid-cols-3">
-          {(Object.keys(PLANS) as PlanId[]).map((id) => {
+          {PUBLIC_PLAN_IDS.map((id) => {
             const plan = PLANS[id];
             const card = planCardState({
               id,
@@ -472,6 +466,19 @@ export function BillingPanel({
               </div>
             );
           })}
+        </div>
+        <div className="mt-4 rounded-cb-card border border-cb-line bg-cb-surface px-5 py-4">
+          <p className="text-sm text-cb-text">
+            Enterprise from ${PLANS.enterprise.amountUsd.toLocaleString("en-US")}
+            {isPaid && selectedPlan === "enterprise" ? " · Current plan" : ""}
+          </p>
+          <p className="mt-1 text-sm text-cb-muted">
+            Contract for custom limits, SSO, and onboarding. No self-serve checkout.{" "}
+            <a href="mailto:support@getcitebrief.com" className="text-cb-accent">
+              Talk to us
+            </a>
+            .
+          </p>
         </div>
       </div>
 

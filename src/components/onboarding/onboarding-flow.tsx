@@ -9,6 +9,7 @@ import { PromptEditor } from "@/components/prompts/prompt-editor";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { CORE_ENGINES, ENGINES, type EngineState } from "@/lib/engines";
+import { onboardingStepFromResume, syncOnboardingBrandQuery, type OnboardingResume } from "@/lib/onboarding-resume";
 import { type PromptDraft, validatePromptSet } from "@/lib/prompts";
 import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
 import { Logo } from "@/components/brand/logo";
@@ -60,9 +61,13 @@ function clearOnboardingSnap() {
 export function OnboardingFlow({
   allowSend = false,
   allowApproval = false,
+  resume = null,
+  startFresh = false,
 }: {
   allowSend?: boolean;
   allowApproval?: boolean;
+  resume?: OnboardingResume | null;
+  startFresh?: boolean;
 }) {
   const [step, setStep] = useState(1);
   const [fields, setFields] = useState<BrandFieldValues>(emptyBrandFields);
@@ -84,46 +89,89 @@ export function OnboardingFlow({
   const [retrying, setRetrying] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const pollRef = useRef<(id: string) => void>(() => undefined);
+  const finishedRef = useRef(false);
+
+  function finishOnboarding() {
+    finishedRef.current = true;
+    clearOnboardingSnap();
+  }
 
   function applyApproval(state?: string | null) {
     if (state === "approved") setApproved(true);
+    else if (state === "needs_review") setApproved(false);
+  }
+
+  function applyResume(next: OnboardingResume, snap?: OnboardingSnap | null) {
+    const sameSnap = snap?.brandId === next.brandId ? snap : null;
+    setBrandId(next.brandId);
+    setFields(sameSnap?.fields ?? next.fields);
+    setPrompts(sameSnap?.prompts?.length ? sameSnap.prompts : next.prompts);
+    if (sameSnap?.source) setSource(sameSnap.source);
+    setRunId(sameSnap?.runId ?? next.runId);
+    setReportId(sameSnap?.reportId ?? next.reportId);
+    setReportReady(Boolean(sameSnap?.reportReady ?? next.reportReady));
+    setRunStatus(sameSnap?.runStatus ?? next.runStatus);
+    setScoreMentioned(sameSnap?.scoreMentioned ?? next.scoreMentioned);
+    setApproved(next.approvalState === "approved");
+    setEngines(next.engines);
+    setStep(sameSnap?.step || onboardingStepFromResume(next));
+    const runId = sameSnap?.runId ?? next.runId;
+    if (runId) pollRef.current(runId);
+    syncOnboardingBrandQuery(next.brandId);
   }
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.resolve().then(() => {
+    void Promise.resolve().then(async () => {
       if (cancelled) return;
-      const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
-      const resume = nav?.type === "reload" || nav?.type === "back_forward";
-      if (!resume) {
+      if (startFresh) {
         clearOnboardingSnap();
         setRestored(true);
         return;
       }
       const snap = readOnboardingSnap();
+      if (resume) {
+        applyResume(resume, snap);
+        setRestored(true);
+        return;
+      }
       if (snap?.brandId) {
-        setStep(snap.step || 1);
-        setFields(snap.fields || emptyBrandFields);
-        setBrandId(snap.brandId);
-        setRunId(snap.runId);
-        setReportId(snap.reportId);
-        setReportReady(Boolean(snap.reportReady));
-        setRunStatus(snap.runStatus);
-        setScoreMentioned(snap.scoreMentioned);
-        setApproved(Boolean(snap.approved));
-        if (snap.prompts?.length) setPrompts(snap.prompts);
-        if (snap.source) setSource(snap.source);
-        if (snap.runId) pollRef.current(snap.runId);
+        const response = await fetch(`/api/brands/${snap.brandId}`);
+        if (response.ok) {
+          const bundle = (await response.json()) as {
+            latestRun?: { id?: string | null };
+            latestReport?: { id?: string | null; approvalState?: string | null; scoreMentioned?: number | null };
+          };
+          const approvalState = bundle.latestReport?.approvalState ?? null;
+          setStep(snap.step || 1);
+          setFields(snap.fields || emptyBrandFields);
+          setBrandId(snap.brandId);
+          setRunId(snap.runId ?? bundle.latestRun?.id ?? null);
+          setReportId(snap.reportId ?? bundle.latestReport?.id ?? null);
+          setReportReady(Boolean(snap.reportReady || bundle.latestReport?.id));
+          setRunStatus(snap.runStatus);
+          setScoreMentioned(snap.scoreMentioned ?? bundle.latestReport?.scoreMentioned ?? null);
+          setApproved(approvalState === "approved");
+          if (snap.prompts?.length) setPrompts(snap.prompts);
+          if (snap.source) setSource(snap.source);
+          const runId = snap.runId ?? bundle.latestRun?.id ?? null;
+          if (runId) pollRef.current(runId);
+          syncOnboardingBrandQuery(snap.brandId);
+          setRestored(true);
+          return;
+        }
+        clearOnboardingSnap();
       }
       setRestored(true);
     });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once from server resume + snap
   }, []);
 
   useEffect(() => {
-    if (!restored || !brandId) return;
+    if (!restored || !brandId || finishedRef.current) return;
     writeOnboardingSnap({
       step,
       fields,
@@ -155,6 +203,7 @@ export function OnboardingFlow({
       }
       setBrandId(data.id);
       setStep(2);
+      syncOnboardingBrandQuery(data.id);
     } finally {
       setPending(false);
     }
@@ -329,7 +378,7 @@ export function OnboardingFlow({
         return;
       }
       setTestMessage("Test send queued to you.");
-      clearOnboardingSnap();
+      finishOnboarding();
     } finally {
       setTestBusy(false);
     }
@@ -340,7 +389,7 @@ export function OnboardingFlow({
       <div className="flex items-center justify-between">
         <Logo href="/app" />
         <div className="flex items-center gap-2">
-          <Link href="/app" className="text-sm text-cb-muted" onClick={() => clearOnboardingSnap()}>
+          <Link href="/app" className="text-sm text-cb-muted" onClick={() => finishOnboarding()}>
             Cancel
           </Link>
           <SignOutButton />
@@ -462,13 +511,13 @@ export function OnboardingFlow({
             <div className="mt-8 flex flex-wrap gap-2">
               {reportId ? (
                 <Button asChild>
-                  <Link href={`/app/brands/${brandId}/reports/${reportId}`} onClick={() => clearOnboardingSnap()}>
+                  <Link href={`/app/brands/${brandId}/reports/${reportId}`} onClick={() => finishOnboarding()}>
                     Open report
                   </Link>
                 </Button>
               ) : (
                 <Button asChild>
-                  <Link href={`/app/brands/${brandId}`} onClick={() => clearOnboardingSnap()}>
+                  <Link href={`/app/brands/${brandId}`} onClick={() => finishOnboarding()}>
                     Brand home
                   </Link>
                 </Button>
@@ -494,7 +543,7 @@ export function OnboardingFlow({
                 </Button>
               ) : null}
               <Button asChild variant="outline">
-                <Link href={`/app/brands/${brandId}`} onClick={() => clearOnboardingSnap()}>
+                <Link href={`/app/brands/${brandId}`} onClick={() => finishOnboarding()}>
                   Brand home
                 </Link>
               </Button>
@@ -502,7 +551,7 @@ export function OnboardingFlow({
           ) : runStatus === "failed" && brandId ? (
             <div className="mt-8">
               <Button asChild>
-                <Link href={`/app/brands/${brandId}`} onClick={() => clearOnboardingSnap()}>
+                <Link href={`/app/brands/${brandId}`} onClick={() => finishOnboarding()}>
                   Back to brand
                 </Link>
               </Button>

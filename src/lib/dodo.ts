@@ -1,6 +1,6 @@
 import DodoPayments from "dodopayments";
 import { createCheckoutSession } from "@dodopayments/core";
-import { isStubSecret, type PlanId, PLANS } from "@/lib/billing";
+import { ENTERPRISE_CONTACT_SALES_MESSAGE, isStubSecret, type PlanId, PLANS } from "@/lib/billing";
 import { isProductionRuntime } from "@/lib/runtime-env";
 
 export const DODO_UNAVAILABLE_MESSAGE = "Billing is not configured. Try again later or contact support.";
@@ -109,6 +109,9 @@ export async function createDodoCheckout(args: {
   const stubUrl = `${args.returnUrl}${successPath}&stub=1`;
 
   if (isStubSecret(args.env.DODO_PAYMENTS_API_KEY)) {
+    if (args.plan === "enterprise") {
+      return { mode: "unavailable", message: ENTERPRISE_CONTACT_SALES_MESSAGE };
+    }
     return checkoutStubOrUnavailable(args.env, {
       url: stubUrl,
       message: "Dodo API key missing. Using stub checkout success URL.",
@@ -127,7 +130,7 @@ export async function createDodoCheckout(args: {
   if (!productId) {
     return {
       mode: "unavailable",
-      message: "Enterprise checkout is contract-only until a Dodo product is configured. Contact support.",
+      message: ENTERPRISE_CONTACT_SALES_MESSAGE,
     };
   }
   const returnUrl = `${args.returnUrl}${successPath}`;

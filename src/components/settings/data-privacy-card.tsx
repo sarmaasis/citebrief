@@ -3,22 +3,23 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { FormNoticeText, type FormNotice } from "@/components/ui/form-notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function DataPrivacyCard({ canManage }: { canManage: boolean }) {
   const [confirm, setConfirm] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<FormNotice | null>(null);
   const [busy, setBusy] = useState<"export" | "delete" | null>(null);
 
   async function exportData() {
     setBusy("export");
-    setMessage(null);
+    setNotice(null);
     try {
       const response = await fetch("/api/settings/export");
       if (!response.ok) {
         const data = (await response.json().catch(() => ({}))) as { error?: string };
-        setMessage(data.error ?? "Could not export workspace data.");
+        setNotice({ type: "error", text: data.error ?? "Could not export workspace data." });
         return;
       }
       const blob = await response.blob();
@@ -28,7 +29,7 @@ export function DataPrivacyCard({ canManage }: { canManage: boolean }) {
       link.download = "citebrief-export.json";
       link.click();
       URL.revokeObjectURL(url);
-      setMessage("Export downloaded. PDFs are not included; download those from each report.");
+      setNotice({ type: "success", text: "Export downloaded. PDFs are not included; download those from each report." });
     } finally {
       setBusy(null);
     }
@@ -36,7 +37,7 @@ export function DataPrivacyCard({ canManage }: { canManage: boolean }) {
 
   async function requestDelete() {
     setBusy("delete");
-    setMessage(null);
+    setNotice(null);
     try {
       const response = await fetch("/api/settings/delete-request", {
         method: "POST",
@@ -45,10 +46,10 @@ export function DataPrivacyCard({ canManage }: { canManage: boolean }) {
       });
       const data = (await response.json()) as { error?: string; message?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "Could not send the deletion request.");
+        setNotice({ type: "error", text: data.error ?? "Could not send the deletion request." });
         return;
       }
-      setMessage(data.message ?? "Deletion request sent.");
+      setNotice({ type: "success", text: data.message ?? "Deletion request sent." });
       setConfirm("");
     } finally {
       setBusy(null);
@@ -94,7 +95,7 @@ export function DataPrivacyCard({ canManage }: { canManage: boolean }) {
       ) : (
         <p className="mt-3 text-sm text-cb-muted">Ask a workspace owner to export or delete this account.</p>
       )}
-      {message ? <p className="mt-3 text-sm text-cb-muted">{message}</p> : null}
+      <FormNoticeText notice={notice} className="mt-3" />
     </section>
   );
 }

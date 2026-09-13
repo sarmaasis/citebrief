@@ -4,13 +4,16 @@ import {
   EXTRA_BRAND_USD,
   billingPageIntro,
   shouldWriteStubPaidSubscription,
+  selfServeEnterpriseCheckoutDenied,
   stubPaidSubscriptionPatch,
   trialSubscriptionPatch,
   TRIAL_DAYS,
+  ENTERPRISE_CONTACT_SALES_MESSAGE,
   planAllowsExtraBrands,
   planAnnualAmountUsd,
   planCardState,
   planSeatCap,
+  PUBLIC_PLAN_IDS,
   resolveSelectedPlan,
   SEAT_OVERAGE_USD,
 } from "./billing";
@@ -197,6 +200,8 @@ assert.equal(shouldSettleBillableExtra("running"), false);
 assert.equal(resolveSelectedPlan("starter"), "starter");
 assert.equal(resolveSelectedPlan("agency"), "agency");
 assert.equal(resolveSelectedPlan(""), "agency");
+assert.deepEqual([...PUBLIC_PLAN_IDS], ["starter", "agency", "studio"]);
+assert.equal(PUBLIC_PLAN_IDS.includes("enterprise" as (typeof PUBLIC_PLAN_IDS)[number]), false);
 
 const trialStarterCards = (["starter", "agency", "studio"] as const).map((id) =>
   planCardState({
@@ -269,6 +274,14 @@ assert.equal(shouldWriteStubPaidSubscription({ mode: "stub", isProduction: false
 assert.equal(shouldWriteStubPaidSubscription({ mode: "stub", isProduction: true }), false);
 assert.equal(shouldWriteStubPaidSubscription({ mode: "unavailable", isProduction: false }), false);
 assert.equal(shouldWriteStubPaidSubscription({ mode: "redirect", isProduction: false }), false);
+assert.equal(shouldWriteStubPaidSubscription({ mode: "stub", isProduction: false, plan: "agency" }), true);
+assert.equal(shouldWriteStubPaidSubscription({ mode: "stub", isProduction: false, plan: "starter" }), true);
+assert.equal(shouldWriteStubPaidSubscription({ mode: "stub", isProduction: false, plan: "studio" }), true);
+assert.equal(shouldWriteStubPaidSubscription({ mode: "stub", isProduction: false, plan: "enterprise" }), false);
+assert.equal(selfServeEnterpriseCheckoutDenied({ plan: "agency" }), null);
+assert.equal(selfServeEnterpriseCheckoutDenied({ plan: "enterprise" }), ENTERPRISE_CONTACT_SALES_MESSAGE);
+assert.equal(selfServeEnterpriseCheckoutDenied({ plan: "enterprise", alreadyEnterprise: true }), null);
+assert.equal(selfServeEnterpriseCheckoutDenied({ plan: "enterprise", impersonating: true }), null);
 
 const stubNow = new Date("2026-09-14T00:00:00.000Z");
 const stubAgencyPatch = stubPaidSubscriptionPatch({

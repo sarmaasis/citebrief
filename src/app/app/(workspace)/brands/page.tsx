@@ -50,7 +50,7 @@ export default async function BrandsPage({
         </div>
         {atCap || rows.length === 0 ? null : (
           <Button asChild>
-            <Link href="/app/onboarding">Add a brand</Link>
+            <Link href="/app/onboarding?new=1">Add a brand</Link>
           </Button>
         )}
       </div>

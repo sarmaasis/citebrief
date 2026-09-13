@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { FormNoticeText, type FormNotice } from "@/components/ui/form-notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -19,14 +20,14 @@ export function BrandKitForm({
   const [accentColor, setAccentColor] = useState(initial.accentColor);
   const [footerText, setFooterText] = useState(initial.footerText);
   const [preparedBy, setPreparedBy] = useState(initial.preparedBy);
-  const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<FormNotice | null>(null);
   const [busy, setBusy] = useState(false);
   const accent = accentColor || "#0B3D2E";
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
-    setMessage(null);
+    setNotice(null);
     try {
       const response = await fetch("/api/settings/brand-kit", {
         method: "PUT",
@@ -35,10 +36,10 @@ export function BrandKitForm({
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "Could not save brand kit.");
+        setNotice({ type: "error", text: data.error ?? "Could not save brand kit." });
         return;
       }
-      setMessage("Brand kit saved. Client links and PDFs use this on the next report.");
+      setNotice({ type: "success", text: "Brand kit saved. Client links and PDFs use this on the next report." });
     } finally {
       setBusy(false);
     }
@@ -90,11 +91,7 @@ export function BrandKitForm({
         <Button type="submit" disabled={busy}>
           {busy ? "Saving…" : "Save brand kit"}
         </Button>
-        {message ? (
-          <p className={message.startsWith("Brand kit saved") ? "text-sm text-cb-muted" : "text-sm text-cb-danger"}>
-            {message}
-          </p>
-        ) : null}
+        <FormNoticeText notice={notice} />
       </form>
 
       <div className="rounded-cb-card border border-cb-line bg-cb-bg p-5">
