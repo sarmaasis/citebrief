@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { webhookEvents } from "@/db/schema";
 import { getDb } from "@/db";
-import { requireInternalSecret } from "@/lib/internal-auth";
+import { writeAuditLog } from "@/lib/audit";
+import { guardInternalRoute } from "@/lib/internal-guard";
 import { applyDodoWebhookPayload } from "@/server/dodo-hono";
 import { jsonError, jsonOk } from "@/server/json";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 /** Re-apply a stored webhook payload (failed / support replay). */
 export async function POST(request: Request) {
   const { env } = await getCloudflareContext({ async: true });
-  const denied = requireInternalSecret(request, env, "INTERNAL_ADMIN_SECRET");
+  const denied = await guardInternalRoute(request, env, "INTERNAL_ADMIN_SECRET");
   if (denied) return denied;
 
   const body = (await request.json().catch(() => ({}))) as { eventId?: string };
@@ -33,6 +34,14 @@ export async function POST(request: Request) {
     .update(webhookEvents)
     .set({ processedAt: null, replayedAt: new Date() })
     .where(eq(webhookEvents.id, row.id));
+
+  await writeAuditLog(db, {
+    action: "webhook.replay",
+    targetType: "webhook_event",
+    targetId: row.eventId,
+    request,
+    metadata: { eventType: row.eventType },
+  });
 
   const result = await applyDodoWebhookPayload(db, payload, env);
   return jsonOk({ ok: true, replayed: true, result });

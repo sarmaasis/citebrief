@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthForm } from "@/components/auth/auth-form";
 import { Logo } from "@/components/brand/logo";
+import { AuthLegalLinks } from "@/components/marketing/footer";
 import { postAuthPath, readPlanAndInterval, signupHref } from "@/lib/marketing-cta";
 import { metadataPages } from "@/lib/seo";
 
@@ -40,6 +41,7 @@ export default async function LoginPage({
           Start the first report
         </Link>
       </p>
+      <AuthLegalLinks />
     </main>
   );
 }

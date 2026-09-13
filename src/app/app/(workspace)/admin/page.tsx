@@ -12,10 +12,11 @@ export default function InternalAdminPage() {
   const [eventId, setEventId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [cogs, setCogs] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string | null>(null);
 
   function authHeaders() {
     return {
-      Authorization: `Bearer ${secret || "dev-admin"}`,
+      Authorization: `Bearer ${secret}`,
       "Content-Type": "application/json",
     };
   }
@@ -59,17 +60,33 @@ export default function InternalAdminPage() {
     setMessage(JSON.stringify(data));
   }
 
+  async function loadAudit() {
+    setLogs(null);
+    const params = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : "";
+    const response = await fetch(`/api/internal/admin/audit${params}`, {
+      headers: authHeaders(),
+    });
+    const data = await response.json();
+    setLogs(JSON.stringify(data, null, 2));
+  }
+
   return (
     <div className="max-w-xl space-y-8">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Internal admin</h1>
         <p className="mt-3 text-sm text-cb-muted">
-          Protected by Bearer INTERNAL_ADMIN_SECRET (use dev-admin only in local development).
+          Protected by Bearer INTERNAL_ADMIN_SECRET. Production never accepts stub or dev-admin values.
         </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="secret">Admin secret</Label>
-        <Input id="secret" type="password" value={secret} onChange={(e) => setSecret(e.target.value)} />
+        <Input
+          id="secret"
+          type="password"
+          autoComplete="off"
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+        />
       </div>
       <div className="space-y-3 rounded-cb-card border border-cb-line bg-cb-surface p-5">
         <p className="text-sm font-medium">Impersonate workspace</p>
@@ -97,6 +114,16 @@ export default function InternalAdminPage() {
         <Button type="button" onClick={() => void replayWebhook()}>
           Replay
         </Button>
+      </div>
+      <div className="space-y-3 rounded-cb-card border border-cb-line bg-cb-surface p-5">
+        <p className="text-sm font-medium">Audit log</p>
+        <p className="text-xs text-cb-muted">
+          Uses the workspace id above when set. Impersonation, billing, sends, and invites write here.
+        </p>
+        <Button type="button" onClick={() => void loadAudit()}>
+          Load recent events
+        </Button>
+        {logs ? <pre className="max-h-80 overflow-auto rounded-cb-control bg-cb-bg p-3 text-xs">{logs}</pre> : null}
       </div>
       {message ? <p className="break-all text-sm text-cb-muted">{message}</p> : null}
     </div>

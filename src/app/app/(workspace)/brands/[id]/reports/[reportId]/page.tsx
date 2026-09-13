@@ -111,6 +111,7 @@ export default async function ReportPage({
       html={html}
       shareToken={row.report.shareToken}
       shareExpiresAt={row.report.shareExpiresAt ? new Date(row.report.shareExpiresAt).toISOString() : null}
+      shareRevokedAt={row.report.shareRevokedAt ? new Date(row.report.shareRevokedAt).toISOString() : null}
       partial={row.run.status === "partial"}
       sentAt={row.report.sentAt ? new Date(row.report.sentAt).toISOString() : null}
       shareOpenCount={row.report.shareOpenCount}

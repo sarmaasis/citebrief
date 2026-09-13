@@ -3,7 +3,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { brands, subscriptions, workspaces } from "@/db/schema";
 import { getDb } from "@/db";
 import { workspaceEntitlements } from "@/lib/entitlements";
-import { requireInternalSecret } from "@/lib/internal-auth";
+import { guardInternalRoute } from "@/lib/internal-guard";
 import { jsonOk } from "@/server/json";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 /** Internal: plan usage by workspace. */
 export async function GET(request: Request) {
   const { env } = await getCloudflareContext({ async: true });
-  const denied = requireInternalSecret(request, env, "INTERNAL_ADMIN_SECRET");
+  const denied = await guardInternalRoute(request, env, "INTERNAL_ADMIN_SECRET");
   if (denied) return denied;
 
   const db = await getDb();

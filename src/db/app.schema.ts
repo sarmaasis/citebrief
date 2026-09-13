@@ -176,6 +176,7 @@ export const reports = sqliteTable(
     scoreTotal: integer("score_total").notNull().default(20),
     shareToken: text("share_token").unique(),
     shareExpiresAt: integer("share_expires_at", { mode: "timestamp_ms" }),
+    shareRevokedAt: integer("share_revoked_at", { mode: "timestamp_ms" }),
     shareOpenCount: integer("share_open_count").notNull().default(0),
     shareLastOpenedAt: integer("share_last_opened_at", { mode: "timestamp_ms" }),
     sentAt: integer("sent_at", { mode: "timestamp_ms" }),
@@ -266,6 +267,27 @@ export const brandKits = sqliteTable("brand_kits", {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+export const auditLogs = sqliteTable(
+  "audit_logs",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id"),
+    actorUserId: text("actor_user_id"),
+    actorEmail: text("actor_email"),
+    action: text("action").notNull(),
+    targetType: text("target_type"),
+    targetId: text("target_id"),
+    metadata: text("metadata"),
+    ip: text("ip"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("audit_logs_workspace_idx").on(table.workspaceId),
+    index("audit_logs_action_idx").on(table.action),
+    index("audit_logs_created_idx").on(table.createdAt),
+  ],
+);
 
 export const engineCache = sqliteTable(
   "engine_cache",

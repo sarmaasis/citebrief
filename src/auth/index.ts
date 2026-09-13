@@ -3,8 +3,9 @@ import { betterAuth } from "better-auth";
 import { withCloudflare } from "better-auth-cloudflare";
 import { magicLink } from "better-auth/plugins";
 import { getDb } from "@/db";
-import { ensureWorkspaceForUser } from "@/lib/workspace";
 import { sendTransactionalEmail } from "@/lib/email";
+import { isForbiddenProductionSecret, isProductionRuntime } from "@/lib/runtime-env";
+import { ensureWorkspaceForUser } from "@/lib/workspace";
 
 function isStubValue(value: string | undefined) {
   return !value || value === "stub" || value.startsWith("stub-");
@@ -25,6 +26,9 @@ async function createAuth() {
           clientSecret: env.GOOGLE_CLIENT_SECRET || "stub-google-client-secret",
         };
   const baseURL = (env.BETTER_AUTH_URL || "http://localhost:3000").replace(/\/$/, "");
+  if (isProductionRuntime(env) && isForbiddenProductionSecret(env.BETTER_AUTH_SECRET)) {
+    throw new Error("BETTER_AUTH_SECRET must be set to a non-stub value in production.");
+  }
 
   return betterAuth({
     ...withCloudflare(
@@ -44,6 +48,11 @@ async function createAuth() {
       {
         appName: "CiteBrief",
         secret: env.BETTER_AUTH_SECRET || "dev-only-replace-with-BETTER_AUTH_SECRET",
+        rateLimit: {
+          enabled: true,
+          window: 60,
+          max: 20,
+        },
         baseURL,
         trustedOrigins: [baseURL],
         emailAndPassword: {

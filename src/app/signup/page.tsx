@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthForm } from "@/components/auth/auth-form";
 import { Logo } from "@/components/brand/logo";
+import { AuthLegalLinks } from "@/components/marketing/footer";
 import {
   ANNUAL_MONTHS_CHARGED,
   PLANS,
@@ -100,6 +101,7 @@ export default async function SignupPage({
           Sign in
         </Link>
       </p>
+      <AuthLegalLinks />
     </main>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
+import { AuthLegalLinks } from "@/components/marketing/footer";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { InviteAcceptButton } from "@/components/settings/invite-accept-button";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <InviteAcceptButton token={token} />
         </div>
       )}
+      <AuthLegalLinks />
     </div>
   );
 }

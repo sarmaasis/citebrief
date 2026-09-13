@@ -4,20 +4,24 @@ import { NextResponse } from "next/server";
 import { workspaces } from "@/db/schema";
 import { getDb } from "@/db";
 import { actAsCookieName, buildActAsCookieValue } from "@/lib/admin-impersonate";
-import { isStubSecret } from "@/lib/billing";
-import { requireInternalSecret } from "@/lib/internal-auth";
+import { writeAuditLog } from "@/lib/audit";
+import { guardInternalRoute } from "@/lib/internal-guard";
+import { isForbiddenProductionSecret, isProductionRuntime } from "@/lib/runtime-env";
 import { jsonError } from "@/server/json";
 
 export const dynamic = "force-dynamic";
 
-function adminSecret(env: CloudflareEnv) {
-  return env.INTERNAL_ADMIN_SECRET || (process.env.NODE_ENV === "development" ? "dev-admin" : "");
+function cookieSecret(env: CloudflareEnv) {
+  const configured = env.INTERNAL_ADMIN_SECRET?.trim();
+  if (configured && !isForbiddenProductionSecret(configured)) return configured;
+  if (!isProductionRuntime(env)) return "dev-admin";
+  return "";
 }
 
 /** Support: set signed act-as cookie for a workspace (Bearer INTERNAL_ADMIN_SECRET). */
 export async function POST(request: Request) {
   const { env } = await getCloudflareContext({ async: true });
-  const denied = requireInternalSecret(request, env, "INTERNAL_ADMIN_SECRET");
+  const denied = await guardInternalRoute(request, env, "INTERNAL_ADMIN_SECRET");
   if (denied) return denied;
 
   const body = (await request.json().catch(() => ({}))) as { workspaceId?: string };
@@ -28,12 +32,20 @@ export async function POST(request: Request) {
   const [workspace] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
   if (!workspace) return jsonError("Workspace not found.", 404);
 
-  const secret = adminSecret(env);
-  if (!secret || (isStubSecret(secret) && secret !== "dev-admin")) {
+  const secret = cookieSecret(env);
+  if (!secret) {
     return jsonError("INTERNAL_ADMIN_SECRET must be set.", 503);
   }
 
   const value = await buildActAsCookieValue(workspaceId, secret);
+  await writeAuditLog(db, {
+    action: "impersonation.start",
+    workspaceId,
+    targetType: "workspace",
+    targetId: workspaceId,
+    request,
+    metadata: { name: workspace.name },
+  });
   const response = NextResponse.json({
     ok: true,
     workspaceId,
@@ -45,20 +57,27 @@ export async function POST(request: Request) {
     sameSite: "lax",
     path: "/",
     maxAge: 3600,
+    secure: isProductionRuntime(env),
   });
   return response;
 }
 
 export async function DELETE(request: Request) {
   const { env } = await getCloudflareContext({ async: true });
-  const denied = requireInternalSecret(request, env, "INTERNAL_ADMIN_SECRET");
+  const denied = await guardInternalRoute(request, env, "INTERNAL_ADMIN_SECRET");
   if (denied) return denied;
+  const db = await getDb();
+  await writeAuditLog(db, {
+    action: "impersonation.end",
+    request,
+  });
   const response = NextResponse.json({ ok: true, cleared: true });
   response.cookies.set(actAsCookieName(), "", {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
     maxAge: 0,
+    secure: isProductionRuntime(env),
   });
   return response;
 }

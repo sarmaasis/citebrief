@@ -1,6 +1,8 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createDodoAddonCheckout, type DodoAddon } from "@/lib/dodo";
 import { workspaceEntitlements } from "@/lib/entitlements";
+import { writeAuditLog } from "@/lib/audit";
+import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { requireOwner } from "@/lib/permissions";
 import { bumpExtraBrands, bumpExtraRunCredits, bumpExtraSeats, getWorkspaceSubscription } from "@/lib/usage";
 import { getAppContext } from "@/lib/session";
@@ -37,6 +39,8 @@ export async function POST(request: Request) {
   }
 
   const { env } = await getCloudflareContext({ async: true });
+  const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.billing, ctx.workspace.id);
+  if (limited) return limited;
   const origin = (env.BETTER_AUTH_URL || "").replace(/\/$/, "") || "http://localhost:3000";
   const checkout = await createDodoAddonCheckout({
     env,
@@ -52,6 +56,17 @@ export async function POST(request: Request) {
     if (addon === "extra_seat") await bumpExtraSeats(ctx.db, ctx.workspace.id, 1);
     if (addon === "extra_run") await bumpExtraRunCredits(ctx.db, ctx.workspace.id, 1);
   }
+
+  await writeAuditLog(ctx.db, {
+    action: "billing.addon",
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email,
+    targetType: "addon",
+    targetId: addon,
+    request,
+    metadata: { mode: checkout.mode },
+  });
 
   return jsonOk({ addon, ...checkout });
 }

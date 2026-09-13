@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getAppContext } from "@/lib/session";
 import { splitNames } from "@/lib/split";
+import { writeAuditLog } from "@/lib/audit";
 import { assertBrandCap } from "@/lib/usage";
 import { jsonError, jsonOk } from "@/server/json";
 import { getBrandBundle, getWorkspaceBrand } from "@/server/workspace-data";
@@ -69,6 +70,18 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.archived === "1") next.archivedAt = now;
 
   await ctx.db.update(brands).set(next).where(eq(brands.id, id));
+
+  if (body.archived === "1" || body.archived === "0") {
+    await writeAuditLog(ctx.db, {
+      action: body.archived === "1" ? "brand.archive" : "brand.unarchive",
+      workspaceId: ctx.workspace.id,
+      actorUserId: ctx.user.id,
+      actorEmail: ctx.user.email,
+      targetType: "brand",
+      targetId: id,
+      request,
+    });
+  }
 
   if (typeof body.competitors === "string") {
     await ctx.db.delete(competitors).where(eq(competitors.brandId, id));

@@ -4,6 +4,8 @@ import { default as handler } from "./.open-next/worker.js";
 import { dbFromEnv } from "./src/db";
 import { runFridayCron } from "./src/lib/cron-friday";
 import { processRun } from "./src/lib/run-processor";
+import { canonicalRedirectLocation, logProductionSecretProblems } from "./src/lib/runtime-env";
+import { applySecurityHeaders, canonicalRedirectResponse } from "./src/lib/security-headers";
 
 export type RunQueueMessage = {
   runId?: string;
@@ -14,9 +16,15 @@ export type RunQueueMessage = {
 };
 
 export default {
-  fetch: handler.fetch,
+  async fetch(request, env, ctx) {
+    const location = canonicalRedirectLocation(request);
+    if (location) return canonicalRedirectResponse(location);
+    const response = await handler.fetch(request, env, ctx);
+    return applySecurityHeaders(response);
+  },
 
   async queue(batch, env): Promise<void> {
+    logProductionSecretProblems(env);
     const db = dbFromEnv(env);
     for (const message of batch.messages) {
       const body = (message.body || {}) as RunQueueMessage;
@@ -36,6 +44,7 @@ export default {
   },
 
   async scheduled(_controller, env): Promise<void> {
+    logProductionSecretProblems(env);
     const db = dbFromEnv(env);
     const result = await runFridayCron(db, env);
     console.info("[scheduled] friday cron", result.processed, "enqueued");

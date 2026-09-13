@@ -3,6 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { brands, reports, workspaces } from "@/db/schema";
 import { sendTransactionalEmail } from "@/lib/email";
 import { reportSendBlockedReason, workspaceEntitlements } from "@/lib/entitlements";
+import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { writeAuditLog } from "@/lib/audit";
 import { getAppContext } from "@/lib/session";
 import { postSlackIncomingWebhook } from "@/lib/slack";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -30,6 +32,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const { env } = await getCloudflareContext({ async: true });
+  const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.reportSend, ctx.workspace.id);
+  if (limited) return limited;
   const to = body.to?.trim() || ctx.user.email;
   const share = row.report.shareToken ? `${env.BETTER_AUTH_URL || ""}/r/${row.report.shareToken}` : "";
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
@@ -71,6 +75,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   await ctx.db.update(reports).set({ sentAt: new Date() }).where(eq(reports.id, id));
+
+  await writeAuditLog(ctx.db, {
+    action: "report.send",
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email,
+    targetType: "report",
+    targetId: id,
+    request,
+    metadata: { to, ccClient: body.ccClient?.trim() || null, brandId: row.report.brandId },
+  });
 
   if (ent.allowsSlack && workspace?.slackWebhookUrl) {
     await postSlackIncomingWebhook({

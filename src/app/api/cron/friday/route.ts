@@ -1,7 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getDb } from "@/db";
 import { runFridayCron } from "@/lib/cron-friday";
-import { requireInternalSecret } from "@/lib/internal-auth";
+import { guardInternalRoute } from "@/lib/internal-guard";
 import { jsonError, jsonOk } from "@/server/json";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request) {
   const { env } = await getCloudflareContext({ async: true });
-  const denied = requireInternalSecret(request, env, "CRON_SECRET");
+  const denied = await guardInternalRoute(request, env, "CRON_SECRET");
   if (denied) {
     return denied;
   }

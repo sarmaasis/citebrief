@@ -100,7 +100,7 @@ export function PricingView({
   const annualLive = missingAnnual.length === 0;
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
+    <main id="main" className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
       <h1 className="font-serif text-5xl tracking-tight">Simple pricing for agency retainers</h1>
       <p className="mt-4 max-w-2xl text-lg text-cb-muted">
         White-label Friday PDFs. Agency at ${PLANS.agency.amountUsd} is the plan to buy. Not a $29

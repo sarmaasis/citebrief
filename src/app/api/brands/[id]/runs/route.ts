@@ -1,6 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { eq } from "drizzle-orm";
 import { emptyEngineStatus } from "@/lib/engines";
+import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { assertRunCap, bumpRunsUsed } from "@/lib/usage";
 import { formatWeekOf } from "@/lib/friday";
 import { getAppContext } from "@/lib/session";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(_request: Request, context: RouteContext) {
+export async function POST(request: Request, context: RouteContext) {
   const ctx = await getAppContext();
   if (!ctx) {
     return jsonError("Sign in required.", 401);
@@ -26,6 +27,10 @@ export async function POST(_request: Request, context: RouteContext) {
   if (brand.archivedAt) {
     return jsonError("Archived brands cannot run.");
   }
+
+  const { env } = await getCloudflareContext({ async: true });
+  const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.runCreate, ctx.workspace.id);
+  if (limited) return limited;
 
   const promptRows = await ctx.db.select().from(prompts).where(eq(prompts.brandId, id));
   if (promptRows.length === 0) {
@@ -54,7 +59,6 @@ export async function POST(_request: Request, context: RouteContext) {
     queuedAt: now.toISOString(),
   };
 
-  const { env } = await getCloudflareContext({ async: true });
   const [workspaceRow] = await ctx.db
     .select()
     .from(workspaces)

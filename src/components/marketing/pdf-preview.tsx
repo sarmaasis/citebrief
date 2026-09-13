@@ -34,6 +34,9 @@ export function PdfPreview({ className = "" }: { className?: string }) {
               </p>
             </div>
           ))}
+          <p className="mt-1 text-[10px] text-cb-muted">
+            Next: {SAMPLE_REPORT.priorities[0].action}
+          </p>
         </div>
         <p className="mt-8 text-[10px] text-cb-muted">{SAMPLE_REPORT.prepared}</p>
       </div>

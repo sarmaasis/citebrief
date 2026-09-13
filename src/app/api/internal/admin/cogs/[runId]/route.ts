@@ -3,14 +3,14 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { prompts, runs } from "@/db/schema";
 import { getDb } from "@/db";
 import { estimateRunCogs } from "@/lib/cogs";
-import { requireInternalSecret } from "@/lib/internal-auth";
+import { guardInternalRoute } from "@/lib/internal-guard";
 import { jsonError, jsonOk } from "@/server/json";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request, context: { params: Promise<{ runId: string }> }) {
   const { env } = await getCloudflareContext({ async: true });
-  const denied = requireInternalSecret(request, env, "INTERNAL_ADMIN_SECRET");
+  const denied = await guardInternalRoute(request, env, "INTERNAL_ADMIN_SECRET");
   if (denied) return denied;
 
   const { runId } = await context.params;

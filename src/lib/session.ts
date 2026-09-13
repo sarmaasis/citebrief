@@ -5,8 +5,8 @@ import { initAuth } from "@/auth";
 import { getDb, type Database } from "@/db";
 import { workspaceMembers, workspaces } from "@/db/schema";
 import { actAsCookieName, parseActAsCookieValue, readActAsFromRequest } from "@/lib/admin-impersonate";
-import { isStubSecret } from "@/lib/billing";
 import { parseWorkspaceRole, type WorkspaceRole } from "@/lib/permissions";
+import { isForbiddenProductionSecret, isProductionRuntime } from "@/lib/runtime-env";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
 
 export type AppUser = {
@@ -29,17 +29,27 @@ export type AppContext = {
   impersonating?: boolean;
 };
 
+function adminActAsSecret(env: CloudflareEnv): string | null {
+  const configured = env.INTERNAL_ADMIN_SECRET?.trim();
+  if (isProductionRuntime(env)) {
+    if (isForbiddenProductionSecret(configured)) return null;
+    return configured ?? null;
+  }
+  if (configured && !isForbiddenProductionSecret(configured)) return configured;
+  return "dev-admin";
+}
+
 async function resolveActAsWorkspaceId(requestHeaders: Headers, env: CloudflareEnv): Promise<string | null> {
-  const secret = env.INTERNAL_ADMIN_SECRET || (process.env.NODE_ENV === "development" ? "dev-admin" : "");
+  const secret = adminActAsSecret(env);
+  if (!secret) return null;
   const auth = requestHeaders.get("authorization");
   const bearer = auth?.startsWith("Bearer ") ? auth.slice("Bearer ".length) : null;
   const headerActAs = readActAsFromRequest(new Request("https://local", { headers: requestHeaders }));
 
-  if (headerActAs && bearer && secret && (bearer === secret || (secret === "dev-admin" && bearer === "dev-admin"))) {
+  if (headerActAs && bearer && bearer === secret) {
     return headerActAs;
   }
 
-  if (!secret || (isStubSecret(secret) && secret !== "dev-admin")) return null;
   const jar = await cookies();
   const raw = jar.get(actAsCookieName())?.value;
   return parseActAsCookieValue(raw, secret);

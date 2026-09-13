@@ -1,12 +1,14 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { cache } from "react";
 import { getDb } from "@/db";
 import { brandKits, brands, reports, runs, workspaces } from "@/db/schema";
 import { getReportObject } from "@/lib/r2";
 import { clientReportRobots } from "@/lib/seo";
-import { recordClientLinkOpen } from "@/lib/share";
+import { recordClientLinkOpen, shareAccessState } from "@/lib/share";
+import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +30,23 @@ const loadShare = cache(async (token: string) => {
   return row ?? null;
 });
 
-function isShareExpired(shareExpiresAt: Date | null | undefined) {
-  if (!shareExpiresAt) return false;
-  return new Date(shareExpiresAt).getTime() < Date.now();
+function shareUnavailableCopy(state: ReturnType<typeof shareAccessState>) {
+  if (state === "revoked") {
+    return {
+      title: "This client link was revoked",
+      body: "Ask your agency for a new client link.",
+    };
+  }
+  if (state === "expired") {
+    return {
+      title: "This client link expired",
+      body: "Ask your agency for a new one.",
+    };
+  }
+  return {
+    title: "Report not found",
+    body: "Ask your agency for a new client link.",
+  };
 }
 
 export async function generateMetadata({
@@ -40,7 +56,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { token } = await params;
   const row = await loadShare(token);
-  if (!row || isShareExpired(row.report.shareExpiresAt)) {
+  if (!row || shareAccessState(row.report) !== "live") {
     return {
       title: { absolute: "Client report" },
       robots: clientReportRobots,
@@ -56,22 +72,38 @@ export async function generateMetadata({
 
 export default async function ClientSharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const row = await loadShare(token);
+  let rateLimited = false;
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    const hdrs = await headers();
+    const limited = await consumeRouteRateLimit(
+      new Request(`https://getcitebrief.com/r/${token}`, { headers: hdrs }),
+      env,
+      RATE_LIMITS.publicReport,
+    );
+    rateLimited = Boolean(limited);
+  } catch {
+    // Preview without KV still renders the report.
+  }
 
-  if (!row) {
+  if (rateLimited) {
     return (
       <main className="mx-auto max-w-xl px-6 py-24 text-center">
-        <h1 className="text-xl font-semibold">Report not found</h1>
-        <p className="mt-3 text-sm text-cb-muted">Ask your agency for a new client link.</p>
+        <h1 className="text-xl font-semibold">Too many requests</h1>
+        <p className="mt-3 text-sm text-cb-muted">Wait a minute and open the client link again.</p>
       </main>
     );
   }
 
-  if (isShareExpired(row.report.shareExpiresAt)) {
+  const row = await loadShare(token);
+  const state = row ? shareAccessState(row.report) : "missing";
+
+  if (!row || state !== "live") {
+    const copy = shareUnavailableCopy(state);
     return (
       <main className="mx-auto max-w-xl px-6 py-24 text-center">
-        <h1 className="text-xl font-semibold">This client link expired</h1>
-        <p className="mt-3 text-sm text-cb-muted">Ask your agency for a new one.</p>
+        <h1 className="text-xl font-semibold">{copy.title}</h1>
+        <p className="mt-3 text-sm text-cb-muted">{copy.body}</p>
       </main>
     );
   }

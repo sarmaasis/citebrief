@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { WorkspaceForm } from "@/components/settings/workspace-form";
+import { DataPrivacyCard } from "@/components/settings/data-privacy-card";
 import { workspaces } from "@/db/schema";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
@@ -39,6 +40,7 @@ export default async function WorkspaceSettingsPage() {
           }}
         />
       </div>
+      <DataPrivacyCard canManage={ctx.impersonating || ctx.role === "owner"} />
     </div>
   );
 }

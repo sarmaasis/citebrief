@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { workspaces } from "@/db/schema";
 import { isValidSenderDomain } from "@/lib/email";
 import { workspaceEntitlements } from "@/lib/entitlements";
+import { writeAuditLog } from "@/lib/audit";
 import { isValidIanaTimeZone } from "@/lib/friday-tz";
 import { validateDefaultEngines } from "@/lib/plan-engines";
 import { requireSettingsAccess } from "@/lib/permissions";
@@ -103,6 +104,17 @@ export async function PUT(request: Request) {
       updatedAt: new Date(),
     })
     .where(eq(workspaces.id, ctx.workspace.id));
+
+  await writeAuditLog(ctx.db, {
+    action: "workspace.update",
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email,
+    targetType: "workspace",
+    targetId: ctx.workspace.id,
+    request,
+    metadata: { timezone, senderDomain: Boolean(senderDomain), slack: Boolean(slackWebhookUrl) },
+  });
 
   return jsonOk({ ok: true });
 }

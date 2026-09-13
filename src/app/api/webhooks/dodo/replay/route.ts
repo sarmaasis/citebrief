@@ -2,7 +2,9 @@ import { eq } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { webhookEvents } from "@/db/schema";
 import { getDb } from "@/db";
+import { writeAuditLog } from "@/lib/audit";
 import { requireInternalSecret } from "@/lib/internal-auth";
+import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { applyDodoWebhookPayload } from "@/server/dodo-hono";
 import { jsonError, jsonOk } from "@/server/json";
 
@@ -11,6 +13,8 @@ export const dynamic = "force-dynamic";
 /** Alias: failed webhook replay (Bearer INTERNAL_ADMIN_SECRET or INTERNAL_PROCESS_SECRET). */
 export async function POST(request: Request) {
   const { env } = await getCloudflareContext({ async: true });
+  const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.internal);
+  if (limited) return limited;
   const adminDenied = requireInternalSecret(request, env, "INTERNAL_ADMIN_SECRET");
   const processDenied = requireInternalSecret(request, env, "INTERNAL_PROCESS_SECRET");
   if (adminDenied && processDenied) {
@@ -27,6 +31,14 @@ export async function POST(request: Request) {
     .update(webhookEvents)
     .set({ processedAt: null, replayedAt: new Date() })
     .where(eq(webhookEvents.id, row.id));
+
+  await writeAuditLog(db, {
+    action: "webhook.replay",
+    targetType: "webhook_event",
+    targetId: row.eventId,
+    request,
+    metadata: { eventType: row.eventType, alias: true },
+  });
 
   if (row.payload) {
     try {

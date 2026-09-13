@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
 import { parseBillingInterval, parsePlanId, TRIAL_DAYS } from "@/lib/billing";
 import { createDodoCheckout } from "@/lib/dodo";
+import { writeAuditLog } from "@/lib/audit";
+import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { requireOwner } from "@/lib/permissions";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
@@ -25,6 +27,8 @@ export async function GET(request: Request) {
   const interval = parseBillingInterval(url.searchParams.get("interval"));
 
   const { env } = await getCloudflareContext({ async: true });
+  const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.billing, ctx.workspace.id);
+  if (limited) return limited;
   const origin = env.BETTER_AUTH_URL || url.origin;
   const checkout = await createDodoCheckout({
     env,
@@ -34,6 +38,21 @@ export async function GET(request: Request) {
     customerEmail: ctx.user.email,
     customerName: ctx.user.name,
     returnUrl: origin.replace(/\/$/, ""),
+  });
+
+  if (checkout.mode === "unavailable") {
+    return jsonError(checkout.message, 503);
+  }
+
+  await writeAuditLog(ctx.db, {
+    action: "billing.checkout",
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email,
+    targetType: "plan",
+    targetId: plan,
+    request,
+    metadata: { interval, mode: checkout.mode },
   });
 
   const [existing] = await ctx.db

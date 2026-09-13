@@ -82,7 +82,7 @@ export default function HomePage() {
     <div className="min-h-screen">
       <JsonLd json={homeJsonLd()} />
       <MarketingHeader />
-      <main>
+      <main id="main">
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-2 lg:py-24">
           <div>
             <h1 className="font-serif text-[56px] leading-[1.05] tracking-tight text-cb-text lg:text-[64px]">

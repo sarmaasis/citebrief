@@ -21,6 +21,7 @@ export function ReportViewer({
   html,
   shareToken,
   shareExpiresAt,
+  shareRevokedAt,
   partial,
   sentAt,
   shareOpenCount,
@@ -39,6 +40,7 @@ export function ReportViewer({
   html: string | null;
   shareToken: string | null;
   shareExpiresAt?: string | null;
+  shareRevokedAt?: string | null;
   partial: boolean;
   sentAt?: string | null;
   shareOpenCount?: number | null;
@@ -51,8 +53,12 @@ export function ReportViewer({
   const [ccEmail, setCcEmail] = useState("");
   const [ccBusy, setCcBusy] = useState(false);
   const [testBusy, setTestBusy] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [ccUpgrade, setCcUpgrade] = useState(false);
+  const [liveToken, setLiveToken] = useState(shareToken);
+  const [liveExpires, setLiveExpires] = useState(shareExpiresAt ?? null);
+  const [revoked, setRevoked] = useState(Boolean(shareRevokedAt));
 
   function flash(next: string) {
     setToast(next);
@@ -60,13 +66,44 @@ export function ReportViewer({
   }
 
   async function copyLink() {
-    if (!shareToken) {
-      flash("Share link is not ready yet.");
+    if (revoked || !liveToken) {
+      flash(revoked ? "This client link was revoked. Create a new one." : "Share link is not ready yet.");
       return;
     }
-    const url = `${window.location.origin}/r/${shareToken}`;
+    const url = `${window.location.origin}/r/${liveToken}`;
     await navigator.clipboard.writeText(url);
     flash("Client link copied");
+  }
+
+  async function manageShare(action: "revoke" | "rotate") {
+    setShareBusy(true);
+    try {
+      const response = await fetch(`/api/reports/${reportId}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        shareToken?: string;
+        shareExpiresAt?: string | null;
+      };
+      if (!response.ok) {
+        flash(data.error ?? "Could not update the client link.");
+        return;
+      }
+      if (action === "rotate") {
+        setLiveToken(data.shareToken ?? null);
+        setLiveExpires(data.shareExpiresAt ?? null);
+        setRevoked(false);
+        flash("New client link created. The previous link no longer works.");
+      } else {
+        setRevoked(true);
+        flash("Client link revoked. Anyone with the URL will see an expired page.");
+      }
+    } finally {
+      setShareBusy(false);
+    }
   }
 
   async function sendTest() {
@@ -147,6 +184,15 @@ export function ReportViewer({
           <Button type="button" variant="outline" size="sm" onClick={() => void copyLink()}>
             Copy client link
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={shareBusy || (!liveToken && !revoked)}
+            onClick={() => void manageShare(revoked ? "rotate" : "revoke")}
+          >
+            {shareBusy ? "Updating…" : revoked ? "New client link" : "Revoke link"}
+          </Button>
           <Button type="button" variant="outline" size="sm" disabled={testBusy} onClick={() => void sendTest()}>
             {testBusy ? "Sending…" : "Send test"}
           </Button>
@@ -193,10 +239,16 @@ export function ReportViewer({
       ) : null}
 
       <div className="mx-auto max-w-4xl px-6 py-8">
-        {shareExpiresAt ? (
-          <p className="mb-3 text-xs text-cb-muted">Client links expire 90 days after they are created.</p>
+        {revoked ? (
+          <p className="mb-3 text-xs text-cb-muted">
+            The client link is revoked. Create a new one if the account still needs a read-only page.
+          </p>
+        ) : liveExpires ? (
+          <p className="mb-3 text-xs text-cb-muted">
+            Client links expire 90 days after they are created and can be revoked from this page.
+          </p>
         ) : (
-          <p className="mb-3 text-xs text-cb-muted">Client links are read-only and expire after 90 days.</p>
+          <p className="mb-3 text-xs text-cb-muted">Client links are read-only, expire after 90 days, and can be revoked.</p>
         )}
         <div className="rounded-cb-card border border-cb-line bg-cb-surface">
           {html ? (

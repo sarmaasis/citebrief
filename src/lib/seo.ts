@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { PLANS } from "@/lib/billing";
+import { LEGAL_ARTICLES, legalBySlug } from "@/lib/legal-articles";
 import { PRICING_FAQS } from "@/lib/pricing-faq";
+import { PUBLIC_ARTICLES, type PublicArticle } from "@/lib/public-articles";
 
 export { PRICING_FAQS } from "@/lib/pricing-faq";
 
@@ -14,10 +16,15 @@ export const HOME_DESCRIPTION =
   "Track twenty buyer questions across ChatGPT, Perplexity, Gemini, and AI Overviews, then send a white-label Friday PDF with who won, where you were missing, and what to do next.";
 
 /**
- * Public marketing IA from PRODUCT §18.1 / §19.
- * Later pages (alternatives, /for-seo-agencies, ROI calculator, blog) are not shipped.
+ * Public marketing IA: core product pages plus launch-audit commercial, compare, and legal URLs.
  */
-export const INDEXABLE_PATHS = ["/", "/pricing", "/report", "/legal/privacy", "/legal/terms"] as const;
+export const INDEXABLE_PATHS = [
+  "/",
+  "/pricing",
+  "/report",
+  ...PUBLIC_ARTICLES.map((article) => article.path),
+  ...LEGAL_ARTICLES.map((article) => article.path),
+] as const;
 
 export type IndexablePath = (typeof INDEXABLE_PATHS)[number];
 
@@ -45,14 +52,12 @@ export const PAGE_COPY = {
   privacy: {
     path: "/legal/privacy" as const,
     title: "Privacy",
-    description:
-      "How CiteBrief stores workspace, brand, and report data. Reports use third-party AI answers that may be incomplete. We do not sell personal data.",
+    description: LEGAL_ARTICLES.find((article) => article.slug === "privacy")!.description,
   },
   terms: {
     path: "/legal/terms" as const,
     title: "Terms",
-    description:
-      "CiteBrief terms of use. Reports reflect third-party AI search answers and may be incomplete. Monthly billing unless noted. Client links expire.",
+    description: LEGAL_ARTICLES.find((article) => article.slug === "terms")!.description,
   },
   login: {
     title: "Sign in",
@@ -188,7 +193,14 @@ export function sitemapEntries(): { url: string; changeFrequency: "weekly" | "mo
   return INDEXABLE_PATHS.map((path) => ({
     url: canonicalPath(path),
     changeFrequency: path === "/" ? "weekly" : "monthly",
-    priority: path === "/" ? 1 : path.startsWith("/legal") ? 0.4 : 0.8,
+    priority:
+      path === "/"
+        ? 1
+        : path === "/pricing" || path === "/report"
+          ? 0.8
+          : path.startsWith("/legal")
+            ? 0.4
+            : 0.7,
   }));
 }
 
@@ -243,7 +255,7 @@ function softwareApplicationNode() {
   };
 }
 
-function webPageNode(path: IndexablePath, name: string, description: string) {
+function webPageNode(path: string, name: string, description: string) {
   return {
     "@type": "WebPage",
     "@id": `${canonicalPath(path)}#webpage`,
@@ -313,18 +325,65 @@ export function reportJsonLd() {
   };
 }
 
-export function legalJsonLd(kind: "privacy" | "terms") {
-  const copy = PAGE_COPY[kind];
-  const name = ogTitle(copy.title);
+export function legalJsonLd(slug: string) {
+  const article = legalBySlug(slug) ?? legalBySlug("privacy")!;
+  const name = ogTitle(article.title);
   return {
     "@context": "https://schema.org",
     "@graph": [
       organizationNode(),
       websiteNode(),
-      webPageNode(copy.path, name, copy.description),
+      webPageNode(article.path, name, article.description),
       breadcrumbNode([
         { name: SITE_NAME, path: "/" },
-        { name: copy.title, path: copy.path },
+        { name: article.title, path: article.path },
+      ]),
+    ],
+  };
+}
+
+export function articleMetadata(article: PublicArticle): Metadata {
+  return publicMetadata({
+    title: article.metaTitle,
+    description: article.description,
+    path: article.path,
+  });
+}
+
+export function legalMetadata(slug: string): Metadata {
+  const article = legalBySlug(slug);
+  if (!article) {
+    return { title: "Legal", robots: { index: false, follow: false } };
+  }
+  return publicMetadata({
+    title: article.title,
+    description: article.description,
+    path: article.path,
+  });
+}
+
+export function articleJsonLd(article: PublicArticle) {
+  const name = ogTitle(article.metaTitle);
+  const pageType = "WebPage";
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      organizationNode(),
+      websiteNode(),
+      {
+        "@type": pageType,
+        "@id": `${canonicalPath(article.path)}#webpage`,
+        url: canonicalPath(article.path),
+        name,
+        headline: article.title,
+        description: article.description,
+        isPartOf: { "@id": `${CANONICAL_ORIGIN}/#website` },
+        about: { "@id": `${CANONICAL_ORIGIN}/#app` },
+        inLanguage: "en-US",
+      },
+      breadcrumbNode([
+        { name: SITE_NAME, path: "/" },
+        { name: article.title, path: article.path },
       ]),
     ],
   };

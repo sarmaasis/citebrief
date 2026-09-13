@@ -4,7 +4,8 @@ import { isStubSecret, type PlanId, PLANS } from "@/lib/billing";
 
 export type DodoCheckoutResult =
   | { mode: "redirect"; url: string }
-  | { mode: "stub"; url: string; message: string };
+  | { mode: "stub"; url: string; message: string }
+  | { mode: "unavailable"; message: string };
 
 export function dodoProductLabel(plan: PlanId) {
   return `CiteBrief ${PLANS[plan].name}`;
@@ -87,6 +88,13 @@ export async function createDodoCheckout(args: {
   }
 
   const annualId = interval === "annual" ? dodoAnnualProductId(args.env, args.plan) : null;
+  if (interval === "annual" && !annualId) {
+    return {
+      mode: "unavailable",
+      message:
+        "Annual billing is not configured yet (missing Dodo annual product IDs). Use monthly, or contact support.",
+    };
+  }
   const productId = annualId || dodoProductId(args.env, args.plan);
   const returnUrl = `${args.returnUrl}${successPath}`;
   const metadata = {

@@ -21,11 +21,31 @@ assert.equal(canonicalPath("/"), CANONICAL_ORIGIN);
 assert.equal(canonicalPath("/pricing"), "https://getcitebrief.com/pricing");
 assert.equal(canonicalPath("/legal/privacy/"), "https://getcitebrief.com/legal/privacy");
 
-assert.deepEqual([...INDEXABLE_PATHS], ["/", "/pricing", "/report", "/legal/privacy", "/legal/terms"]);
+assert.ok(INDEXABLE_PATHS.includes("/"));
+assert.ok(INDEXABLE_PATHS.includes("/pricing"));
+assert.ok(INDEXABLE_PATHS.includes("/report"));
+assert.ok(INDEXABLE_PATHS.includes("/legal/privacy"));
+assert.ok(INDEXABLE_PATHS.includes("/legal/terms"));
+assert.ok(INDEXABLE_PATHS.includes("/legal/dpa"));
+assert.ok(INDEXABLE_PATHS.includes("/legal/security"));
+assert.ok(INDEXABLE_PATHS.includes("/for-seo-agencies"));
+assert.ok(INDEXABLE_PATHS.includes("/for-pr-agencies"));
+assert.ok(INDEXABLE_PATHS.includes("/white-label-ai-visibility-reports"));
+assert.ok(INDEXABLE_PATHS.includes("/ai-visibility-report-template"));
+assert.ok(INDEXABLE_PATHS.includes("/geo-reporting-for-agencies"));
+assert.ok(INDEXABLE_PATHS.includes("/ai-search-reporting-for-agencies"));
+assert.ok(INDEXABLE_PATHS.includes("/alternatives/otterly"));
+assert.ok(INDEXABLE_PATHS.includes("/alternatives/profound"));
+assert.ok(INDEXABLE_PATHS.includes("/compare/peec"));
+assert.ok(INDEXABLE_PATHS.includes("/compare/ai-rank-lab"));
+assert.ok(INDEXABLE_PATHS.includes("/compare/aeo-vision"));
+assert.equal(
+  INDEXABLE_PATHS.some((path) => path === "/playbooks" || path.startsWith("/playbooks/")),
+  false,
+);
+assert.equal(new Set(INDEXABLE_PATHS).size, INDEXABLE_PATHS.length);
 assert.ok(!INDEXABLE_PATHS.includes("/login" as (typeof INDEXABLE_PATHS)[number]));
 assert.ok(!INDEXABLE_PATHS.includes("/signup" as (typeof INDEXABLE_PATHS)[number]));
-assert.ok(!INDEXABLE_PATHS.includes("/alternatives/otterly" as (typeof INDEXABLE_PATHS)[number]));
-assert.ok(!INDEXABLE_PATHS.includes("/for-seo-agencies" as (typeof INDEXABLE_PATHS)[number]));
 
 assert.deepEqual([...ROBOTS_DISALLOW], ["/app/", "/api/", "/r/", "/invite/"]);
 

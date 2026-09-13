@@ -3,7 +3,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { users, workspaceInvites, workspaceMembers } from "@/db/schema";
 import { sendTransactionalEmail } from "@/lib/email";
 import { upgradeHintForSeatCap, workspaceEntitlements } from "@/lib/entitlements";
+import { writeAuditLog } from "@/lib/audit";
 import { canInviteMembers, requireOwner } from "@/lib/permissions";
+import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getAppContext } from "@/lib/session";
 import { countOccupiedSeats, getWorkspaceSubscription } from "@/lib/usage";
 import { revokePendingInvite } from "@/lib/workspace";
@@ -55,6 +57,10 @@ export async function POST(request: Request) {
   if (!ctx) return jsonError("Sign in required.", 401);
   const denied = requireOwner(ctx, "Only workspace owners can invite members.");
   if (denied) return denied;
+
+  const { env } = await getCloudflareContext({ async: true });
+  const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.invite, ctx.workspace.id);
+  if (limited) return limited;
 
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
@@ -115,13 +121,23 @@ export async function POST(request: Request) {
     createdAt,
   });
 
-  const { env } = await getCloudflareContext({ async: true });
   const link = `${(env.BETTER_AUTH_URL || "").replace(/\/$/, "")}/invite/${token}`;
   await sendTransactionalEmail({
     to: email,
     subject: `Join ${ctx.workspace.name} on CiteBrief`,
     html: `<p>You were invited to <strong>${ctx.workspace.name}</strong> as ${role}.</p><p><a href="${link}">Accept invite</a></p>`,
     env,
+  });
+
+  await writeAuditLog(ctx.db, {
+    action: "invite.create",
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email,
+    targetType: "invite",
+    targetId: email,
+    request,
+    metadata: { role },
   });
 
   return jsonOk({ ok: true, token, link, seatCap: ent.seatCap, seatsUsed: seats.occupied + 1, role }, 201);
@@ -141,6 +157,15 @@ export async function DELETE(request: Request) {
   if (inviteId) {
     const revoked = await revokePendingInvite(ctx.db, ctx.workspace.id, inviteId);
     if (!revoked.ok) return jsonError(revoked.error, revoked.status);
+    await writeAuditLog(ctx.db, {
+      action: "invite.revoke",
+      workspaceId: ctx.workspace.id,
+      actorUserId: ctx.user.id,
+      actorEmail: ctx.user.email,
+      targetType: "invite",
+      targetId: inviteId,
+      request,
+    });
     const seats = await countOccupiedSeats(ctx.db, ctx.workspace.id);
     const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
     const ent = workspaceEntitlements(sub);
@@ -165,6 +190,15 @@ export async function DELETE(request: Request) {
   if (target.role === "owner") return jsonError("Cannot remove the workspace owner.");
 
   await ctx.db.delete(workspaceMembers).where(eq(workspaceMembers.id, target.id));
+  await writeAuditLog(ctx.db, {
+    action: "member.remove",
+    workspaceId: ctx.workspace.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email,
+    targetType: "member",
+    targetId: userId,
+    request,
+  });
   const seats = await countOccupiedSeats(ctx.db, ctx.workspace.id);
   return jsonOk({ ok: true, removed: true, userId, seatsUsed: seats.occupied });
 }
