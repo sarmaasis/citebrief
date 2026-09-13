@@ -829,6 +829,139 @@ Report approval workflow:
 4. Report is approved.
 5. Report is sent or shared with the client.
 
+### 18.2.1 Dashboard / Command Center
+The dashboard is the paid product surface that justifies Agency at $249. It must not feel like a thin list of brands. It should feel like the agency's weekly operating room: which clients are healthy, which clients are exposed, which reports need action, and where the agency can sell more work.
+
+**Primary dashboard promise**
+
+> In five minutes, an agency owner or account manager should know what changed this week, which clients need attention, which reports are ready to send, and which client conversations can create revenue.
+
+**Default layout**
+- Top strip: portfolio health, reports ready, clients at risk, opportunities found, estimated hours saved.
+- Left/main area: client portfolio table with health, visibility, recommendation count, competitor wins, trend, pipeline status, next action.
+- Right rail: this week’s actions, urgent risks, upcoming Friday send queue.
+- Bottom area: opportunities, report pipeline, recent sends, failed/partial runs.
+
+**Dashboard KPIs**
+| KPI | Meaning |
+|---|---|
+| Portfolio visibility | Average named/recommended rate across active clients |
+| Clients monitored | Active client brands in the workspace |
+| Reports ready | Generated reports waiting for review or approval |
+| Reports sent | Reports sent/shared this week |
+| Clients at risk | Clients with visibility drop, no recommendations, competitor wins, failed report, or unsent report |
+| Opportunities found | Monetizable recommendations from latest reports |
+| Estimated hours saved | Reports generated × estimated manual reporting time saved |
+| Full-use COGS | Internal-only or owner-only view of estimated report cost |
+
+**Client portfolio table**
+Each row must show:
+- Client/brand name and owner.
+- Visibility score: named / total prompts.
+- Recommendation score: recommended / total prompts.
+- Competitor leader: top competitor winning buyer questions.
+- Week-over-week change.
+- Risk status: `Stable`, `Watch`, `At risk`.
+- Pipeline status: `Not configured`, `Ready to run`, `Running`, `Needs review`, `Approved`, `Sent`.
+- Next action: one specific action, not generic text.
+- Primary CTA: open report, review, approve, send, configure prompts, or rerun failed engine.
+
+**Risk rules**
+Risk should be derived from stored report/run data:
+- `At risk`: visibility drops by 25%+, zero recommendations, report failed, report unsent after scheduled send day, or competitor leads 50%+ of prompts.
+- `Watch`: visibility drops by 10%-24%, partial report, missing sources, or client is named but rarely recommended.
+- `Stable`: report sent, no major drop, no urgent competitor pattern.
+
+Risk labels must explain why:
+- "Dropped from 9/20 to 5/20 named."
+- "Competitor leads 12 buyer questions."
+- "Report ready but not sent."
+- "No recommendations this week."
+
+**Revenue opportunities**
+The dashboard must show opportunity cards with:
+- Client name.
+- Opportunity type.
+- Evidence from the report.
+- Recommended agency service.
+- Suggested client-facing wording.
+- Estimated value label: `Small`, `Medium`, `High`.
+- CTA: open report, copy recommendation, mark as planned.
+
+Opportunity examples:
+- Comparison page: competitor repeatedly wins "best X vs Y" prompts.
+- Pricing/proof update: AI answers mention unclear pricing or weak proof.
+- Source refresh: AI cites outdated or low-quality pages.
+- PR/source placement: competitor wins because third-party sources mention them more.
+- GEO package: client missing across many high-intent prompts.
+- Technical SEO cleanup: source pages are discoverable but not being cited.
+
+**This week’s actions**
+Actions must be generated from actual workflow state:
+- Add prompts for clients with no prompt set.
+- Run first report.
+- Review partial report.
+- Approve report.
+- Send report.
+- Rerun failed engine.
+- Follow up with client at risk.
+- Turn opportunity into client recommendation.
+
+Every action needs:
+- Client.
+- Reason.
+- Due status.
+- One CTA.
+
+**Report pipeline**
+Pipeline stages:
+- Not configured: brand exists but missing prompts or required fields.
+- Ready to run: prompts exist and included run is available.
+- Running: report job is queued/running.
+- Needs review: report generated but not approved.
+- Approved: report approved but not sent/shared.
+- Sent: client email sent or share link copied/sent.
+
+The pipeline must show counts and a filtered list when clicked.
+
+**Agency ROI panel**
+Show:
+- Reports generated this month.
+- Reports sent this month.
+- Estimated hours saved.
+- Client brands monitored.
+- Opportunities found.
+- Extra revenue conversations created.
+
+Default estimate:
+- 45-90 minutes saved per generated client report.
+- Let workspace owners adjust this later in settings.
+
+**Plan behavior**
+- Trial: dashboard shows one brand only, with upgrade prompts on multi-client portfolio modules.
+- Starter: basic dashboard, no portfolio health depth, no risk/opportunity rollups, no weekly send queue.
+- Agency: full Command Center with portfolio health, risk, opportunities, pipeline, actions, ROI.
+- Studio: Agency plus bulk approve/send, advanced portfolio filters, premium-engine usage, client portfolio export.
+- Enterprise: Studio plus custom dimensions, SSO/security views where needed, SLA/support indicators.
+
+**Dashboard filters**
+Agency+ must support:
+- Owner/account manager.
+- Risk status.
+- Pipeline status.
+- Report cadence.
+- Opportunity type.
+- Brand/client.
+- Sent/not sent.
+
+**No hidden cost rule**
+Dashboard load must not trigger new model calls. It should read from stored reports, runs, extracted findings, source metadata, and cached opportunity records. New AI calls happen only when the user explicitly generates, reruns, summarizes, or approves a report-related action.
+
+**Empty state**
+If no brands exist, show one path: add first client brand.  
+If one brand exists but no report exists, show: generate prompts, run report, view sample output.  
+If reports exist but no opportunities exist, show a client-safe explanation and the next useful action, not a blank panel.
+
 ### 18.3 Engine + report engine
 - 4 core engines v1 routed through Cloudflare AI Gateway where API-based
 - Claude/Grok are premium engines: limited Studio capacity, paid premium-engine pack for heavier usage, or Enterprise allocation
@@ -856,7 +989,7 @@ Report approval workflow:
 - No Studio engines in trial
 - Dunning email on `subscription.failed`
 - Cancel at period end; PDFs stay 90 days
-- Upgrade prompts at natural moments: 4th brand, weekly cadence, client CC, white-label sender, extra seats
+- Upgrade prompts at natural moments: 3rd Starter brand, weekly cadence, client CC, white-label sender, extra seats
 - Annual prepay with 2 months free
 - Workspace usage screen shows included vs billable usage before charges happen
 
@@ -904,12 +1037,15 @@ The product can seriously generate revenue only if these are true:
 /pricing
 /r/[token]              public client report
 /signup  /login
-/app                    home
+/app                    Command Center / dashboard
 /app/brands
 /app/brands/[id]
 /app/brands/[id]/prompts
 /app/brands/[id]/runs/[runId]
 /app/brands/[id]/reports/[reportId]
+/app/reports            report pipeline and send queue
+/app/opportunities      agency upsell opportunities
+/app/risks              client risk view
 /app/settings
 /app/settings/brand-kit
 /app/settings/members
