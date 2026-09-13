@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+import { CANONICAL_ORIGIN, HOME_DESCRIPTION, HOME_TITLE, SITE_NAME } from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,15 +19,24 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://getcitebrief.com"),
+  applicationName: SITE_NAME,
+  metadataBase: new URL(CANONICAL_ORIGIN),
   title: {
-    default: "CiteBrief",
-    template: "%s · CiteBrief",
+    default: HOME_TITLE,
+    template: `%s · ${SITE_NAME}`,
   },
-  description:
-    "Agencies track twenty buyer questions across ChatGPT, Perplexity, Gemini, and AI Overviews. Every Friday, CiteBrief emails a white-label report.",
-  alternates: {
-    canonical: "https://getcitebrief.com",
+  description: HOME_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_US",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
   },
   icons: {
     icon: "/favicon.svg",

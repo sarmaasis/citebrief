@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { IndustryPacks } from "@/components/prompts/industry-packs";
 import { PromptEditor } from "@/components/prompts/prompt-editor";
 import { Button } from "@/components/ui/button";
 import { type PromptDraft, validatePromptSet } from "@/lib/prompts";
@@ -78,11 +79,23 @@ export function PromptsPage({
           </Button>
         </div>
       </div>
+      <div className="mb-6">
+        <IndustryPacks brandName={brandName} onApply={setPrompts} />
+      </div>
       {prompts.length === 0 ? (
-        <p className="text-sm text-cb-muted">Generate twenty buyer questions for this brand.</p>
+        <div className="rounded-cb-card border border-cb-line bg-cb-surface px-6 py-16 text-center">
+          <p className="text-sm text-cb-text">Generate twenty buyer questions for this brand.</p>
+        </div>
       ) : (
         <PromptEditor prompts={prompts} brandName={brandName} onChange={setPrompts} />
       )}
+      {prompts.length === 0 ? (
+        <div className="mt-4">
+          <Button type="button" onClick={() => void generate()} disabled={pending}>
+            {pending ? "Generating…" : "Generate 20 prompts"}
+          </Button>
+        </div>
+      ) : null}
       {status ? <p className="mt-4 text-sm text-cb-muted">{status}</p> : null}
     </div>
   );

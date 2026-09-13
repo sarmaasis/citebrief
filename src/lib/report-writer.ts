@@ -11,6 +11,7 @@ export type PromptAgg = {
       EngineId,
       {
         mentioned: boolean;
+        recommended?: boolean;
         whoWon: string | null;
         sentence: string | null;
         nextAction: string | null;
@@ -28,6 +29,7 @@ function enginesForAgg(agg: PromptAgg) {
 
 export type WrittenReport = {
   scoreMentioned: number;
+  scoreRecommended: number;
   scoreTotal: number;
   summary: string;
   priorities: Array<{ question: string; why: string; action: string; owner: string }>;
@@ -45,6 +47,10 @@ function escapeHtml(value: string) {
 
 function promptNamed(agg: PromptAgg): boolean {
   return enginesForAgg(agg).some((engine) => agg.byEngine[engine.id]?.mentioned);
+}
+
+function promptRecommended(agg: PromptAgg): boolean {
+  return enginesForAgg(agg).some((engine) => agg.byEngine[engine.id]?.recommended);
 }
 
 function primaryWhoWon(agg: PromptAgg): string {
@@ -84,6 +90,7 @@ export function writeReport(args: {
 }): WrittenReport {
   const sorted = [...args.prompts].sort((a, b) => a.sortOrder - b.sortOrder);
   const scoreMentioned = sorted.filter(promptNamed).length;
+  const scoreRecommended = sorted.filter(promptRecommended).length;
   const scoreTotal = sorted.length || 20;
   const hole = sorted.find((row) => !promptNamed(row));
   const holeWinner = hole ? primaryWhoWon(hole) : args.competitors[0] || "a rival";
@@ -167,6 +174,7 @@ export function writeReport(args: {
     <p class="muted">Week of ${escapeHtml(args.period)}</p>
     <p class="score">${scoreMentioned}/${scoreTotal}</p>
     <p><strong>Named in ${scoreMentioned} of ${scoreTotal} buyer questions this week.</strong></p>
+    <p><strong>Recommended in ${scoreRecommended} of ${scoreTotal}.</strong></p>
     <p>${escapeHtml(summary)}</p>
     ${partialBanner}
     ${promptBlocks}
@@ -184,12 +192,13 @@ export function writeReport(args: {
     brand: args.brand,
     period: args.period,
     scoreLine: `Named in ${scoreMentioned} of ${scoreTotal} buyer questions this week.`,
+    recommendedLine: `Recommended in ${scoreRecommended} of ${scoreTotal}.`,
     summary,
     priorities: priorities.map((p) => `${p.action} (${p.owner})`),
     dateLabel,
   });
 
-  return { scoreMentioned, scoreTotal, summary, priorities, html, pdfBytes };
+  return { scoreMentioned, scoreRecommended, scoreTotal, summary, priorities, html, pdfBytes };
 }
 
 /** Minimal multi-line PDF without external deps (Workers-safe). */
@@ -198,6 +207,7 @@ function buildSimplePdf(args: {
   brand: string;
   period: string;
   scoreLine: string;
+  recommendedLine?: string;
   summary: string;
   priorities: string[];
   dateLabel: string;
@@ -206,7 +216,7 @@ function buildSimplePdf(args: {
     args.agency,
     `${args.brand} · Week of ${args.period}`,
     args.scoreLine,
-    "",
+    args.recommendedLine || "",
     args.summary,
     "",
     "Priorities:",

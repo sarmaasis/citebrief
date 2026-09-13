@@ -3,10 +3,10 @@ import { Checkout, Webhooks } from "@dodopayments/hono";
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db";
 import { subscriptions, webhookEvents, workspaces, workspaceMembers, users } from "@/db/schema";
-import { parsePlanId } from "@/lib/billing";
-import { dodoProductId } from "@/lib/dodo";
+import { parseBillingInterval, parsePlanId } from "@/lib/billing";
+import { dodoCurrentPeriodEnd, dodoProductId } from "@/lib/dodo";
 import { sendTransactionalEmail } from "@/lib/email";
-import { bumpExtraBrands } from "@/lib/usage";
+import { bumpExtraBrands, bumpExtraRunCredits, bumpExtraSeats } from "@/lib/usage";
 
 type DodoEnv = {
   Bindings: CloudflareEnv;
@@ -114,6 +114,7 @@ export async function applyDodoWebhookPayload(
   const metadata = (data.metadata || {}) as Record<string, unknown>;
   const workspaceId = String(metadata.workspace_id || data.workspace_id || "");
   const plan = parsePlanId(String(metadata.plan || data.plan || "agency")) || "agency";
+  const interval = parseBillingInterval(String(metadata.interval || data.interval || ""));
   const addon = String(metadata.addon || "");
   const dodoCustomerId = data.customer_id ? String(data.customer_id) : null;
   const dodoSubscriptionId = data.subscription_id ? String(data.subscription_id) : null;
@@ -142,16 +143,30 @@ export async function applyDodoWebhookPayload(
     if (addon === "extra_brand" && (eventType.includes("succeeded") || eventType.includes("active"))) {
       await bumpExtraBrands(db, workspaceId, 1);
     }
+    if (addon === "extra_seat" && (eventType.includes("succeeded") || eventType.includes("active"))) {
+      await bumpExtraSeats(db, workspaceId, 1);
+    }
+    if (addon === "extra_run" && (eventType.includes("succeeded") || eventType.includes("active"))) {
+      await bumpExtraRunCredits(db, workspaceId, 1);
+    }
+
+    const nextInterval = addon ? (sub?.billingInterval === "annual" ? "annual" : interval) : interval;
+    // Dodo Subscription.next_billing_date is the end of the current period.
+    // Addon payments keep the existing period; infer only when Dodo omits the field.
+    const periodEnd = addon && sub?.currentPeriodEnd
+      ? sub.currentPeriodEnd
+      : dodoCurrentPeriodEnd(data, nextInterval);
 
     if (sub) {
       await db
         .update(subscriptions)
         .set({
           plan: addon ? sub.plan : plan,
-          status: statusFromType(),
+          billingInterval: addon ? sub.billingInterval : interval,
+          status: addon && sub.status === "active" ? sub.status : statusFromType(),
           dodoCustomerId: dodoCustomerId || sub.dodoCustomerId,
           dodoSubscriptionId: dodoSubscriptionId || sub.dodoSubscriptionId,
-          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          currentPeriodEnd: periodEnd,
           cancelAtPeriodEnd:
             cancelAtNext !== undefined
               ? cancelAtNext
@@ -169,7 +184,8 @@ export async function applyDodoWebhookPayload(
         status: statusFromType(),
         dodoCustomerId,
         dodoSubscriptionId,
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        billingInterval: interval,
+        currentPeriodEnd: periodEnd,
         cancelAtPeriodEnd: cancelAtNext ?? false,
         createdAt: new Date(),
         updatedAt: new Date(),

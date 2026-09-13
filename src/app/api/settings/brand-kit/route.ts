@@ -1,15 +1,33 @@
 import { eq } from "drizzle-orm";
 import { getAppContext } from "@/lib/session";
+import { requireSettingsAccess } from "@/lib/permissions";
 import { jsonError, jsonOk } from "@/server/json";
 import { brandKits } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const ctx = await getAppContext();
+  if (!ctx) return jsonError("Sign in required.", 401);
+  const [kit] = await ctx.db.select().from(brandKits).where(eq(brandKits.workspaceId, ctx.workspace.id)).limit(1);
+  return jsonOk({
+    kit: kit ?? {
+      logoUrl: null,
+      accentColor: "#0B3D2E",
+      footerText: null,
+      preparedBy: null,
+    },
+    role: ctx.role,
+  });
+}
 
 export async function PUT(request: Request) {
   const ctx = await getAppContext();
   if (!ctx) {
     return jsonError("Sign in required.", 401);
   }
+  const denied = requireSettingsAccess(ctx);
+  if (denied) return denied;
   const body = (await request.json()) as {
     logoUrl?: string;
     accentColor?: string;

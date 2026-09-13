@@ -1,18 +1,47 @@
 import type { Metadata } from "next";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { PricingView } from "@/components/marketing/pricing-view";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingHeader } from "@/components/marketing/header";
+import { JsonLd } from "@/components/seo/json-ld";
+import { parseBillingInterval, type PlanId } from "@/lib/billing";
+import { dodoAnnualProductId } from "@/lib/dodo";
+import { getAppContext } from "@/lib/session";
+import { metadataPages, pricingJsonLd } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Pricing",
-  description: "White-label Friday PDFs. Not a $29 vanity score.",
-};
+export const metadata: Metadata = metadataPages.pricing;
 
-export default function PricingPage() {
+async function annualProductsLive(): Promise<Record<PlanId, boolean>> {
+  const empty = { starter: false, agency: false, studio: false };
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    return {
+      starter: Boolean(dodoAnnualProductId(env, "starter")),
+      agency: Boolean(dodoAnnualProductId(env, "agency")),
+      studio: Boolean(dodoAnnualProductId(env, "studio")),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ interval?: string }>;
+}) {
+  const params = await searchParams;
+  const [ctx, annualLive] = await Promise.all([getAppContext(), annualProductsLive()]);
+
   return (
     <div className="min-h-screen">
+      <JsonLd json={pricingJsonLd()} />
       <MarketingHeader />
-      <PricingView />
+      <PricingView
+        signedIn={Boolean(ctx)}
+        annualProductsLive={annualLive}
+        initialAnnual={parseBillingInterval(params.interval) === "annual"}
+      />
       <MarketingFooter />
     </div>
   );

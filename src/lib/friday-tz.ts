@@ -27,3 +27,33 @@ export function isLocalFridaySix(timezone: string, now = new Date()): boolean {
   if (!local) return false;
   return local.weekday === "Fri" && local.hour === 6;
 }
+
+export function localDayOfMonth(timezone: string, now = new Date()): number | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      day: "numeric",
+    }).formatToParts(now);
+    const dayRaw = parts.find((part) => part.type === "day")?.value;
+    const day = Number(dayRaw);
+    return Number.isFinite(day) ? day : null;
+  } catch {
+    return null;
+  }
+}
+
+/** First Friday of the month at 06:00 local — Starter monthly cadence. */
+export function isLocalFirstFridaySix(timezone: string, now = new Date()): boolean {
+  if (!isLocalFridaySix(timezone, now)) return false;
+  const day = localDayOfMonth(timezone, now);
+  return day != null && day <= 7;
+}
+
+export function isValidIanaTimeZone(timezone: string): boolean {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}

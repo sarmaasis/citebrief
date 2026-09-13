@@ -301,12 +301,22 @@ async function liveAnswer(
 }
 
 /**
+ * Stub answers are only for engines that are not live-configured.
+ * A configured live provider that errors must fail the engine (3/4 soft-fail),
+ * never return fake-looking successful stub output to paid clients.
+ */
+export function usesDeterministicStub(engine: EngineId, env?: CloudflareEnv): boolean {
+  return !isEngineApiConfigured(engine, env);
+}
+
+/**
  * Real engine clients via Cloudflare AI Gateway (or Browser Rendering for AIO).
- * Falls back to deterministic stubs when gateway/browser config is missing or a live call fails.
+ * Unconfigured engines use deterministic stubs. Configured live failures throw
+ * so processRun can mark that engine failed.
  */
 export async function queryEngine(input: EngineQueryInput): Promise<EngineQueryResult> {
   const started = Date.now();
-  if (isEngineApiConfigured(input.engine, input.env)) {
+  if (!usesDeterministicStub(input.engine, input.env)) {
     try {
       const live = await liveAnswer(input);
       return {
@@ -317,7 +327,8 @@ export async function queryEngine(input: EngineQueryInput): Promise<EngineQueryR
         confidence: input.engine === "aio" ? "medium" : "high",
       };
     } catch (error) {
-      console.info(`[engine-adapters] ${input.engine} live failed; using stub`, error);
+      console.info(`[engine-adapters] ${input.engine} live failed`, error);
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }
   return stubAnswer(input);

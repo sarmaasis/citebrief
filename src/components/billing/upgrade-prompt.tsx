@@ -56,12 +56,32 @@ export const UPGRADE_COPY = {
   },
   fourthSeatAgency: {
     title: "You hit the Agency seat cap",
-    body: "Studio includes 10 seats so larger account teams can share brands and Friday reports.",
-    cta: "Upgrade to Studio",
+    body: "Add a seat for $15/mo, or upgrade to Studio for 10 seats so larger account teams can share Friday reports.",
+    cta: "See billing",
+  },
+  extraSeat: {
+    title: "You hit the seat cap",
+    body: "Add a seat for $15/mo. Studio includes 10 seats if the account team is growing.",
+    cta: "See billing",
   },
   customSender: {
     title: "Custom sender needs Studio",
     body: "Studio unlocks custom sender name and domain so reports leave from your agency address.",
     cta: "Upgrade to Studio",
+  },
+  membersStarter: {
+    title: "Invites start on Agency",
+    body: "Starter is one owner seat. Agency includes 3 seats so an account manager can send Friday reports.",
+    cta: "Upgrade to Agency",
+  },
+  extraBrandAgency: {
+    title: "You hit the Agency brand cap",
+    body: "Add an extra brand for $39/mo, or move to Studio for 20 brands and custom sender.",
+    cta: "See billing",
+  },
+  extraRun: {
+    title: "This run is outside the included cap",
+    body: "Agency includes 2 manual re-runs per brand per week. Extra runs are $9 so Friday delivery is never blocked by a re-check.",
+    cta: "See usage",
   },
 } as const;

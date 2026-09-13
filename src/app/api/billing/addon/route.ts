@@ -1,17 +1,40 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createDodoAddonCheckout } from "@/lib/dodo";
-import { bumpExtraBrands } from "@/lib/usage";
+import { createDodoAddonCheckout, type DodoAddon } from "@/lib/dodo";
+import { workspaceEntitlements } from "@/lib/entitlements";
+import { requireOwner } from "@/lib/permissions";
+import { bumpExtraBrands, bumpExtraRunCredits, bumpExtraSeats, getWorkspaceSubscription } from "@/lib/usage";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
 
 export const dynamic = "force-dynamic";
 
+function parseAddon(value: string | undefined): DodoAddon | null {
+  if (value === "extra_run" || value === "extra_brand" || value === "extra_seat") return value;
+  return null;
+}
+
 export async function POST(request: Request) {
   const ctx = await getAppContext();
   if (!ctx) return jsonError("Sign in required.", 401);
+  const denied = requireOwner(ctx, "Only the workspace owner can buy add-ons.");
+  if (denied) return denied;
+
   const body = (await request.json().catch(() => ({}))) as { addon?: string };
-  const addon = body.addon === "extra_run" ? "extra_run" : body.addon === "extra_brand" ? "extra_brand" : null;
-  if (!addon) return jsonError("addon must be extra_brand or extra_run.");
+  const addon = parseAddon(body.addon);
+  if (!addon) return jsonError("addon must be extra_brand, extra_run, or extra_seat.");
+
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+  const ent = workspaceEntitlements(sub);
+
+  if (addon === "extra_brand" && !ent.allowsExtraBrands) {
+    return jsonError("Extra brands are available on Agency and Studio. Upgrade from Starter to add a 4th brand.", 402);
+  }
+  if (addon === "extra_seat" && !ent.allowsExtraSeats) {
+    return jsonError("Additional seats require Agency or Studio.", 402);
+  }
+  if (!ent.paid && addon !== "extra_run") {
+    return jsonError("Start a paid plan before buying add-ons.", 402);
+  }
 
   const { env } = await getCloudflareContext({ async: true });
   const origin = (env.BETTER_AUTH_URL || "").replace(/\/$/, "") || "http://localhost:3000";
@@ -24,9 +47,10 @@ export async function POST(request: Request) {
     addon,
   });
 
-  // Stub mode: apply extra brand immediately so local caps reflect purchase.
-  if (checkout.mode === "stub" && addon === "extra_brand") {
-    await bumpExtraBrands(ctx.db, ctx.workspace.id, 1);
+  if (checkout.mode === "stub") {
+    if (addon === "extra_brand") await bumpExtraBrands(ctx.db, ctx.workspace.id, 1);
+    if (addon === "extra_seat") await bumpExtraSeats(ctx.db, ctx.workspace.id, 1);
+    if (addon === "extra_run") await bumpExtraRunCredits(ctx.db, ctx.workspace.id, 1);
   }
 
   return jsonOk({ addon, ...checkout });

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "npx tsx src/lib/prompts.test.ts && npx tsx src/lib/extractor.test.ts && npx tsx src/lib/friday-tz.test.ts && npx tsx src/lib/s18-gaps.test.ts && npx tsx src/lib/prd-v22.test.ts",
+    "test": "npx tsx src/lib/prompts.test.ts && npx tsx src/lib/extractor.test.ts && npx tsx src/lib/friday-tz.test.ts && npx tsx src/lib/s18-gaps.test.ts && npx tsx src/lib/prd-v22.test.ts && npx tsx src/lib/seo.test.ts && npx tsx src/lib/entitlements.test.ts && npx tsx src/lib/dodo-period.test.ts",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",

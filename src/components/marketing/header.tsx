@@ -2,26 +2,41 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
 
+const nav = [
+  { href: "/pricing", label: "Pricing" },
+  { href: "/report", label: "Sample report" },
+  { href: "/login", label: "Sign in" },
+];
+
 export function MarketingHeader() {
   return (
-    <header className="sticky top-0 z-20 border-b border-cb-line bg-cb-bg/95 backdrop-blur-none">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+    <header className="sticky top-0 z-20 border-b border-cb-line bg-cb-bg/95">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
         <Logo />
         <nav className="hidden items-center gap-6 text-sm text-cb-muted md:flex">
-          <Link href="/pricing" className="hover:text-cb-text">
-            Pricing
-          </Link>
-          <Link href="/report" className="hover:text-cb-text">
-            Sample report
-          </Link>
-          <Link href="/login" className="hover:text-cb-text">
+          {nav.map((item) => (
+            <Link key={item.href} href={item.href} className="hover:text-cb-text">
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="flex items-center gap-3">
+          <Link href="/login" className="text-sm text-cb-muted hover:text-cb-text md:hidden">
             Sign in
           </Link>
-        </nav>
-        <Button asChild>
-          <Link href="/signup">Send a Friday report</Link>
-        </Button>
+          <Button asChild>
+            <Link href="/signup?plan=agency">Send a Friday report</Link>
+          </Button>
+        </div>
       </div>
+      <nav className="flex gap-4 border-t border-cb-line px-6 py-2 text-sm text-cb-muted md:hidden">
+        <Link href="/pricing" className="hover:text-cb-text">
+          Pricing
+        </Link>
+        <Link href="/report" className="hover:text-cb-text">
+          Sample report
+        </Link>
+      </nav>
     </header>
   );
 }

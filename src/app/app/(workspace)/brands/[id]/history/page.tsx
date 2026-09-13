@@ -1,10 +1,15 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EmptyState } from "@/components/app/empty-state";
+import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { HistoryExport } from "@/components/history/history-export";
 import { MomChart } from "@/components/history/mom-chart";
 import { Button } from "@/components/ui/button";
+import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
-import { getWorkspaceBrand } from "@/server/workspace-data";
+import { getWorkspaceSubscription } from "@/lib/usage";
+import { getWorkspaceBrand, recommendedCountsForRuns } from "@/server/workspace-data";
 import { reports, runRows, runs } from "@/db/schema";
 
 export default async function BrandHistoryPage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,6 +19,9 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
   const brand = await getWorkspaceBrand(ctx, id);
   if (!brand) notFound();
 
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+  const allowsHistory = workspaceEntitlements(sub).allowsHistory;
+
   const reportRows = await ctx.db
     .select({ report: reports, run: runs })
     .from(reports)
@@ -22,14 +30,17 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
     .orderBy(desc(reports.createdAt))
     .limit(24);
 
-  const chartData = [...reportRows]
-    .reverse()
-    .map(({ report, run }) => ({
-      period: run.periodStart || report.createdAt.toISOString().slice(0, 10),
-      mentioned: report.scoreMentioned ?? 0,
-    }));
+  const recommended = await recommendedCountsForRuns(
+    ctx,
+    reportRows.map(({ run }) => run.id),
+  );
 
-  // Who-won basics from latest run rows
+  const chartData = [...reportRows].reverse().map(({ report, run }) => ({
+    period: run.periodStart || report.createdAt.toISOString().slice(0, 10),
+    mentioned: report.scoreMentioned ?? 0,
+    recommended: report.scoreRecommended ?? recommended[run.id] ?? 0,
+  }));
+
   const latestRunId = reportRows[0]?.run.id;
   const whoWonCounts: Record<string, number> = {};
   if (latestRunId) {
@@ -46,54 +57,86 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{brand.name} history</h1>
-          <p className="mt-2 text-sm text-cb-muted">Month-over-month mentioned score and who won.</p>
+          <p className="mt-2 text-sm text-cb-muted">Month-over-month named and recommended scores, and who won.</p>
         </div>
-        <Button asChild variant="outline">
-          <Link href={`/app/brands/${id}`}>Back to brand</Link>
-        </Button>
-      </div>
-
-      <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
-        <p className="text-xs text-cb-muted">Mentioned score</p>
-        <div className="mt-4">
-          <MomChart data={chartData} />
+        <div className="flex flex-wrap gap-2">
+          {allowsHistory && reportRows.length > 0 ? (
+            <HistoryExport brandId={id} brandName={brand.name} />
+          ) : null}
+          <Button asChild variant="outline">
+            <Link href={`/app/brands/${id}`}>Back to brand</Link>
+          </Button>
         </div>
       </div>
 
-      <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
-        <p className="text-xs text-cb-muted">Who won (latest run)</p>
-        {whoWonSorted.length === 0 ? (
-          <p className="mt-3 text-sm text-cb-muted">No who-won data yet.</p>
-        ) : (
-          <ul className="mt-3 space-y-2 text-sm">
-            {whoWonSorted.map(([name, count]) => (
-              <li key={name} className="flex h-12 items-center justify-between border-b border-cb-line last:border-0">
-                <span>{name}</span>
-                <span className="font-mono tabular-nums text-cb-accent">{count}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {!allowsHistory ? (
+        <div className="mb-8">
+          <UpgradePrompt
+            title="History and score trend are on Agency"
+            body={UPGRADE_COPY.weeklyStarter.body}
+            cta="Upgrade to Agency"
+          />
+        </div>
+      ) : null}
+
+      {allowsHistory ? (
+        <>
+          <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
+            <p className="text-xs text-cb-muted">Named / recommended</p>
+            <div className="mt-4">
+              <MomChart data={chartData} />
+            </div>
+          </div>
+
+          <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
+            <p className="text-xs text-cb-muted">Who won (latest run)</p>
+            {whoWonSorted.length === 0 ? (
+              <p className="mt-3 text-sm text-cb-muted">No who-won data yet.</p>
+            ) : (
+              <ul className="mt-3 space-y-2 text-sm">
+                {whoWonSorted.map(([name, count]) => (
+                  <li key={name} className="flex h-12 items-center justify-between border-b border-cb-line last:border-0">
+                    <span>{name}</span>
+                    <span className="font-mono tabular-nums text-cb-accent">{count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      ) : null}
 
       <div className="rounded-cb-card border border-cb-line bg-cb-surface">
         <div className="border-b border-cb-line px-5 py-3 text-xs text-cb-muted">All PDFs</div>
-        <ul>
-          {reportRows.length === 0 ? (
-            <li className="px-5 py-6 text-sm text-cb-muted">No reports for this period yet.</li>
-          ) : (
-            reportRows.map(({ report, run }) => (
-              <li key={report.id} className="flex h-12 items-center justify-between border-b border-cb-line px-5 last:border-0">
+        {reportRows.length === 0 ? (
+          <div className="p-5">
+            <EmptyState
+              line="No reports for this period yet."
+              cta="Run a report"
+              href={`/app/brands/${id}`}
+            />
+          </div>
+        ) : (
+          <ul>
+            {reportRows.map(({ report, run }) => (
+              <li
+                key={report.id}
+                className="flex h-12 items-center justify-between border-b border-cb-line px-5 last:border-0"
+              >
                 <span className="text-sm">
                   Week of {run.periodStart || "-"} · {report.scoreMentioned ?? "-"}/{report.scoreTotal}
+                  {(report.scoreRecommended ?? recommended[run.id]) != null
+                    ? ` · rec ${report.scoreRecommended ?? recommended[run.id]}`
+                    : ""}
+                  {report.shareOpenCount ? ` · ${report.shareOpenCount} opens` : ""}
                 </span>
                 <Link href={`/app/brands/${id}/reports/${report.id}`} className="text-sm text-cb-accent">
                   Open report
                 </Link>
               </li>
-            ))
-          )}
-        </ul>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

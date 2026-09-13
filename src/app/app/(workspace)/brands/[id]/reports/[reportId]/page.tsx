@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ReportViewer } from "@/components/reports/report-viewer";
 import type { AuditEngineRow } from "@/components/reports/sources-drawer";
 import { prompts, runRows } from "@/db/schema";
-import { planAllowsClientCc } from "@/lib/billing";
+import { workspaceEntitlements } from "@/lib/entitlements";
 import { getReportObject } from "@/lib/r2";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -105,13 +105,17 @@ export default async function ReportPage({
       reportId={row.report.id}
       period={row.run.periodStart}
       scoreMentioned={row.report.scoreMentioned}
+      scoreRecommended={row.report.scoreRecommended}
       scoreTotal={row.report.scoreTotal}
       summary={row.report.summary}
       html={html}
       shareToken={row.report.shareToken}
+      shareExpiresAt={row.report.shareExpiresAt ? new Date(row.report.shareExpiresAt).toISOString() : null}
       partial={row.run.status === "partial"}
+      sentAt={row.report.sentAt ? new Date(row.report.sentAt).toISOString() : null}
+      shareOpenCount={row.report.shareOpenCount}
       auditRows={auditRows}
-      allowClientCc={planAllowsClientCc(sub?.plan || "agency")}
+      allowClientCc={workspaceEntitlements(sub).allowsClientCc}
       showSources
     />
   );

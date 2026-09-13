@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
@@ -28,12 +28,24 @@ export function SourcesDrawer({
   onOpenChange: (open: boolean) => void;
 }) {
   const [rawId, setRawId] = useState<string | null>(null);
+  const titleId = useId();
+  const closeRef = useRef<HTMLButtonElement>(null);
   const grouped = new Map<string, AuditEngineRow[]>();
   for (const row of rows) {
     const list = grouped.get(row.promptId) || [];
     list.push(row);
     grouped.set(row.promptId, list);
   }
+
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onOpenChange(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onOpenChange]);
 
   return (
     <>
@@ -43,21 +55,26 @@ export function SourcesDrawer({
           open ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={() => onOpenChange(false)}
-        aria-hidden={!open}
+        aria-hidden="true"
       />
       <aside
         className={cn(
           "fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-cb-line bg-cb-surface shadow-[var(--cb-shadow-menu)] transition-transform duration-150 ease-out",
           open ? "translate-x-0" : "translate-x-full",
         )}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         aria-hidden={!open}
       >
         <div className="flex h-14 items-center justify-between border-b border-cb-line px-4">
           <div>
-            <p className="text-sm font-medium text-cb-text">Sources / Audit</p>
-            <p className="text-xs text-cb-muted">Per prompt × engine. Closed by default.</p>
+            <p id={titleId} className="text-sm font-medium text-cb-text">
+              Sources
+            </p>
+            <p className="text-xs text-cb-muted">Evidence is here. The PDF stays client-safe.</p>
           </div>
-          <Button type="button" size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button ref={closeRef} type="button" size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>
         </div>

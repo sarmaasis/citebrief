@@ -79,11 +79,20 @@ export function mixIsLocked(prompts: { mix: string }[]): boolean {
 export function validatePromptSet(
   prompts: PromptDraft[],
   brand?: string,
+  options?: { maxCount?: number },
 ): { ok: true } | { ok: false; error: string } {
-  if (prompts.length !== PROMPT_COUNT) {
-    return { ok: false, error: `Keep exactly ${PROMPT_COUNT} buyer questions.` };
+  const maxCount = options?.maxCount ?? PROMPT_COUNT;
+  if (prompts.length < PROMPT_COUNT) {
+    return { ok: false, error: `Keep at least ${PROMPT_COUNT} buyer questions.` };
   }
-  if (!mixIsLocked(prompts)) {
+  if (prompts.length > maxCount) {
+    return { ok: false, error: `This plan allows ${maxCount} buyer questions.` };
+  }
+  const locked = prompts
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .slice(0, PROMPT_COUNT);
+  if (!mixIsLocked(locked)) {
     return { ok: false, error: "Lock the mix at 4 Discovery, 4 Comparison, 4 Job, 4 Switch, 4 Incumbent." };
   }
   for (const prompt of prompts) {

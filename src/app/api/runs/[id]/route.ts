@@ -35,6 +35,7 @@ export async function GET(_request: Request, context: RouteContext) {
   let engines = parseEngineStatus(row.run.engineStates);
   let reportId: string | null = null;
   let scoreMentioned: number | null = null;
+  let scoreRecommended: number | null = null;
 
   if (status === "queued" || status === "running") {
     try {
@@ -52,6 +53,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const [existing] = await ctx.db.select().from(reports).where(eq(reports.runId, id)).limit(1);
     reportId = existing?.id ?? null;
     scoreMentioned = existing?.scoreMentioned ?? null;
+    scoreRecommended = existing?.scoreRecommended ?? null;
   }
 
   return jsonOk({
@@ -63,5 +65,6 @@ export async function GET(_request: Request, context: RouteContext) {
     completedAt: row.run.completedAt,
     reportId,
     scoreMentioned,
+    scoreRecommended,
   });
 }

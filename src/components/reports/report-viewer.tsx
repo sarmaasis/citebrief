@@ -15,13 +15,17 @@ export function ReportViewer({
   reportId,
   period,
   scoreMentioned,
+  scoreRecommended,
   scoreTotal,
   summary,
   html,
   shareToken,
+  shareExpiresAt,
   partial,
+  sentAt,
+  shareOpenCount,
   auditRows = [],
-  allowClientCc = true,
+  allowClientCc = false,
   showSources = true,
 }: {
   brandId: string;
@@ -29,11 +33,15 @@ export function ReportViewer({
   reportId: string;
   period: string | null;
   scoreMentioned: number | null;
+  scoreRecommended?: number | null;
   scoreTotal: number;
   summary: string | null;
   html: string | null;
   shareToken: string | null;
+  shareExpiresAt?: string | null;
   partial: boolean;
+  sentAt?: string | null;
+  shareOpenCount?: number | null;
   auditRows?: AuditEngineRow[];
   allowClientCc?: boolean;
   showSources?: boolean;
@@ -42,18 +50,42 @@ export function ReportViewer({
   const [ccOpen, setCcOpen] = useState(false);
   const [ccEmail, setCcEmail] = useState("");
   const [ccBusy, setCcBusy] = useState(false);
+  const [testBusy, setTestBusy] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [ccUpgrade, setCcUpgrade] = useState(false);
 
+  function flash(next: string) {
+    setToast(next);
+    window.setTimeout(() => setToast(null), 3000);
+  }
+
   async function copyLink() {
     if (!shareToken) {
-      setToast("Share link is not ready yet.");
+      flash("Share link is not ready yet.");
       return;
     }
     const url = `${window.location.origin}/r/${shareToken}`;
     await navigator.clipboard.writeText(url);
-    setToast("Client link copied");
-    window.setTimeout(() => setToast(null), 3000);
+    flash("Client link copied");
+  }
+
+  async function sendTest() {
+    setTestBusy(true);
+    try {
+      const response = await fetch(`/api/reports/${reportId}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        flash(data.error ?? "Could not send a test. Try again.");
+      } else {
+        flash("Test send queued to you.");
+      }
+    } finally {
+      setTestBusy(false);
+    }
   }
 
   async function sendCcClient(event: React.FormEvent) {
@@ -65,7 +97,7 @@ export function ReportViewer({
     }
     const email = ccEmail.trim();
     if (!email) {
-      setToast("Enter a client email.");
+      flash("Enter a client email.");
       return;
     }
     setCcBusy(true);
@@ -81,16 +113,15 @@ export function ReportViewer({
           setCcUpgrade(true);
           setCcOpen(false);
         } else {
-          setToast(data.error ?? "Could not send. Try again.");
+          flash(data.error ?? "Could not send. Try again.");
         }
       } else {
-        setToast("Report queued to client. Resend uses a stub if keys are missing.");
+        flash("Report queued to the client.");
         setCcOpen(false);
         setCcEmail("");
       }
     } finally {
       setCcBusy(false);
-      window.setTimeout(() => setToast(null), 3000);
     }
   }
 
@@ -104,6 +135,9 @@ export function ReportViewer({
           </p>
           <p className="font-mono text-xs tabular-nums text-cb-accent">
             {scoreMentioned == null ? "-/20" : `${scoreMentioned}/${scoreTotal}`}
+            {scoreRecommended != null ? ` · rec ${scoreRecommended}/${scoreTotal}` : ""}
+            {sentAt ? " · Sent" : " · Not sent"}
+            {shareOpenCount ? ` · ${shareOpenCount} opens` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -112,6 +146,9 @@ export function ReportViewer({
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => void copyLink()}>
             Copy client link
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={testBusy} onClick={() => void sendTest()}>
+            {testBusy ? "Sending…" : "Send test"}
           </Button>
           <Button
             type="button"
@@ -140,7 +177,7 @@ export function ReportViewer({
 
       {partial ? (
         <div className="border-b border-cb-line bg-cb-pending-subtle px-6 py-3 text-sm text-cb-pending">
-          3 of 4 engines returned. Numbers reflect available engines.
+          This PDF still shipped. One source did not return; numbers use what we have.
         </div>
       ) : null}
 
@@ -156,6 +193,11 @@ export function ReportViewer({
       ) : null}
 
       <div className="mx-auto max-w-4xl px-6 py-8">
+        {shareExpiresAt ? (
+          <p className="mb-3 text-xs text-cb-muted">Client links expire 90 days after they are created.</p>
+        ) : (
+          <p className="mb-3 text-xs text-cb-muted">Client links are read-only and expire after 90 days.</p>
+        )}
         <div className="rounded-cb-card border border-cb-line bg-cb-surface">
           {html ? (
             <iframe title="Report" className="min-h-[80vh] w-full rounded-cb-card" srcDoc={html} />
@@ -167,7 +209,7 @@ export function ReportViewer({
               <p className="mt-3 text-sm text-cb-text">
                 {summary || "Named in buyer questions this week."}
               </p>
-              <p className="mt-6 text-sm text-cb-muted">Report HTML is not available yet.</p>
+              <p className="mt-6 text-sm text-cb-muted">Report HTML is not available yet. Download the PDF if it is ready.</p>
             </div>
           )}
         </div>
@@ -202,7 +244,11 @@ export function ReportViewer({
       </Dialog>
 
       {toast ? (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-cb-control border border-cb-line bg-cb-surface px-4 py-2 text-sm text-cb-text shadow-[var(--cb-shadow-menu)]">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-cb-control border border-cb-line bg-cb-surface px-4 py-2 text-sm text-cb-text shadow-[var(--cb-shadow-menu)]"
+        >
           {toast}
         </div>
       ) : null}

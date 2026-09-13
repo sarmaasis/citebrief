@@ -29,8 +29,8 @@ export function ArchiveButton({
   }
 
   return (
-    <Button type="button" variant="outline" onClick={() => void toggle()} disabled={pending}>
-      {archived ? "Restore brand" : "Archive brand"}
+    <Button type="button" variant="outline" size="sm" onClick={() => void toggle()} disabled={pending}>
+      {archived ? "Restore" : "Archive"}
     </Button>
   );
 }

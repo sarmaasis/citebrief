@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     job: body.job?.trim() || null,
     incumbent: body.incumbent?.trim() || null,
     constraintNote: body.constraintNote?.trim() || null,
+    clientOwner: body.clientOwner?.trim() || null,
     createdAt: now,
     updatedAt: now,
   });

@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { BrandFields, emptyBrandFields, type BrandFieldValues } from "@/components/brands/brand-fields";
+import { IndustryPacks } from "@/components/prompts/industry-packs";
 import { PromptEditor } from "@/components/prompts/prompt-editor";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { CORE_ENGINES, ENGINES, type EngineState } from "@/lib/engines";
 import { type PromptDraft, validatePromptSet } from "@/lib/prompts";
 import { Logo } from "@/components/brand/logo";
+import { cn } from "@/lib/utils";
 
 const steps = ["Brand", "Prompts", "Report"] as const;
 
@@ -24,6 +27,11 @@ export function OnboardingFlow() {
   const [engines, setEngines] = useState<Record<string, EngineState> | null>(null);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [reportReady, setReportReady] = useState(false);
+  const [reportId, setReportId] = useState<string | null>(null);
+  const [scoreMentioned, setScoreMentioned] = useState<number | null>(null);
+  const [testBusy, setTestBusy] = useState(false);
+  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
 
   async function saveBrand() {
     setPending(true);
@@ -115,6 +123,8 @@ export function OnboardingFlow() {
     const data = (await response.json()) as {
       status?: string;
       engines?: Record<string, EngineState>;
+      reportId?: string | null;
+      scoreMentioned?: number | null;
       error?: string;
     };
     if (!response.ok) {
@@ -123,36 +133,103 @@ export function OnboardingFlow() {
     }
     setRunStatus(data.status ?? "queued");
     setEngines(data.engines ?? null);
-    if (data.status === "complete") {
+    if (data.reportId) setReportId(data.reportId);
+    if (typeof data.scoreMentioned === "number") setScoreMentioned(data.scoreMentioned);
+    if (data.status === "complete" || data.status === "partial") {
       setReportReady(true);
       return;
     }
+    if (data.status === "failed") {
+      return;
+    }
     window.setTimeout(() => void poll(id), 1200);
+  }
+
+  async function retryEngine(engine: string) {
+    if (!runId) return;
+    setRetrying(engine);
+    setStatus(null);
+    try {
+      const response = await fetch(`/api/runs/${runId}/retry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engine }),
+      });
+      const data = (await response.json()) as {
+        status?: string;
+        engines?: Record<string, EngineState>;
+        reportId?: string | null;
+        scoreMentioned?: number | null;
+        error?: string;
+      };
+      if (!response.ok) {
+        setStatus(data.error ?? "Could not retry that source.");
+        return;
+      }
+      setRunStatus(data.status ?? "running");
+      if (data.engines) setEngines(data.engines);
+      if (data.reportId) setReportId(data.reportId);
+      if (typeof data.scoreMentioned === "number") setScoreMentioned(data.scoreMentioned);
+      setReportReady(data.status === "complete" || data.status === "partial");
+      if (data.status !== "complete" && data.status !== "partial" && data.status !== "failed") {
+        poll(runId);
+      }
+    } finally {
+      setRetrying(null);
+    }
+  }
+
+  async function sendTest() {
+    if (!reportId) return;
+    setTestBusy(true);
+    setTestMessage(null);
+    try {
+      const response = await fetch(`/api/reports/${reportId}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        setTestMessage(data.error ?? "Could not send a test.");
+        return;
+      }
+      setTestMessage("Test send queued to you.");
+    } finally {
+      setTestBusy(false);
+    }
   }
 
   return (
     <div className="mx-auto min-h-screen max-w-[560px] px-6 py-10">
       <div className="flex items-center justify-between">
         <Logo href="/app" />
-        <Link href="/login" className="text-sm text-cb-muted">
-          Sign out
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/app" className="text-sm text-cb-muted">
+            Cancel
+          </Link>
+          <SignOutButton />
+        </div>
       </div>
-      <p className="mt-10 text-xs text-cb-muted">
-        {steps.map((label, index) => (
-          <span key={label}>
-            {index + 1} {label}
-            {index < steps.length - 1 ? " · " : ""}
-          </span>
-        ))}
-      </p>
+      <ol className="mt-10 flex gap-4 text-xs text-cb-muted">
+        {steps.map((label, index) => {
+          const n = index + 1;
+          const current = step === n;
+          const done = step > n;
+          return (
+            <li key={label} className={cn(current ? "text-cb-accent" : done ? "text-cb-text" : "text-cb-muted")}>
+              <span className="font-mono tabular-nums">{n}</span> {label}
+            </li>
+          );
+        })}
+      </ol>
       <p className="mt-2 text-xs text-cb-accent">Step {step} of 3</p>
 
       {step === 1 ? (
         <>
           <h1 className="mt-6 text-2xl font-semibold tracking-tight">Add the brand</h1>
           <p className="mt-2 text-sm text-cb-muted">
-            Buyer questions only. No vanity &quot;does ChatGPT mention us&quot; prompts.
+            Six fields is enough: brand, site, buyer, incumbent, competitors, constraint. No vanity questions.
           </p>
           <div className="mt-8">
             <BrandFields values={fields} onChange={setFields} />
@@ -173,7 +250,7 @@ export function OnboardingFlow() {
               ? "Generated from the writer. Edit before you run."
               : "Template pack from the 4+4+4+4+4 mix. Edit before you run."}
           </p>
-          <div className="mt-6 flex gap-2">
+          <div className="mt-6 flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(1)}>
               Back
             </Button>
@@ -181,9 +258,12 @@ export function OnboardingFlow() {
               {prompts.length ? "Regenerate 20 prompts" : "Generate 20 prompts"}
             </Button>
           </div>
+          <div className="mt-4">
+            <IndustryPacks brandName={fields.name} onApply={setPrompts} />
+          </div>
           <div className="mt-6">
             {prompts.length === 0 ? (
-              <p className="text-sm text-cb-muted">Generate twenty buyer questions for this brand.</p>
+              <p className="text-sm text-cb-muted">Generate twenty buyer questions, or apply an industry pack.</p>
             ) : (
               <PromptEditor prompts={prompts} brandName={fields.name} onChange={setPrompts} />
             )}
@@ -199,8 +279,18 @@ export function OnboardingFlow() {
       {step === 3 ? (
         <>
           <h1 className="mt-6 text-2xl font-semibold tracking-tight">
-            {reportReady ? "CiteBrief finished the first PDF." : "Running this week's report"}
+            {reportReady
+              ? "The first PDF is ready."
+              : runStatus === "failed"
+                ? "This report did not ship."
+                : "Running this week's report"}
           </h1>
+          {reportReady && scoreMentioned != null ? (
+            <p className="mt-2 font-mono text-sm tabular-nums text-cb-accent">Named in {scoreMentioned} of 20</p>
+          ) : null}
+          {runStatus === "partial" ? (
+            <p className="mt-3 text-sm text-cb-pending">The PDF still shipped. One source did not return.</p>
+          ) : null}
           <div className="mt-8 space-y-3">
             {(engines && ENGINES.filter((e) => engines[e.id] !== undefined).length
               ? ENGINES.filter((e) => engines![e.id] !== undefined)
@@ -212,26 +302,60 @@ export function OnboardingFlow() {
               return (
                 <div
                   key={engine.id}
-                  className="flex h-12 items-center justify-between rounded-cb-card border border-cb-line bg-cb-surface px-4"
+                  className="flex h-12 items-center justify-between gap-3 rounded-cb-card border border-cb-line bg-cb-surface px-4"
                 >
                   <span className="text-sm">{engine.label}</span>
-                  <StatusPill status={pill}>{state[0].toUpperCase() + state.slice(1)}</StatusPill>
+                  <div className="flex items-center gap-2">
+                    {state === "failed" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={retrying !== null}
+                        onClick={() => void retryEngine(engine.id)}
+                      >
+                        {retrying === engine.id ? "Retrying…" : "Retry"}
+                      </Button>
+                    ) : null}
+                    <StatusPill status={pill}>{state[0].toUpperCase() + state.slice(1)}</StatusPill>
+                  </div>
                 </div>
               );
             })}
           </div>
           {reportReady && brandId ? (
-            <div className="mt-8 flex gap-2">
-              <Button asChild>
+            <div className="mt-8 flex flex-wrap gap-2">
+              {reportId ? (
+                <Button asChild>
+                  <Link href={`/app/brands/${brandId}/reports/${reportId}`}>Open report</Link>
+                </Button>
+              ) : (
+                <Button asChild>
+                  <Link href={`/app/brands/${brandId}`}>Brand home</Link>
+                </Button>
+              )}
+              {reportId ? (
+                <Button type="button" variant="outline" disabled={testBusy} onClick={() => void sendTest()}>
+                  {testBusy ? "Sending…" : "Send test"}
+                </Button>
+              ) : null}
+              <Button asChild variant="outline">
                 <Link href={`/app/brands/${brandId}`}>Brand home</Link>
+              </Button>
+            </div>
+          ) : runStatus === "failed" && brandId ? (
+            <div className="mt-8">
+              <Button asChild>
+                <Link href={`/app/brands/${brandId}`}>Back to brand</Link>
               </Button>
             </div>
           ) : (
             <p className="mt-6 text-sm text-cb-muted">
-              {runStatus === "queued" ? "Queued. Engines start in a moment." : "Live status per engine."}
+              {runStatus === "queued" ? "Queued. Sources start in a moment." : "Live status per source."}
               {runId ? ` Run ${runId.slice(0, 8)}.` : ""}
             </p>
           )}
+          {testMessage ? <p className="mt-3 text-sm text-cb-muted">{testMessage}</p> : null}
         </>
       ) : null}
 

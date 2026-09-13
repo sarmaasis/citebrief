@@ -2,33 +2,55 @@
 
 import { useState } from "react";
 import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { EnginePicker } from "@/components/settings/engine-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+
+const TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Toronto",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Asia/Kolkata",
+  "Asia/Singapore",
+  "Australia/Sydney",
+  "Pacific/Auckland",
+];
 
 export function WorkspaceForm({
   initial,
   slackAllowed,
   customSenderAllowed,
+  studioEnginesAllowed,
 }: {
   initial: {
     name: string;
     timezone: string;
     senderName: string;
+    senderDomain: string;
     defaultEngines: string;
     slackWebhookUrl: string;
   };
   slackAllowed: boolean;
   customSenderAllowed: boolean;
+  studioEnginesAllowed: boolean;
 }) {
   const [name, setName] = useState(initial.name);
   const [timezone, setTimezone] = useState(initial.timezone);
   const [senderName, setSenderName] = useState(initial.senderName);
+  const [senderDomain, setSenderDomain] = useState(initial.senderDomain);
   const [defaultEngines, setDefaultEngines] = useState(initial.defaultEngines);
   const [slackWebhookUrl, setSlackWebhookUrl] = useState(initial.slackWebhookUrl);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showSenderUpgrade, setShowSenderUpgrade] = useState(false);
+  const timezoneOptions = TIMEZONES.includes(timezone) ? TIMEZONES : [timezone, ...TIMEZONES];
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -38,7 +60,7 @@ export function WorkspaceForm({
       const response = await fetch("/api/settings/workspace", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, timezone, senderName, defaultEngines, slackWebhookUrl }),
+        body: JSON.stringify({ name, timezone, senderName, senderDomain, defaultEngines, slackWebhookUrl }),
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -71,7 +93,14 @@ export function WorkspaceForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="timezone">Timezone</Label>
-          <Input id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="America/New_York" />
+          <NativeSelect id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+            {timezoneOptions.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </NativeSelect>
+          <p className="text-xs text-cb-muted">Friday reports queue at 06:00 in this timezone.</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="senderName">Email sender name</Label>
@@ -85,7 +114,6 @@ export function WorkspaceForm({
               }
             }}
             placeholder="CiteBrief"
-            disabled={!customSenderAllowed && Boolean(initial.senderName) === false ? false : false}
           />
           {!customSenderAllowed ? (
             <p className="text-xs text-cb-muted">
@@ -96,15 +124,28 @@ export function WorkspaceForm({
           )}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="defaultEngines">Default engines</Label>
+          <Label htmlFor="senderDomain">Sender domain</Label>
           <Input
-            id="defaultEngines"
-            value={defaultEngines}
-            onChange={(e) => setDefaultEngines(e.target.value)}
-            placeholder="chatgpt,perplexity,gemini,aio"
+            id="senderDomain"
+            value={senderDomain}
+            onChange={(e) => {
+              setSenderDomain(e.target.value);
+              if (!customSenderAllowed && e.target.value.trim()) setShowSenderUpgrade(true);
+            }}
+            placeholder="mail.agency.com"
+            disabled={!customSenderAllowed}
           />
-          <p className="text-xs text-cb-muted">Studio can add claude,grok when AI Gateway and plan allow.</p>
+          <p className="text-xs text-cb-muted">
+            {customSenderAllowed
+              ? "Studio custom domain. DNS is configured after this hostname is saved."
+              : "Custom sender domain is Studio."}
+          </p>
         </div>
+        <EnginePicker
+          value={defaultEngines}
+          onChange={setDefaultEngines}
+          studioAllowed={studioEnginesAllowed}
+        />
         <div className="space-y-2">
           <Label htmlFor="slackWebhookUrl">Slack incoming webhook (Agency+)</Label>
           <Input

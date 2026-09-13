@@ -62,18 +62,35 @@ export function parsePlanId(value: string | null | undefined): PlanId | null {
 }
 
 export function planBrandLimit(plan: PlanId | string | null | undefined, extraBrands = 0): number {
-  const id = parsePlanId(plan ?? "agency") ?? "agency";
+  const id = parsePlanId(plan ?? "starter") ?? "starter";
   return PLANS[id].brands + Math.max(0, extraBrands);
 }
 
-export function planSeatCap(plan: PlanId | string | null | undefined): number {
-  const id = parsePlanId(plan ?? "agency") ?? "agency";
-  return PLANS[id].seats;
+export function planSeatCap(plan: PlanId | string | null | undefined, extraSeats = 0): number {
+  const id = parsePlanId(plan ?? "starter") ?? "starter";
+  return PLANS[id].seats + Math.max(0, extraSeats);
 }
 
 export function planPromptCap(plan: PlanId | string | null | undefined): number {
-  const id = parsePlanId(plan ?? "agency") ?? "agency";
+  const id = parsePlanId(plan ?? "starter") ?? "starter";
   return PLANS[id].prompts;
+}
+
+/** Annual = 10 months (2 months free). */
+export const ANNUAL_MONTHS_CHARGED = 10;
+
+export function planAnnualAmountUsd(plan: PlanId | string | null | undefined): number {
+  const id = parsePlanId(plan ?? "starter") ?? "starter";
+  return PLANS[id].amountUsd * ANNUAL_MONTHS_CHARGED;
+}
+
+export function parseBillingInterval(value: string | null | undefined): "monthly" | "annual" {
+  return value === "annual" || value === "year" || value === "yearly" ? "annual" : "monthly";
+}
+
+export function planAllowsExtraBrands(plan: PlanId | string | null | undefined) {
+  const id = parsePlanId(plan ?? "");
+  return id === "agency" || id === "studio";
 }
 
 export function planManualRerunCap(plan: PlanId | string | null | undefined): number {

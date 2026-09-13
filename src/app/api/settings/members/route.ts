@@ -1,10 +1,12 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { workspaceInvites, workspaceMembers } from "@/db/schema";
-import { planAllowsMembers, planSeatCap } from "@/lib/billing";
+import { users, workspaceInvites, workspaceMembers } from "@/db/schema";
 import { sendTransactionalEmail } from "@/lib/email";
+import { upgradeHintForSeatCap, workspaceEntitlements } from "@/lib/entitlements";
+import { canInviteMembers, requireOwner } from "@/lib/permissions";
 import { getAppContext } from "@/lib/session";
-import { getWorkspaceSubscription } from "@/lib/usage";
+import { countOccupiedSeats, getWorkspaceSubscription } from "@/lib/usage";
+import { revokePendingInvite } from "@/lib/workspace";
 import { jsonError, jsonOk } from "@/server/json";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +15,16 @@ export async function GET() {
   const ctx = await getAppContext();
   if (!ctx) return jsonError("Sign in required.", 401);
   const members = await ctx.db
-    .select()
+    .select({
+      id: workspaceMembers.id,
+      userId: workspaceMembers.userId,
+      role: workspaceMembers.role,
+      createdAt: workspaceMembers.createdAt,
+      email: users.email,
+      name: users.name,
+    })
     .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
     .where(eq(workspaceMembers.workspaceId, ctx.workspace.id));
   const invites = await ctx.db
     .select()
@@ -25,57 +35,36 @@ export async function GET() {
     (invite) => invite.acceptedAt == null && invite.expiresAt.getTime() >= now,
   );
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
-  const seatCap = planSeatCap(sub?.plan || "agency");
+  const ent = workspaceEntitlements(sub);
   const seatsUsed = members.length + activePending.length;
-  return jsonOk({ members, invites, seatCap, seatsUsed });
+  return jsonOk({
+    members,
+    invites,
+    seatCap: ent.seatCap,
+    seatsUsed,
+    extraSeats: ent.extraSeats,
+    allowsMembers: ent.allowsMembers,
+    role: ctx.role,
+    canInvite: Boolean(ctx.impersonating) || canInviteMembers(ctx.role),
+    canRevoke: Boolean(ctx.impersonating) || canInviteMembers(ctx.role),
+  });
 }
 
 export async function POST(request: Request) {
   const ctx = await getAppContext();
   if (!ctx) return jsonError("Sign in required.", 401);
-
-  const [ownerMembership] = await ctx.db
-    .select({ id: workspaceMembers.id })
-    .from(workspaceMembers)
-    .where(
-      and(
-        eq(workspaceMembers.workspaceId, ctx.workspace.id),
-        eq(workspaceMembers.userId, ctx.user.id),
-        eq(workspaceMembers.role, "owner"),
-      ),
-    )
-    .limit(1);
-  if (!ownerMembership) {
-    return jsonError("Only workspace owners can invite members.", 403);
-  }
+  const denied = requireOwner(ctx, "Only workspace owners can invite members.");
+  if (denied) return denied;
 
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
-  const plan = sub?.plan || "agency";
-  if (!planAllowsMembers(plan)) {
+  const ent = workspaceEntitlements(sub);
+  if (!ent.allowsMembers) {
     return jsonError("Member invites require Agency or Studio.", 402);
   }
 
-  const seatCap = planSeatCap(plan);
-  const members = await ctx.db
-    .select({ id: workspaceMembers.id })
-    .from(workspaceMembers)
-    .where(eq(workspaceMembers.workspaceId, ctx.workspace.id));
-  const now = Date.now();
-  const activePending = (
-    await ctx.db
-      .select()
-      .from(workspaceInvites)
-      .where(
-        and(eq(workspaceInvites.workspaceId, ctx.workspace.id), isNull(workspaceInvites.acceptedAt)),
-      )
-  ).filter((invite) => invite.expiresAt.getTime() >= now);
-
-  const occupied = members.length + activePending.length;
-  if (occupied >= seatCap) {
-    return jsonError(
-      `Seat cap reached (${occupied}/${seatCap}). Remove a member or upgrade your plan.`,
-      403,
-    );
+  const seats = await countOccupiedSeats(ctx.db, ctx.workspace.id);
+  if (seats.occupied >= ent.seatCap) {
+    return jsonError(upgradeHintForSeatCap(ent), 403);
   }
 
   const body = (await request.json()) as { email?: string; role?: string };
@@ -83,8 +72,35 @@ export async function POST(request: Request) {
   if (!email || !email.includes("@")) {
     return jsonError("A valid email is required.");
   }
-  // Invites are member-only (ignore client role; never invite as owner).
-  const role = "member";
+
+  const [alreadyMember] = await ctx.db
+    .select({ id: workspaceMembers.id })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
+    .where(and(eq(workspaceMembers.workspaceId, ctx.workspace.id), eq(users.email, email)))
+    .limit(1);
+  if (alreadyMember) {
+    return jsonError("That person is already a member of this workspace.");
+  }
+
+  const now = Date.now();
+  const [existingInvite] = (
+    await ctx.db
+      .select()
+      .from(workspaceInvites)
+      .where(
+        and(
+          eq(workspaceInvites.workspaceId, ctx.workspace.id),
+          eq(workspaceInvites.email, email),
+          isNull(workspaceInvites.acceptedAt),
+        ),
+      )
+  ).filter((invite) => invite.expiresAt.getTime() >= now);
+  if (existingInvite) {
+    return jsonError("An invite is already pending for that email.");
+  }
+
+  const role = body.role === "admin" ? "admin" : "member";
   const token = crypto.randomUUID().replaceAll("-", "");
   const createdAt = new Date();
 
@@ -108,5 +124,47 @@ export async function POST(request: Request) {
     env,
   });
 
-  return jsonOk({ ok: true, token, link, seatCap, seatsUsed: occupied + 1 }, 201);
+  return jsonOk({ ok: true, token, link, seatCap: ent.seatCap, seatsUsed: seats.occupied + 1, role }, 201);
+}
+
+export async function DELETE(request: Request) {
+  const ctx = await getAppContext();
+  if (!ctx) return jsonError("Sign in required.", 401);
+  const denied = requireOwner(ctx, "Only workspace owners can revoke invites or remove members.");
+  if (denied) return denied;
+
+  const url = new URL(request.url);
+  const userId = url.searchParams.get("userId")?.trim();
+  const inviteId = url.searchParams.get("inviteId")?.trim();
+  if (userId && inviteId) return jsonError("Provide userId or inviteId, not both.");
+
+  if (inviteId) {
+    const revoked = await revokePendingInvite(ctx.db, ctx.workspace.id, inviteId);
+    if (!revoked.ok) return jsonError(revoked.error, revoked.status);
+    const seats = await countOccupiedSeats(ctx.db, ctx.workspace.id);
+    const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+    const ent = workspaceEntitlements(sub);
+    return jsonOk({
+      ok: true,
+      revoked: true,
+      inviteId,
+      seatsUsed: seats.occupied,
+      seatCap: ent.seatCap,
+    });
+  }
+
+  if (!userId) return jsonError("userId or inviteId is required.");
+  if (userId === ctx.user.id) return jsonError("You cannot remove yourself.");
+
+  const [target] = await ctx.db
+    .select()
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, ctx.workspace.id), eq(workspaceMembers.userId, userId)))
+    .limit(1);
+  if (!target) return jsonError("Member not found.", 404);
+  if (target.role === "owner") return jsonError("Cannot remove the workspace owner.");
+
+  await ctx.db.delete(workspaceMembers).where(eq(workspaceMembers.id, target.id));
+  const seats = await countOccupiedSeats(ctx.db, ctx.workspace.id);
+  return jsonOk({ ok: true, removed: true, userId, seatsUsed: seats.occupied });
 }

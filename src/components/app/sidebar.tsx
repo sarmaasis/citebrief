@@ -20,9 +20,13 @@ const nav = [
 export function AppSidebar({
   workspaceName,
   userLabel,
+  roleLabel,
+  impersonating = false,
 }: {
   workspaceName: string;
   userLabel: string;
+  roleLabel?: string | null;
+  impersonating?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -31,7 +35,7 @@ export function AppSidebar({
       <div className="flex h-14 items-center px-5">
         <Logo href="/app" />
       </div>
-      <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
+      <nav aria-label="Workspace" className="flex flex-1 flex-col gap-1 px-3 py-2">
         {nav.map((item) => {
           const Icon = item.icon;
           const active = item.match(pathname);
@@ -39,20 +43,25 @@ export function AppSidebar({
             <Link
               key={item.label}
               href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex h-10 items-center gap-2 rounded-cb-control px-2 text-sm",
                 active ? "bg-cb-accent-subtle text-cb-accent" : "text-cb-text hover:bg-cb-accent-subtle",
               )}
             >
-              <Icon size={16} strokeWidth={1.5} />
+              <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
               {item.label}
             </Link>
           );
         })}
       </nav>
       <div className="border-t border-cb-line px-4 py-4">
+        {impersonating ? (
+          <p className="mb-2 text-xs text-cb-pending">Support view</p>
+        ) : null}
         <p className="text-sm font-medium text-cb-text">{workspaceName}</p>
         <p className="mt-1 text-xs text-cb-muted">{userLabel}</p>
+        {roleLabel ? <p className="mt-1 text-xs capitalize text-cb-muted">{roleLabel}</p> : null}
       </div>
     </aside>
   );

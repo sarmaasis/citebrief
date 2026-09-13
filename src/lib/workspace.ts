@@ -1,6 +1,9 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "@/db";
 import { workspaceInvites, workspaceMembers, workspaces } from "@/db/schema";
+import { planSeatCap } from "@/lib/billing";
+import { workspaceEntitlements } from "@/lib/entitlements";
+import { getWorkspaceSubscription } from "@/lib/usage";
 
 export async function acceptInviteForUser(
   db: Database,
@@ -25,12 +28,27 @@ export async function acceptInviteForUser(
     .where(and(eq(workspaceMembers.workspaceId, invite.workspaceId), eq(workspaceMembers.userId, user.id)))
     .limit(1);
 
+  const role = invite.role === "admin" ? "admin" : "member";
+
   if (!existing) {
+    const sub = await getWorkspaceSubscription(db, invite.workspaceId);
+    const ent = workspaceEntitlements(sub);
+    const members = await db
+      .select({ id: workspaceMembers.id })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.workspaceId, invite.workspaceId));
+    const cap = planSeatCap(ent.plan, ent.extraSeats);
+    if (members.length >= cap) {
+      return {
+        ok: false,
+        error: `Seat cap reached (${members.length}/${cap}). Ask the owner to add a seat or upgrade.`,
+      };
+    }
     await db.insert(workspaceMembers).values({
       id: crypto.randomUUID(),
       workspaceId: invite.workspaceId,
       userId: user.id,
-      role: "member", // invites never grant owner
+      role,
       createdAt: new Date(),
     });
   }
@@ -40,16 +58,38 @@ export async function acceptInviteForUser(
     .set({ acceptedAt: new Date() })
     .where(eq(workspaceInvites.id, invite.id));
 
-  return { ok: true, workspaceId: invite.workspaceId, role: "member" };
+  return { ok: true, workspaceId: invite.workspaceId, role };
+}
+
+/**
+ * Owner revoke of a pending invite. Frees the reserved seat immediately.
+ * Accepted invites are treated as not found so the pending list stays the source of truth.
+ */
+export async function revokePendingInvite(
+  db: Database,
+  workspaceId: string,
+  inviteId: string,
+): Promise<{ ok: true } | { ok: false; error: string; status: 404 }> {
+  const [invite] = await db
+    .select()
+    .from(workspaceInvites)
+    .where(and(eq(workspaceInvites.id, inviteId), eq(workspaceInvites.workspaceId, workspaceId)))
+    .limit(1);
+  if (!invite || invite.acceptedAt) {
+    return { ok: false, error: "Invite not found.", status: 404 };
+  }
+  await db.delete(workspaceInvites).where(eq(workspaceInvites.id, invite.id));
+  return { ok: true };
 }
 
 /**
  * Ensure the user has a workspace. Pending email invites join that workspace
  * instead of minting a new owner workspace.
+ * PRODUCT §5: workspace is created on first verified login.
  */
 export async function ensureWorkspaceForUser(
   db: Database,
-  user: { id: string; name?: string | null; email: string },
+  user: { id: string; name?: string | null; email: string; emailVerified?: boolean | null },
   inviteToken?: string | null,
 ) {
   const existing = await db
@@ -62,6 +102,11 @@ export async function ensureWorkspaceForUser(
     if (inviteToken) {
       await acceptInviteForUser(db, user, inviteToken);
     }
+    return;
+  }
+
+  const verified = user.emailVerified !== false;
+  if (!verified) {
     return;
   }
 

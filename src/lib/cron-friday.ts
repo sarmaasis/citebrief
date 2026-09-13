@@ -3,9 +3,9 @@ import type { Database } from "@/db";
 import { brands, prompts, runs, users, workspaceMembers, workspaces } from "@/db/schema";
 import { emptyEngineStatus } from "@/lib/engines";
 import { formatWeekOf } from "@/lib/friday";
-import { isLocalFridaySix } from "@/lib/friday-tz";
+import { isLocalFirstFridaySix, isLocalFridaySix } from "@/lib/friday-tz";
 import { sendTransactionalEmail } from "@/lib/email";
-import { planAllowsSlack } from "@/lib/billing";
+import { workspaceEntitlements } from "@/lib/entitlements";
 import { postSlackIncomingWebhook } from "@/lib/slack";
 import { getWorkspaceSubscription } from "@/lib/usage";
 
@@ -43,6 +43,25 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
     const tz = workspace.timezone || "America/New_York";
     if (!options.force && !isLocalFridaySix(tz, now)) {
       skipped.push({ workspaceId: workspace.id, reason: `not Friday 06:00 in ${tz}` });
+      continue;
+    }
+
+    const sub = await getWorkspaceSubscription(db, workspace.id);
+    const ent = workspaceEntitlements(sub, now.getTime());
+    if (!ent.paid && !options.force) {
+      skipped.push({
+        workspaceId: workspace.id,
+        reason: ent.trialing ? "trial has no recurring Friday send" : "unpaid workspace",
+      });
+      continue;
+    }
+    if (ent.allowsMonthlyCadence && !ent.allowsWeeklyCadence) {
+      if (!options.force && !isLocalFirstFridaySix(tz, now)) {
+        skipped.push({ workspaceId: workspace.id, reason: `Starter monthly: not first Friday 06:00 in ${tz}` });
+        continue;
+      }
+    } else if (!ent.allowsWeeklyCadence) {
+      skipped.push({ workspaceId: workspace.id, reason: "plan does not include Friday cadence" });
       continue;
     }
 
@@ -112,8 +131,7 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
       });
 
       try {
-        const sub = await getWorkspaceSubscription(db, workspace.id);
-        if (planAllowsSlack(sub?.plan) && workspace.slackWebhookUrl) {
+        if (ent.allowsSlack && workspace.slackWebhookUrl) {
           await postSlackIncomingWebhook({
             webhookUrl: workspace.slackWebhookUrl,
             text: `CiteBrief Friday: queued ${brand.name} (${tz}).`,

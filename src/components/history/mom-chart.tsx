@@ -5,11 +5,13 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 export function MomChart({
   data,
 }: {
-  data: Array<{ period: string; mentioned: number }>;
+  data: Array<{ period: string; mentioned: number; recommended?: number }>;
 }) {
   if (data.length === 0) {
     return <p className="text-sm text-cb-muted">No history yet. Run a report to start MoM tracking.</p>;
   }
+
+  const showRecommended = data.some((row) => row.recommended != null);
 
   return (
     <div className="h-48 w-full">
@@ -25,7 +27,10 @@ export function MomChart({
               fontSize: 12,
             }}
           />
-          <Line type="monotone" dataKey="mentioned" stroke="#0B3D2E" strokeWidth={2} dot={false} name="Mentioned" />
+          <Line type="monotone" dataKey="mentioned" stroke="#0B3D2E" strokeWidth={2} dot={false} name="Named" />
+          {showRecommended ? (
+            <Line type="monotone" dataKey="recommended" stroke="#737373" strokeWidth={2} dot={false} name="Recommended" />
+          ) : null}
         </LineChart>
       </ResponsiveContainer>
     </div>

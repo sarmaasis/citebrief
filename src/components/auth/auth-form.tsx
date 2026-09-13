@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label";
 export function AuthForm({
   mode,
   inviteToken = null,
+  nextPath,
 }: {
   mode: "login" | "signup";
   inviteToken?: string | null;
+  nextPath?: string | null;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +22,11 @@ export function AuthForm({
   const [status, setStatus] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const router = useRouter();
-  const nextPath = inviteToken ? `/invite/${inviteToken}` : "/app";
+  const resolvedNext = inviteToken
+    ? `/invite/${inviteToken}`
+    : nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+      ? nextPath
+      : "/app";
 
   async function onPassword(event: React.FormEvent) {
     event.preventDefault();
@@ -32,7 +38,7 @@ export function AuthForm({
           email,
           password,
           name: name || email.split("@")[0],
-          callbackURL: nextPath,
+          callbackURL: resolvedNext,
         });
         if (result.error) {
           setStatus(result.error.message ?? "Could not create the account.");
@@ -45,8 +51,8 @@ export function AuthForm({
             body: JSON.stringify({ token: inviteToken }),
           });
         }
-        setStatus("Account created. Opening the app.");
-        router.push(nextPath);
+        setStatus(resolvedNext.startsWith("/api/checkout") ? "Account created. Opening checkout." : "Account created. Opening the app.");
+        router.push(resolvedNext);
         router.refresh();
         return;
       }
@@ -54,13 +60,13 @@ export function AuthForm({
       const result = await authClient.signIn.email({
         email,
         password,
-        callbackURL: nextPath,
+        callbackURL: resolvedNext,
       });
       if (result.error) {
         setStatus(result.error.message ?? "Could not sign in.");
         return;
       }
-      router.push(nextPath);
+      router.push(resolvedNext);
       router.refresh();
     } catch {
       setStatus("Auth is not ready. Check D1 bindings and BETTER_AUTH secrets.");
@@ -75,7 +81,7 @@ export function AuthForm({
     try {
       const result = await authClient.signIn.magicLink({
         email,
-        callbackURL: nextPath,
+        callbackURL: resolvedNext,
       });
       if (result.error) {
         setStatus(result.error.message ?? "Could not send the magic link.");
@@ -95,7 +101,7 @@ export function AuthForm({
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: nextPath,
+        callbackURL: resolvedNext,
       });
     } catch {
       setStatus("Google OAuth needs live GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
@@ -140,7 +146,7 @@ export function AuthForm({
           />
         </div>
         <Button type="submit" className="w-full" disabled={pending}>
-          {mode === "signup" ? "Create account" : "Sign in"}
+          {mode === "signup" ? (inviteToken ? "Accept invite" : "Start the first report") : "Sign in"}
         </Button>
       </form>
 

@@ -18,9 +18,9 @@ export default async function BrandKitPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold tracking-tight">Brand kit</h1>
-      <p className="mt-3 text-sm text-cb-muted">
-        Logo, color, footer, and Prepared by appear on PDFs and client links. No purple. No gradients.
-      </p>
+          <p className="mt-3 text-sm text-cb-muted">
+            Logo, color, footer, and Prepared by appear on PDFs and client links. CiteBrief stays off the client page.
+          </p>
       <div className="mt-8">
         <BrandKitForm
           initial={{

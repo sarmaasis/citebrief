@@ -48,6 +48,18 @@ async function createAuth() {
         trustedOrigins: [baseURL],
         emailAndPassword: {
           enabled: true,
+          requireEmailVerification: !isStubValue(env.RESEND_API_KEY),
+        },
+        emailVerification: {
+          sendOnSignUp: true,
+          sendVerificationEmail: async ({ user, url }) => {
+            await sendTransactionalEmail({
+              env,
+              to: user.email,
+              subject: "Verify your CiteBrief email",
+              html: `<p>Confirm this email to open your CiteBrief workspace.</p><p><a href="${url}">Verify email</a></p>`,
+            });
+          },
         },
         socialProviders: {
           google,
@@ -68,7 +80,22 @@ async function createAuth() {
           user: {
             create: {
               after: async (user) => {
-                await ensureWorkspaceForUser(db, user);
+                await ensureWorkspaceForUser(db, {
+                  id: user.id,
+                  name: user.name,
+                  email: user.email,
+                  emailVerified: user.emailVerified,
+                });
+              },
+            },
+            update: {
+              after: async (user) => {
+                await ensureWorkspaceForUser(db, {
+                  id: user.id,
+                  name: user.name,
+                  email: user.email,
+                  emailVerified: user.emailVerified,
+                });
               },
             },
           },

@@ -2,6 +2,7 @@
 
 import { MIX_LABEL, MIXES, mixCounts, type PromptDraft, type PromptMix, isVanityPrompt } from "@/lib/prompts";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 
 export function MixMeter({ prompts }: { prompts: PromptDraft[] }) {
@@ -46,8 +47,9 @@ export function PromptEditor({
             <li key={`${prompt.sortOrder}-${index}`} className="rounded-cb-card border border-cb-line bg-cb-surface p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="font-mono text-xs text-cb-muted">{String(index + 1).padStart(2, "0")}</span>
-                <select
-                  className="h-8 rounded-cb-control border border-cb-line bg-cb-surface px-2 text-xs"
+                <NativeSelect
+                  aria-label={`Mix for question ${index + 1}`}
+                  className="h-8 w-auto px-2 text-xs"
                   value={prompt.mix}
                   onChange={(event) => update(index, { mix: event.target.value as PromptMix })}
                 >
@@ -56,7 +58,7 @@ export function PromptEditor({
                       {MIX_LABEL[mix]}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <Input
                 value={prompt.text}

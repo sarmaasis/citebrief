@@ -6,6 +6,7 @@ import { getDb, type Database } from "@/db";
 import { workspaceMembers, workspaces } from "@/db/schema";
 import { actAsCookieName, parseActAsCookieValue, readActAsFromRequest } from "@/lib/admin-impersonate";
 import { isStubSecret } from "@/lib/billing";
+import { parseWorkspaceRole, type WorkspaceRole } from "@/lib/permissions";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
 
 export type AppUser = {
@@ -24,6 +25,7 @@ export type AppContext = {
   db: Database;
   user: AppUser;
   workspace: AppWorkspace;
+  role: WorkspaceRole;
   impersonating?: boolean;
 };
 
@@ -55,7 +57,12 @@ export async function getAppContext(): Promise<AppContext | null> {
     }
 
     const db = await getDb();
-    await ensureWorkspaceForUser(db, session.user);
+    await ensureWorkspaceForUser(db, {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+      emailVerified: session.user.emailVerified,
+    });
 
     const { env } = await getCloudflareContext({ async: true });
     const actAsId = await resolveActAsWorkspaceId(requestHeaders, env);
@@ -75,6 +82,7 @@ export async function getAppContext(): Promise<AppContext | null> {
             name: workspace.name,
             timezone: workspace.timezone,
           },
+          role: "owner",
           impersonating: true,
         };
       }
@@ -85,6 +93,7 @@ export async function getAppContext(): Promise<AppContext | null> {
         workspaceId: workspaceMembers.workspaceId,
         workspaceName: workspaces.name,
         timezone: workspaces.timezone,
+        role: workspaceMembers.role,
       })
       .from(workspaceMembers)
       .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
@@ -109,6 +118,7 @@ export async function getAppContext(): Promise<AppContext | null> {
         name: row.workspaceName,
         timezone: row.timezone,
       },
+      role: parseWorkspaceRole(row.role),
     };
   } catch {
     return null;

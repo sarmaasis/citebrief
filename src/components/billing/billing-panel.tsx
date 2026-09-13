@@ -2,50 +2,124 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { EXTRA_BRAND_USD, EXTRA_RUN_USD, PLANS, type PlanId } from "@/lib/billing";
+import { Dialog, DialogActions, DialogCloseButton } from "@/components/ui/dialog";
+import { EXTRA_BRAND_USD, EXTRA_RUN_USD, PLANS, SEAT_OVERAGE_USD, type PlanId } from "@/lib/billing";
+import { cn } from "@/lib/utils";
 
-export function BillingPanel({
-  currentPlan,
-  status,
-  brandsUsed,
-  runsUsed,
-  brandLimit,
-  trialEndsAt,
-  cancelAtPeriodEnd,
-  extraBrands,
-  extraRuns,
-  currentPeriodEnd,
-  seatsUsed,
-  seatCap,
-}: {
-  currentPlan: string;
+const PLAN_VALUE: Record<PlanId, string[]> = {
+  starter: ["3 brands", "Monthly cadence", "CiteBrief sender", "PDF + client link", "1 seat"],
+  agency: [
+    "8 brands",
+    "Weekly Friday reports",
+    "White-label logo, color, footer",
+    "Client CC",
+    "History and score trend",
+    "3 seats",
+    "Slack webhook",
+  ],
+  studio: [
+    "20 brands",
+    "30 prompts per brand",
+    "Custom sender name and domain",
+    "Claude / Grok add-on",
+    "10 seats",
+    "Priority support",
+  ],
+};
+
+export type BillingUsage = {
+  plan: string;
   status: string;
+  paid: boolean;
+  trialing: boolean;
+  billingInterval: "monthly" | "annual";
   brandsUsed: number;
-  runsUsed: number;
   brandLimit: number;
-  trialEndsAt: string | null;
-  cancelAtPeriodEnd: boolean;
+  brandsIncluded: number;
   extraBrands: number;
-  extraRuns: number;
-  currentPeriodEnd: string | null;
+  extraBrandBillable: number;
   seatsUsed: number;
   seatCap: number;
+  seatsIncluded: number;
+  extraSeats: number;
+  runsUsed: number;
+  extraRuns: number;
+  extraRunCredits: number;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  allowsExtraBrands: boolean;
+  allowsMembers: boolean;
+  allowsWeeklyCadence: boolean;
+  allowsCustomSender: boolean;
+  allowsClientCc: boolean;
+};
+
+function UsageMeter({
+  label,
+  used,
+  cap,
+  hint,
+}: {
+  label: string;
+  used: number;
+  cap: number;
+  hint?: string;
+}) {
+  const pct = cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm text-cb-text">{label}</p>
+        <p className="font-mono text-xs tabular-nums text-cb-muted">
+          {used}/{cap}
+        </p>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-cb-muted-bg">
+        <div className="h-full bg-cb-accent" style={{ width: `${pct}%` }} />
+      </div>
+      {hint ? <p className="mt-1 text-xs text-cb-muted">{hint}</p> : null}
+    </div>
+  );
+}
+
+export function BillingPanel({
+  usage,
+  canManage = true,
+}: {
+  usage: BillingUsage;
+  canManage?: boolean;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const planId = (currentPlan in PLANS ? currentPlan : "agency") as PlanId;
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [annual, setAnnual] = useState(usage.billingInterval === "annual");
+  const planId = (usage.plan in PLANS ? usage.plan : "starter") as PlanId;
+  const isTrialing = usage.trialing;
+  const paymentFailed = usage.status === "failed" || usage.status === "past_due";
+  const extraBrandPrice = EXTRA_BRAND_USD[planId];
 
   async function checkout(plan: PlanId) {
+    if (!canManage) return;
     setBusy(plan);
     setMessage(null);
     try {
-      const response = await fetch(`/api/checkout?plan=${plan}&redirect=0`);
+      const interval = annual ? "annual" : "monthly";
+      const response = await fetch(`/api/checkout?plan=${plan}&interval=${interval}&redirect=0`);
       const data = (await response.json()) as { url?: string; message?: string; error?: string; mode?: string };
       if (!response.ok) {
         setMessage(data.error ?? "Checkout failed.");
         return;
       }
-      if (data.message) setMessage(data.message);
+      if (data.mode === "stub") {
+        setMessage(
+          annual
+            ? `Test checkout recorded ${PLANS[plan].name} annual (10 months prepaid).`
+            : "Test checkout recorded this plan so you can keep sending reports.",
+        );
+      } else if (data.message) {
+        setMessage(data.message);
+      }
       if (data.url) window.location.href = data.url;
     } finally {
       setBusy(null);
@@ -53,16 +127,20 @@ export function BillingPanel({
   }
 
   async function openPortal() {
+    if (!canManage) return;
     setBusy("portal");
     setMessage(null);
     try {
       const response = await fetch("/api/billing/portal", { method: "POST" });
       const data = (await response.json()) as { url?: string; message?: string; error?: string; mode?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "Could not open portal.");
+        setMessage(data.error ?? "Could not open the billing portal.");
         return;
       }
-      if (data.message) setMessage(data.message);
+      if (data.mode === "stub") {
+        setMessage("The portal opens once billing is live. Invoices and card updates will live there.");
+      }
+      if (data.message && data.mode !== "stub") setMessage(data.message);
       if (data.url) window.location.href = data.url;
     } finally {
       setBusy(null);
@@ -70,6 +148,7 @@ export function BillingPanel({
   }
 
   async function toggleCancel(cancel: boolean) {
+    if (!canManage) return;
     setBusy("cancel");
     setMessage(null);
     try {
@@ -83,14 +162,20 @@ export function BillingPanel({
         setMessage(data.error ?? "Could not update cancellation.");
         return;
       }
-      setMessage(data.message ?? "Updated.");
+      setCancelOpen(false);
+      setMessage(
+        cancel
+          ? "Cancels at period end. PDFs stay available for 90 days."
+          : "Subscription stays active.",
+      );
       window.location.reload();
     } finally {
       setBusy(null);
     }
   }
 
-  async function buyAddon(addon: "extra_brand" | "extra_run") {
+  async function buyAddon(addon: "extra_brand" | "extra_run" | "extra_seat") {
+    if (!canManage) return;
     setBusy(addon);
     setMessage(null);
     try {
@@ -101,19 +186,21 @@ export function BillingPanel({
       });
       const data = (await response.json()) as { url?: string; message?: string; error?: string; mode?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "Addon checkout failed.");
+        setMessage(data.error ?? "Could not start that add-on.");
         return;
       }
-      if (data.message) setMessage(data.message);
       if (data.mode === "stub") {
         setMessage(
           addon === "extra_brand"
-            ? "Extra brand recorded locally (Dodo product id placeholder)."
-            : "Extra run checkout stubbed. Usage still meters on overage runs.",
+            ? "Extra brand added to this workspace. Live billing will invoice it on the next cycle."
+            : addon === "extra_seat"
+              ? "Extra seat added. Invite the account manager from Members."
+              : "Extra run credit recorded. Over-cap runs use credits, then $9.",
         );
-        if (addon === "extra_brand") window.location.reload();
+        window.location.reload();
         return;
       }
+      if (data.message) setMessage(data.message);
       if (data.url) window.location.href = data.url;
     } finally {
       setBusy(null);
@@ -122,81 +209,226 @@ export function BillingPanel({
 
   return (
     <div className="space-y-8">
+      {isTrialing ? (
+        <div className="rounded-cb-card border border-cb-line bg-cb-surface p-4">
+          <p className="text-sm font-medium text-cb-text">14-day trial</p>
+          <p className="mt-1 text-sm text-cb-muted">
+            One brand and one full report
+            {usage.trialEndsAt ? ` · ends ${usage.trialEndsAt}` : ""}. Weekly sending, members, and client CC start on a
+            paid plan.
+          </p>
+        </div>
+      ) : null}
+
+      {!usage.paid && !isTrialing ? (
+        <div className="rounded-cb-card border border-cb-line bg-cb-surface p-4">
+          <p className="text-sm font-medium text-cb-text">No paid plan yet</p>
+          <p className="mt-1 text-sm text-cb-muted">
+            Trial and unpaid workspaces stay on one brand and one seat. Agency is the usual pick for weekly Friday
+            reports.
+          </p>
+        </div>
+      ) : null}
+
+      {paymentFailed ? (
+        <div className="rounded-cb-card border border-cb-line bg-cb-pending-subtle p-4">
+          <p className="text-sm font-medium text-cb-pending">Payment failed</p>
+          <p className="mt-1 text-sm text-cb-muted">
+            Update the card in the billing portal so Friday reports keep sending.
+          </p>
+          {canManage ? (
+            <Button type="button" size="sm" className="mt-3" disabled={busy !== null} onClick={() => void openPortal()}>
+              Update payment
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
         <p className="text-xs text-cb-muted">Current plan</p>
-        <p className="mt-2 text-lg font-semibold capitalize">{currentPlan}</p>
-        <p className="mt-1 text-sm text-cb-muted">Status: {status}</p>
-        {trialEndsAt ? <p className="mt-1 text-sm text-cb-muted">Trial ends {trialEndsAt}</p> : null}
-        {cancelAtPeriodEnd ? (
-          <p className="mt-1 text-sm text-cb-pending">
-            Cancels at period end{currentPeriodEnd ? ` (${currentPeriodEnd})` : ""}. PDFs stay 90 days.
-          </p>
-        ) : null}
-        <p className="mt-4 text-sm text-cb-text">
-          Usage: {brandsUsed}/{brandLimit} brands · {seatsUsed}/{seatCap} seats · {runsUsed} runs this period ·{" "}
-          {extraBrands} extra brands · {extraRuns} metered extra runs
+        <p className="mt-2 text-lg font-semibold">{PLANS[planId].name}</p>
+        <p className="mt-1 text-sm capitalize text-cb-muted">
+          {usage.status === "none" ? "No paid plan yet" : usage.status}
+          {usage.paid ? ` · ${usage.billingInterval}` : ""}
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void openPortal()}>
-            {busy === "portal" ? "Opening…" : "Open billing portal"}
-          </Button>
-          {cancelAtPeriodEnd ? (
-            <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void toggleCancel(false)}>
-              Keep subscription
-            </Button>
-          ) : (
-            <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void toggleCancel(true)}>
-              Cancel at period end
-            </Button>
-          )}
+        {usage.cancelAtPeriodEnd ? (
+          <p className="mt-2 text-sm text-cb-pending">
+            Cancels at period end{usage.currentPeriodEnd ? ` (${usage.currentPeriodEnd})` : ""}. PDFs stay 90 days.
+          </p>
+        ) : usage.currentPeriodEnd ? (
+          <p className="mt-2 text-sm text-cb-muted">Current period ends {usage.currentPeriodEnd}.</p>
+        ) : null}
+
+        <div className="mt-6 grid gap-5 sm:grid-cols-3">
+          <UsageMeter
+            label="Brands"
+            used={usage.brandsUsed}
+            cap={usage.brandLimit}
+            hint={`${usage.brandsIncluded} included${usage.extraBrandBillable ? ` · ${usage.extraBrandBillable} extra billed` : ""}`}
+          />
+          <UsageMeter
+            label="Seats"
+            used={usage.seatsUsed}
+            cap={usage.seatCap}
+            hint={`${usage.seatsIncluded} included${usage.extraSeats ? ` · ${usage.extraSeats} extra at $${SEAT_OVERAGE_USD}/mo` : ""}`}
+          />
+          <div>
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm text-cb-text">Runs this period</p>
+              <p className="font-mono text-xs tabular-nums text-cb-muted">{usage.runsUsed}</p>
+            </div>
+            <p className="mt-3 text-xs text-cb-muted">
+              {usage.extraRuns
+                ? `${Math.max(0, usage.runsUsed - usage.extraRuns)} included · ${usage.extraRuns} extra at $${EXTRA_RUN_USD[planId]}`
+                : "Included weekly runs do not invoice extra."}
+              {usage.extraRunCredits ? ` · ${usage.extraRunCredits} extra-run credit${usage.extraRunCredits === 1 ? "" : "s"}` : ""}
+            </p>
+          </div>
         </div>
+
+        <p className="mt-5 text-xs text-cb-muted">
+          Included usage is on the plan. Extra brands, seats, and runs show as billable before they charge. Invoices
+          live in the billing portal.
+        </p>
+
+        {canManage ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void openPortal()}>
+              {busy === "portal" ? "Opening…" : "Open billing portal"}
+            </Button>
+            {usage.cancelAtPeriodEnd ? (
+              <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void toggleCancel(false)}>
+                Keep subscription
+              </Button>
+            ) : usage.paid ? (
+              <Button type="button" variant="outline" disabled={busy !== null} onClick={() => setCancelOpen(true)}>
+                Cancel at period end
+              </Button>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-cb-muted">Only a workspace owner can change billing.</p>
+        )}
       </div>
 
       <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
         <p className="text-sm font-medium">Add-ons</p>
-        <p className="mt-1 text-xs text-cb-muted">
-          Extra brand ${EXTRA_BRAND_USD[planId]}/mo · Extra run ${EXTRA_RUN_USD[planId]} (meter or one-time). Set
-          DODO_PRODUCT_EXTRA_BRAND / DODO_PRODUCT_EXTRA_RUN when live.
+        <p className="mt-1 text-sm text-cb-muted">
+          Extra brand ${extraBrandPrice}/mo on Agency and Studio. Extra seat ${SEAT_OVERAGE_USD}/mo after the seat cap.
+          Extra run ${EXTRA_RUN_USD[planId]} when you pass included re-runs.
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void buyAddon("extra_brand")}>
-            {busy === "extra_brand" ? "Starting…" : "Buy extra brand"}
-          </Button>
-          <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void buyAddon("extra_run")}>
-            {busy === "extra_run" ? "Starting…" : "Buy extra run pack"}
-          </Button>
+        {canManage ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {usage.allowsExtraBrands ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy !== null}
+                onClick={() => void buyAddon("extra_brand")}
+              >
+                {busy === "extra_brand" ? "Starting…" : `Add extra brand · $${extraBrandPrice}/mo`}
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void checkout("agency")}>
+                Need more brands? Upgrade to Agency
+              </Button>
+            )}
+            {usage.allowsMembers ? (
+              <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void buyAddon("extra_seat")}>
+                {busy === "extra_seat" ? "Starting…" : `Add extra seat · $${SEAT_OVERAGE_USD}/mo`}
+              </Button>
+            ) : null}
+            <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void buyAddon("extra_run")}>
+              {busy === "extra_run" ? "Starting…" : `Buy extra run · $${EXTRA_RUN_USD[planId]}`}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      <div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-medium">Plans</p>
+          <div className="inline-flex rounded-cb-control border border-cb-line p-0.5" role="group" aria-label="Billing interval">
+            <button
+              type="button"
+              className={cn(
+                "h-8 rounded-[7px] px-3 text-xs",
+                !annual ? "bg-cb-accent text-cb-on-accent" : "text-cb-muted",
+              )}
+              onClick={() => setAnnual(false)}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "h-8 rounded-[7px] px-3 text-xs",
+                annual ? "bg-cb-accent text-cb-on-accent" : "text-cb-muted",
+              )}
+              onClick={() => setAnnual(true)}
+            >
+              Annual · 2 months free
+            </button>
+          </div>
+        </div>
+        <p className="mb-4 text-xs text-cb-muted">
+          Annual is 10 months prepaid. Choosing a plan starts checkout for the interval selected above.
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          {(Object.keys(PLANS) as PlanId[]).map((id) => {
+            const plan = PLANS[id];
+            const recommended = id === "agency";
+            const sameInterval = annual === (usage.billingInterval === "annual");
+            const isCurrent = usage.paid && usage.plan === id && sameInterval && !isTrialing;
+            const monthly = plan.amountUsd;
+            const display = annual ? Math.round((monthly * 10) / 12) : monthly;
+            return (
+              <div
+                key={id}
+                className={`rounded-cb-card border bg-cb-surface p-5 ${
+                  recommended ? "border-cb-accent" : "border-cb-line"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">{plan.name}</p>
+                  {recommended ? <span className="text-xs text-cb-accent">Usual pick</span> : null}
+                </div>
+                <p className="mt-2 font-mono text-2xl tabular-nums text-cb-accent">${display}</p>
+                <p className="mt-1 text-xs text-cb-muted">{annual ? "per month, billed annually" : "per month"}</p>
+                <ul className="mt-4 space-y-1.5 text-xs text-cb-muted">
+                  {PLAN_VALUE[id].map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                <Button
+                  className="mt-4 w-full"
+                  variant={recommended ? "default" : "outline"}
+                  disabled={busy !== null || isCurrent || !canManage}
+                  onClick={() => void checkout(id)}
+                >
+                  {busy === id ? "Starting…" : isCurrent ? "Current plan" : `Choose ${plan.name}`}
+                </Button>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {(Object.keys(PLANS) as PlanId[]).map((id) => {
-          const plan = PLANS[id];
-          const recommended = id === "agency";
-          return (
-            <div
-              key={id}
-              className={`rounded-cb-card border bg-cb-surface p-5 ${
-                recommended ? "border-cb-accent" : "border-cb-line"
-              }`}
-            >
-              <p className="text-sm font-medium">{plan.name}</p>
-              <p className="mt-2 font-mono text-2xl tabular-nums text-cb-accent">${plan.amountUsd}</p>
-              <p className="mt-1 text-xs text-cb-muted">
-                per month · {plan.brands} brands · {plan.seats} seats · {plan.cadence}
-              </p>
-              <Button
-                className="mt-4 w-full"
-                variant={recommended ? "default" : "outline"}
-                disabled={busy !== null}
-                onClick={() => void checkout(id)}
-              >
-                {busy === id ? "Starting…" : currentPlan === id ? "Current plan" : "Choose plan"}
-              </Button>
-            </div>
-          );
-        })}
-      </div>
       {message ? <p className="text-sm text-cb-muted">{message}</p> : null}
+
+      <Dialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Cancel at period end?"
+        description="You keep the workspace until the period ends. PDFs stay downloadable for 90 days."
+      >
+        <DialogActions>
+          <DialogCloseButton onClick={() => setCancelOpen(false)} />
+          <Button type="button" size="sm" disabled={busy !== null} onClick={() => void toggleCancel(true)}>
+            {busy === "cancel" ? "Saving…" : "Confirm cancel"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

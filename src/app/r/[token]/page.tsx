@@ -1,15 +1,17 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { eq } from "drizzle-orm";
+import type { Metadata } from "next";
+import { cache } from "react";
 import { getDb } from "@/db";
 import { brandKits, brands, reports, runs, workspaces } from "@/db/schema";
 import { getReportObject } from "@/lib/r2";
+import { clientReportRobots } from "@/lib/seo";
+import { recordClientLinkOpen } from "@/lib/share";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientSharePage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
+const loadShare = cache(async (token: string) => {
   const db = await getDb();
-
   const [row] = await db
     .select({
       report: reports,
@@ -23,6 +25,38 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
     .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
     .where(eq(reports.shareToken, token))
     .limit(1);
+  return row ?? null;
+});
+
+function isShareExpired(shareExpiresAt: Date | null | undefined) {
+  if (!shareExpiresAt) return false;
+  return new Date(shareExpiresAt).getTime() < Date.now();
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}): Promise<Metadata> {
+  const { token } = await params;
+  const row = await loadShare(token);
+  if (!row || isShareExpired(row.report.shareExpiresAt)) {
+    return {
+      title: { absolute: "Client report" },
+      robots: clientReportRobots,
+    };
+  }
+  const description = row.report.summary?.trim().slice(0, 160) || undefined;
+  return {
+    title: { absolute: row.brand.name },
+    description,
+    robots: clientReportRobots,
+  };
+}
+
+export default async function ClientSharePage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const row = await loadShare(token);
 
   if (!row) {
     return (
@@ -33,11 +67,7 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
     );
   }
 
-  const expiresAt = row.report.shareExpiresAt
-    ? new Date(row.report.shareExpiresAt).getTime()
-    : null;
-  const expired = expiresAt != null && expiresAt < new Date().getTime();
-  if (expired) {
+  if (isShareExpired(row.report.shareExpiresAt)) {
     return (
       <main className="mx-auto max-w-xl px-6 py-24 text-center">
         <h1 className="text-xl font-semibold">This client link expired</h1>
@@ -46,6 +76,12 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
     );
   }
 
+  const db = await getDb();
+  try {
+    await recordClientLinkOpen(db, row.report.id);
+  } catch {
+    // Open tracking is best-effort and must not block the client page.
+  }
   const [kit] = await db.select().from(brandKits).where(eq(brandKits.workspaceId, row.workspace.id)).limit(1);
   const accent = kit?.accentColor || "#0B3D2E";
   const preparedBy = kit?.preparedBy || row.report.agencyName || row.workspace.name;
@@ -84,13 +120,14 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
           </div>
           <p className="font-mono text-sm tabular-nums" style={{ color: accent }}>
             {row.report.scoreMentioned ?? "-"}/{row.report.scoreTotal}
+            {row.report.scoreRecommended != null ? ` · rec ${row.report.scoreRecommended}` : ""}
           </p>
         </div>
       </header>
 
-      {row.run.status === "partial" ? (
+      {row.run.status === "failed" ? (
         <div className="border-b border-cb-line bg-cb-pending-subtle px-6 py-3 text-center text-sm text-cb-pending">
-          3 of 4 engines returned. Numbers reflect available engines.
+          This week’s answers were incomplete. Ask your agency if you need a follow-up.
         </div>
       ) : null}
 

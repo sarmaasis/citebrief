@@ -9,7 +9,7 @@ import {
   planAllowsWeeklyCadence,
   planSeatCap,
 } from "./billing";
-import { isEngineApiConfigured } from "./engine-adapters";
+import { isEngineApiConfigured, usesDeterministicStub } from "./engine-adapters";
 
 assert.equal(PLANS.starter.amountUsd, 149);
 assert.equal(PLANS.agency.amountUsd, 249);
@@ -61,6 +61,8 @@ process.env.CF_AI_GATEWAY_TOKEN = "tok_live";
 assert.equal(isAiGatewayConfigured(undefined), true);
 assert.equal(isEngineApiConfigured("chatgpt", undefined), true);
 assert.equal(isEngineApiConfigured("aio", undefined), false);
+assert.equal(usesDeterministicStub("chatgpt", undefined), false);
+assert.equal(usesDeterministicStub("aio", undefined), true);
 if (prevAccount === undefined) delete process.env.CF_ACCOUNT_ID;
 else process.env.CF_ACCOUNT_ID = prevAccount;
 if (prevGw === undefined) delete process.env.AI_GATEWAY_ID;
@@ -75,6 +77,7 @@ assert.notEqual(promptHash("a"), promptHash("b"));
 function wouldRejectInvite(members: number, pending: number, plan: string) {
   return members + pending >= planSeatCap(plan);
 }
+assert.equal(planSeatCap("agency", 1), 4);
 assert.equal(wouldRejectInvite(3, 0, "agency"), true);
 assert.equal(wouldRejectInvite(2, 0, "agency"), false);
 assert.equal(wouldRejectInvite(2, 1, "agency"), true);

@@ -13,6 +13,7 @@ export type BrandFieldValues = {
   incumbent: string;
   competitors: string;
   constraintNote: string;
+  clientOwner: string;
 };
 
 export const emptyBrandFields: BrandFieldValues = {
@@ -26,6 +27,7 @@ export const emptyBrandFields: BrandFieldValues = {
   incumbent: "",
   competitors: "",
   constraintNote: "",
+  clientOwner: "",
 };
 
 export function BrandFields({
@@ -110,6 +112,14 @@ export function BrandFields({
           placeholder="ClickUp, Monday.com"
           value={values.competitors}
           onChange={(event) => set("competitors", event.target.value)}
+        />
+      </Field>
+      <Field id="clientOwner" label="Client owner">
+        <Input
+          id="clientOwner"
+          placeholder="Account manager on this retainer"
+          value={values.clientOwner}
+          onChange={(event) => set("clientOwner", event.target.value)}
         />
       </Field>
       <Field id="constraintNote" label="Must-have constraint">

@@ -1,8 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { eq } from "drizzle-orm";
 import { emptyEngineStatus } from "@/lib/engines";
-import { assertRunCap, bumpRunsUsed, getWorkspaceSubscription } from "@/lib/usage";
-import { recordDodoExtraRunUsage } from "@/lib/dodo";
+import { assertRunCap, bumpRunsUsed } from "@/lib/usage";
 import { formatWeekOf } from "@/lib/friday";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
@@ -34,9 +33,11 @@ export async function POST(_request: Request, context: RouteContext) {
   }
 
   let extraRun = false;
+  let consumeCredit = false;
   try {
     const cap = await assertRunCap(ctx.db, ctx.workspace.id, id);
     extraRun = Boolean(cap.extraRun);
+    consumeCredit = Boolean(cap.consumeCredit);
     if (cap.warning) {
       console.info("[runs] cap warning", cap.warning);
     }
@@ -53,17 +54,7 @@ export async function POST(_request: Request, context: RouteContext) {
     queuedAt: now.toISOString(),
   };
 
-  let queue = "placeholder";
   const { env } = await getCloudflareContext({ async: true });
-  try {
-    if (env.RUNS_QUEUE) {
-      await env.RUNS_QUEUE.send(payload);
-      queue = "sent";
-    }
-  } catch {
-    queue = "placeholder";
-  }
-
   const [workspaceRow] = await ctx.db
     .select()
     .from(workspaces)
@@ -76,6 +67,7 @@ export async function POST(_request: Request, context: RouteContext) {
     env,
   });
 
+  // Insert before enqueue so the queue consumer can load the row.
   await ctx.db.insert(runs).values({
     id: runId,
     brandId: id,
@@ -83,18 +75,29 @@ export async function POST(_request: Request, context: RouteContext) {
     periodStart: formatWeekOf(now),
     periodEnd: formatWeekOf(now),
     engineStates: JSON.stringify(emptyEngineStatus(resolved.includeStudio)),
+    extraRun,
+    consumeCredit,
     createdAt: now,
   });
 
-  await bumpRunsUsed(ctx.db, ctx.workspace.id, extraRun);
-  if (extraRun) {
-    const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
-    await recordDodoExtraRunUsage({
-      env,
-      customerId: sub?.dodoCustomerId,
-      workspaceId: ctx.workspace.id,
-      runId,
-    });
+  // Weekly included quota is reserved by the inserted row. Attempt counter
+  // increments here; Dodo extra-run meter + extraRuns + prepaid credits wait
+  // until a report exists (settleBillableExtraRun in processRun).
+  await bumpRunsUsed(ctx.db, ctx.workspace.id, false);
+
+  let queue = "placeholder";
+  if (env.RUNS_QUEUE) {
+    try {
+      await env.RUNS_QUEUE.send(payload);
+      queue = "sent";
+    } catch (error) {
+      console.error("[runs] enqueue failed after insert", runId, error);
+      await ctx.db
+        .update(runs)
+        .set({ status: "failed", completedAt: new Date() })
+        .where(eq(runs.id, runId));
+      queue = "failed";
+    }
   }
 
   return jsonOk({ runId, queue, payload, extraRun }, 201);

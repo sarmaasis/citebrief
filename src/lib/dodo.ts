@@ -39,6 +39,24 @@ export function dodoExtraRunProductId(env: CloudflareEnv): string {
   return "citebrief_extra_run";
 }
 
+export function dodoExtraSeatProductId(env: CloudflareEnv): string {
+  if (env.DODO_PRODUCT_EXTRA_SEAT && !isStubSecret(env.DODO_PRODUCT_EXTRA_SEAT)) {
+    return env.DODO_PRODUCT_EXTRA_SEAT;
+  }
+  return "citebrief_extra_seat";
+}
+
+export function dodoAnnualProductId(env: CloudflareEnv, plan: PlanId): string | null {
+  const fromEnv =
+    plan === "starter"
+      ? env.DODO_PRODUCT_STARTER_ANNUAL
+      : plan === "agency"
+        ? env.DODO_PRODUCT_AGENCY_ANNUAL
+        : env.DODO_PRODUCT_STUDIO_ANNUAL;
+  if (fromEnv && !isStubSecret(fromEnv)) return fromEnv;
+  return null;
+}
+
 export function createDodoClient(env: CloudflareEnv) {
   return new DodoPayments({
     bearerToken: env.DODO_PAYMENTS_API_KEY,
@@ -54,8 +72,10 @@ export async function createDodoCheckout(args: {
   customerEmail: string;
   customerName: string;
   returnUrl: string;
+  interval?: "monthly" | "annual";
 }): Promise<DodoCheckoutResult> {
-  const successPath = `/app/billing/success?plan=${args.plan}`;
+  const interval = args.interval === "annual" ? "annual" : "monthly";
+  const successPath = `/app/billing/success?plan=${args.plan}${interval === "annual" ? "&interval=annual" : ""}`;
   const stubUrl = `${args.returnUrl}${successPath}&stub=1`;
 
   if (isStubSecret(args.env.DODO_PAYMENTS_API_KEY)) {
@@ -66,8 +86,14 @@ export async function createDodoCheckout(args: {
     };
   }
 
-  const productId = dodoProductId(args.env, args.plan);
+  const annualId = interval === "annual" ? dodoAnnualProductId(args.env, args.plan) : null;
+  const productId = annualId || dodoProductId(args.env, args.plan);
   const returnUrl = `${args.returnUrl}${successPath}`;
+  const metadata = {
+    workspace_id: args.workspaceId,
+    plan: args.plan,
+    interval,
+  };
 
   try {
     // Prefer official @dodopayments/core session helper (same stack as @dodopayments/hono).
@@ -79,10 +105,7 @@ export async function createDodoCheckout(args: {
           name: args.customerName,
         },
         return_url: returnUrl,
-        metadata: {
-          workspace_id: args.workspaceId,
-          plan: args.plan,
-        },
+        metadata,
       },
       {
         bearerToken: args.env.DODO_PAYMENTS_API_KEY,
@@ -108,10 +131,7 @@ export async function createDodoCheckout(args: {
         name: args.customerName,
       },
       return_url: returnUrl,
-      metadata: {
-        workspace_id: args.workspaceId,
-        plan: args.plan,
-      },
+      metadata,
     });
     const url = session.checkout_url;
     if (!url) {
@@ -151,6 +171,41 @@ export type DodoWebhookEvent = {
   data?: Record<string, unknown>;
   payload?: Record<string, unknown>;
 };
+
+/**
+ * Parse a Dodo timestamp. Webhook middleware may already coerce ISO strings
+ * to Date; raw JSON (Next route / replay) keeps strings.
+ */
+export function parseDodoTimestamp(value: unknown): Date | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const ms = value < 1e12 ? value * 1000 : value;
+    const date = new Date(ms);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+}
+
+/**
+ * Dodo Subscription.next_billing_date is "the end of current billing period"
+ * (SDK + webhook schemas). Use it when present. Fallback to now+30/365 only
+ * when Dodo omits the field (payment-only / addon payloads).
+ */
+export function dodoCurrentPeriodEnd(
+  data: Record<string, unknown>,
+  fallbackInterval: string,
+): Date {
+  const fromDodo = parseDodoTimestamp(data.next_billing_date);
+  if (fromDodo) return fromDodo;
+  const periodMs = (fallbackInterval === "annual" ? 365 : 30) * 24 * 60 * 60 * 1000;
+  return new Date(Date.now() + periodMs);
+}
 
 
 export async function createDodoCustomerPortal(args: {
@@ -239,13 +294,15 @@ export async function recordDodoExtraRunUsage(args: {
   }
 }
 
+export type DodoAddon = "extra_brand" | "extra_run" | "extra_seat";
+
 export async function createDodoAddonCheckout(args: {
   env: CloudflareEnv;
   workspaceId: string;
   customerEmail: string;
   customerName: string;
   returnUrl: string;
-  addon: "extra_brand" | "extra_run";
+  addon: DodoAddon;
 }): Promise<DodoCheckoutResult> {
   const successPath = `/app/billing/success?addon=${args.addon}`;
   const stubUrl = `${args.returnUrl}${successPath}&stub=1`;
@@ -253,7 +310,11 @@ export async function createDodoAddonCheckout(args: {
     return { mode: "stub", url: stubUrl, message: "Dodo API key missing. Stub addon checkout." };
   }
   const productId =
-    args.addon === "extra_brand" ? dodoExtraBrandProductId(args.env) : dodoExtraRunProductId(args.env);
+    args.addon === "extra_brand"
+      ? dodoExtraBrandProductId(args.env)
+      : args.addon === "extra_seat"
+        ? dodoExtraSeatProductId(args.env)
+        : dodoExtraRunProductId(args.env);
   try {
     const session = await createCheckoutSession(
       {

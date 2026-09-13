@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
-import { parsePlanId, TRIAL_DAYS } from "@/lib/billing";
+import { parseBillingInterval, parsePlanId, TRIAL_DAYS } from "@/lib/billing";
 import { createDodoCheckout } from "@/lib/dodo";
+import { requireOwner } from "@/lib/permissions";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
@@ -13,25 +14,28 @@ export async function GET(request: Request) {
   if (!ctx) {
     return jsonError("Sign in required.", 401);
   }
+  const denied = requireOwner(ctx, "Only the workspace owner can start checkout.");
+  if (denied) return denied;
 
   const url = new URL(request.url);
   const plan = parsePlanId(url.searchParams.get("plan") || "agency");
   if (!plan) {
     return jsonError("Unknown plan. Use starter, agency, or studio.");
   }
+  const interval = parseBillingInterval(url.searchParams.get("interval"));
 
   const { env } = await getCloudflareContext({ async: true });
   const origin = env.BETTER_AUTH_URL || url.origin;
   const checkout = await createDodoCheckout({
     env,
     plan,
+    interval,
     workspaceId: ctx.workspace.id,
     customerEmail: ctx.user.email,
     customerName: ctx.user.name,
     returnUrl: origin.replace(/\/$/, ""),
   });
 
-  // Ensure subscription row exists for webhook / success page.
   const [existing] = await ctx.db
     .select()
     .from(subscriptions)
@@ -45,6 +49,7 @@ export async function GET(request: Request) {
       workspaceId: ctx.workspace.id,
       plan,
       status: checkout.mode === "stub" ? "trialing" : "none",
+      billingInterval: interval,
       trialEndsAt: trialEnds,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -55,6 +60,7 @@ export async function GET(request: Request) {
       .set({
         plan,
         status: "trialing",
+        billingInterval: interval,
         trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
         updatedAt: new Date(),
       })
@@ -62,7 +68,7 @@ export async function GET(request: Request) {
   }
 
   if (url.searchParams.get("redirect") === "0") {
-    return jsonOk({ plan, ...checkout });
+    return jsonOk({ plan, interval, ...checkout });
   }
 
   return Response.redirect(checkout.url, 302);

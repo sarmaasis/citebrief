@@ -923,3 +923,45 @@ Lighthouse marketing > 90. Mobile landing works. App can be desktop-first (1280+
 - Queue consumer is a **separate Worker** or Workflow. Next app only `env.RUNS_QUEUE.send()`.
 - Images via Cloudflare Images or R2 public URLs for logos.
 - Preview: `opennextjs-cloudflare build && wrangler dev`.
+
+---
+
+## 22. Highest-level launch bar
+
+CiteBrief is only ready for a premium public launch when these are true.
+
+### 22.1 Product proof
+- A new agency can create a workspace, add one client, generate 20 prompts, run the first report, and share it in under 8 minutes.
+- The sample report is good enough to be the homepage hero and the sales demo.
+- The report can be sent to a real client without a disclaimer that the product is early.
+- Every report has inspectable evidence: engine, timestamp, source URLs, raw answer drawer, and AI Gateway request id when available.
+- Partial failure still feels professional: 3/4 engines ship with a clear note and no broken-looking UI.
+
+### 22.2 Commercial proof
+- At least 10 agencies have received a generated report.
+- At least 5 agencies forwarded it to a client or asked to white-label it.
+- At least 3 agencies gave pricing feedback on $249 Agency.
+- At least 1 agency pays or verbally commits before broad launch.
+- The free trial is capped to 1 brand, 20 prompts, 1 full report, no recurring weekly send until paid.
+
+### 22.3 Technical proof
+- `npm test`, `npm run lint`, and `npm run build` pass before every deploy.
+- OpenNext preview runs with D1, KV, R2, Queue, and Browser Rendering bindings configured.
+- AI Gateway live calls are verified for ChatGPT, Perplexity, Gemini, extractor, and writer.
+- Dodo live checkout, webhook idempotency, portal, cancellation, and failed-payment handling are verified.
+- Friday cron is verified across at least 3 tenant timezones.
+- Run COGS and engine failures are visible in internal admin.
+
+### 22.4 Trust proof
+- Privacy and terms pages clearly state that reports reflect third-party AI answers and may be incomplete.
+- Client links expire and do not require auth.
+- Single-domain Better Auth is enforced on `getcitebrief.com`.
+- Optional domains only redirect; they never share auth sessions.
+- Report emails have a tested sender identity and do not land in spam during pilot.
+
+### 22.5 Brand proof
+- The app feels calm and operational, not like a generic AI landing page.
+- The PDF prints cleanly in black and white.
+- The homepage shows the actual report, not decorative dashboard art.
+- All plan limits explain the upgrade value.
+- Empty states push toward revenue behavior: add brand, generate prompts, run report, send report.

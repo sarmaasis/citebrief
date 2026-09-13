@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getAppContext } from "@/lib/session";
 import { splitNames } from "@/lib/split";
+import { assertBrandCap } from "@/lib/usage";
 import { jsonError, jsonOk } from "@/server/json";
 import { getBrandBundle, getWorkspaceBrand } from "@/server/workspace-data";
 import { brands, competitors } from "@/db/schema";
@@ -54,8 +55,18 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.job !== undefined) next.job = body.job.trim() || null;
   if (body.incumbent !== undefined) next.incumbent = body.incumbent.trim() || null;
   if (body.constraintNote !== undefined) next.constraintNote = body.constraintNote.trim() || null;
+  if (body.clientOwner !== undefined) next.clientOwner = body.clientOwner.trim() || null;
+  if (body.archived === "0") {
+    if (brand.archivedAt) {
+      try {
+        await assertBrandCap(ctx.db, ctx.workspace.id);
+      } catch (error) {
+        return jsonError(error instanceof Error ? error.message : "Brand cap reached.", 402);
+      }
+    }
+    next.archivedAt = null;
+  }
   if (body.archived === "1") next.archivedAt = now;
-  if (body.archived === "0") next.archivedAt = null;
 
   await ctx.db.update(brands).set(next).where(eq(brands.id, id));
 

@@ -2,6 +2,8 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq } from "drizzle-orm";
 import { getReportObject } from "@/lib/r2";
 import { getAppContext } from "@/lib/session";
+import { pdfRetentionExpired } from "@/lib/entitlements";
+import { getWorkspaceSubscription } from "@/lib/usage";
 import { brands, reports } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +28,11 @@ export async function GET(request: Request, context: RouteContext) {
 
   if (!row) {
     return new Response("Report not found.", { status: 404 });
+  }
+
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+  if (pdfRetentionExpired(sub)) {
+    return new Response("This PDF is past the 90-day retention window.", { status: 410 });
   }
 
   const key = format === "html" ? row.report.htmlKey : row.report.r2Key;
