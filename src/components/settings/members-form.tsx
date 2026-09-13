@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { NativeSelect } from "@/components/ui/native-select";
 import { SEAT_OVERAGE_USD } from "@/lib/billing";
 
 export type MemberRow = {
@@ -50,6 +51,7 @@ export function MembersForm({
 }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"member" | "admin">("member");
   const [message, setMessage] = useState<string | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export function MembersForm({
       const response = await fetch("/api/settings/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, role: "member" }),
+        body: JSON.stringify({ email, role }),
       });
       const data = (await response.json()) as {
         error?: string;
@@ -285,8 +287,20 @@ export function MembersForm({
               disabled={!allowsMembers || atCap}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="invite-role">Role</Label>
+            <NativeSelect
+              id="invite-role"
+              value={role}
+              onChange={(event) => setRole(event.target.value === "admin" ? "admin" : "member")}
+              disabled={!allowsMembers || atCap}
+            >
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </NativeSelect>
+          </div>
           <p className="text-sm text-cb-muted">
-            Invites join as member. Owners invite, remove, and revoke pending invites. Seat cap counts members and pending invites.
+            Owners invite as member or admin. Seat cap counts members and pending invites.
           </p>
           <Button type="submit" disabled={busy !== null || !allowsMembers || atCap}>
             {busy === "invite" ? "Inviting…" : "Send invite"}

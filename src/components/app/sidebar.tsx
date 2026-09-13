@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Settings, Tag } from "lucide-react";
+import { AlertTriangle, Home, ListChecks, Settings, Tag, TrendingUp } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/app", label: "Home", icon: Home, match: (path: string) => path === "/app" },
   { href: "/app/brands", label: "Brands", icon: Tag, match: (path: string) => path.startsWith("/app/brands") },
+  { href: "/app/reports", label: "Reports", icon: ListChecks, match: (path: string) => path === "/app/reports" },
+  {
+    href: "/app/opportunities",
+    label: "Opportunities",
+    icon: TrendingUp,
+    match: (path: string) => path.startsWith("/app/opportunities"),
+  },
+  { href: "/app/risks", label: "Risks", icon: AlertTriangle, match: (path: string) => path.startsWith("/app/risks") },
   {
     href: "/app/settings",
     label: "Settings",

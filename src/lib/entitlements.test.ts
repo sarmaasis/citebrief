@@ -13,6 +13,7 @@ import {
   SEAT_OVERAGE_USD,
 } from "./billing";
 import {
+  commandCenterDenial,
   isPaidActive,
   isTrialing,
   pdfRetentionExpired,
@@ -53,6 +54,9 @@ assert.equal(workspaceEntitlements(trial).allowsHistory, false);
 assert.equal(workspaceEntitlements(trial).allowsClientCc, false);
 assert.equal(workspaceEntitlements(trial).allowsSlack, false);
 assert.equal(workspaceEntitlements(trial).allowsEmailSend, false);
+assert.equal(workspaceEntitlements(trial).allowsCommandCenter, false);
+assert.equal(workspaceEntitlements(trial).allowsPortfolioRollups, false);
+assert.equal(workspaceEntitlements(trial).allowsWeeklySendQueue, false);
 assert.equal(workspaceEntitlements(null).allowsHistory, false);
 
 const paidAgency = {
@@ -72,6 +76,9 @@ assert.equal(workspaceEntitlements(paidAgency).allowsHistory, true);
 assert.equal(workspaceEntitlements(paidAgency).allowsClientCc, true);
 assert.equal(workspaceEntitlements(paidAgency).allowsSlack, true);
 assert.equal(workspaceEntitlements(paidAgency).allowsEmailSend, true);
+assert.equal(workspaceEntitlements(paidAgency).allowsCommandCenter, true);
+assert.equal(workspaceEntitlements(paidAgency).allowsWeeklySendQueue, true);
+assert.equal(workspaceEntitlements(paidAgency).allowsPortfolioExport, false);
 
 const paidStarter = {
   plan: "starter",
@@ -85,6 +92,9 @@ assert.equal(workspaceEntitlements(paidStarter).allowsMembers, false);
 assert.equal(workspaceEntitlements(paidStarter).allowsWeeklyCadence, false);
 assert.equal(workspaceEntitlements(paidStarter).allowsExtraBrands, false);
 assert.equal(workspaceEntitlements(paidStarter).allowsEmailSend, false);
+assert.equal(workspaceEntitlements(paidStarter).allowsCommandCenter, false);
+assert.equal(workspaceEntitlements(paidStarter).allowsWeeklySendQueue, false);
+assert.equal(workspaceEntitlements(paidStarter).allowsOpportunityRollups, false);
 assert.equal(
   workspaceEntitlements({
     plan: "studio",
@@ -316,6 +326,8 @@ assert.equal(paidEnterprise.allowsBulkSend, true);
 assert.equal(paidEnterprise.allowsStudioEngines, true);
 assert.equal(paidEnterprise.allowsCustomSender, true);
 assert.equal(paidEnterprise.allowsApproval, true);
+assert.equal(paidEnterprise.allowsCommandCenter, true);
+assert.equal(paidEnterprise.allowsPortfolioExport, true);
 
 const agencyWithPack = workspaceEntitlements({
   ...paidAgency,
@@ -342,6 +354,9 @@ assert.equal(
   }),
   null,
 );
+
+assert.equal(commandCenterDenial(workspaceEntitlements(paidStarter))?.status, 403);
+assert.equal(commandCenterDenial(workspaceEntitlements(paidAgency)), null);
 
 const draft = suggestedClientEmail({
   brand: "Northstar",

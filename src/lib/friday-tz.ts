@@ -57,3 +57,45 @@ export function isValidIanaTimeZone(timezone: string): boolean {
     return false;
   }
 }
+
+/** Most recent Friday 06:00–06:59 in `timezone`, walking back hour-by-hour. */
+export function lastLocalFridaySix(timezone: string, now = new Date()): Date | null {
+  const zone = timezone || "America/New_York";
+  const cursor = new Date(now.getTime());
+  for (let i = 0; i < 8 * 24; i += 1) {
+    const local = localWeekdayAndHour(zone, cursor);
+    if (local?.weekday === "Fri" && local.hour === 6) return cursor;
+    cursor.setTime(cursor.getTime() - 60 * 60 * 1000);
+  }
+  return null;
+}
+
+/** Most recent first-Friday 06:00–06:59 (day of month ≤ 7) in `timezone`. */
+export function lastLocalFirstFridaySix(timezone: string, now = new Date()): Date | null {
+  const zone = timezone || "America/New_York";
+  const cursor = new Date(now.getTime());
+  for (let i = 0; i < 40 * 24; i += 1) {
+    const local = localWeekdayAndHour(zone, cursor);
+    const day = localDayOfMonth(zone, cursor);
+    if (local?.weekday === "Fri" && local.hour === 6 && day != null && day <= 7) return cursor;
+    cursor.setTime(cursor.getTime() - 60 * 60 * 1000);
+  }
+  return null;
+}
+
+/** Unsent report created before the last scheduled send window. */
+export function isSendOverdue(args: {
+  sentAt?: Date | string | null;
+  reportCreatedAt?: Date | string | null;
+  timezone: string;
+  weekly: boolean;
+  now?: Date;
+}): boolean {
+  if (args.sentAt || !args.reportCreatedAt) return false;
+  const created = new Date(args.reportCreatedAt);
+  if (Number.isNaN(created.getTime())) return false;
+  const last = args.weekly
+    ? lastLocalFridaySix(args.timezone, args.now)
+    : lastLocalFirstFridaySix(args.timezone, args.now);
+  return last != null && created.getTime() < last.getTime();
+}

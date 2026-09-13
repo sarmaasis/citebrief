@@ -9,7 +9,7 @@ import { clientRisk } from "@/lib/command-center";
 import { upgradeHintForBrandCap, workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
-import { listHomeRows, listWorkspaceBrands } from "@/server/workspace-data";
+import { listHomeRows, listWorkspaceBrands, withSendOverdue } from "@/server/workspace-data";
 
 export default async function BrandsPage({
   searchParams,
@@ -23,13 +23,17 @@ export default async function BrandsPage({
 
   const { archived } = await searchParams;
   const includeArchived = archived === "1";
-  const [rows, homeRows] = await Promise.all([
+  const [rows, rawHomeRows] = await Promise.all([
     listWorkspaceBrands(ctx, includeArchived),
     listHomeRows(ctx),
   ]);
-  const riskByBrand = new Map(homeRows.map((row) => [row.brand.id, clientRisk(row)]));
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
+  const homeRows = withSendOverdue(rawHomeRows, {
+    timezone: ctx.workspace.timezone || "America/New_York",
+    weekly: ent.allowsWeeklyCadence,
+  });
+  const riskByBrand = new Map(homeRows.map((row) => [row.brand.id, clientRisk(row)]));
   const brandLimit = ent.brandLimit;
   const activeCount = includeArchived ? rows.filter((brand) => !brand.archivedAt).length : rows.length;
   const atCap = activeCount >= brandLimit;

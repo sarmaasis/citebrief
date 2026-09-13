@@ -1,12 +1,10 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq } from "drizzle-orm";
-import { brands, reports, workspaces } from "@/db/schema";
-import { sendTransactionalEmail } from "@/lib/email";
-import { reportSendDenial, workspaceEntitlements } from "@/lib/entitlements";
+import { brands, reports } from "@/db/schema";
+import { workspaceEntitlements } from "@/lib/entitlements";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { writeAuditLog } from "@/lib/audit";
+import { deliverApprovedReport } from "@/lib/report-send";
 import { getAppContext } from "@/lib/session";
-import { postSlackIncomingWebhook } from "@/lib/slack";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { jsonError, jsonOk } from "@/server/json";
 
@@ -35,70 +33,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.reportSend, ctx.workspace.id);
   if (limited) return limited;
   const to = body.to?.trim() || ctx.user.email;
-  const share = row.report.shareToken ? `${env.BETTER_AUTH_URL || ""}/r/${row.report.shareToken}` : "";
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
-  const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
 
-  const denial = reportSendDenial({
-    ccClient: body.ccClient,
-    allowsEmailSend: ent.allowsEmailSend,
-    allowsClientCc: ent.allowsClientCc,
-    requiresApproval: ent.allowsApproval,
-    approved: row.report.approvalState === "approved",
-  });
-  if (denial) {
-    return jsonError(denial.error, denial.status);
-  }
-
-  const subject = row.report.suggestedEmailSubject?.trim() || `${row.brandName}: Friday report`;
-  const bodyHtml = row.report.suggestedEmailBody?.trim()
-    ? `<p>${row.report.suggestedEmailBody.replace(/\n/g, "</p><p>")}</p>`
-    : `<p>Your report for <strong>${row.brandName}</strong> is ready.</p><p>${row.report.summary || ""}</p>`;
-
-  await sendTransactionalEmail({
-    to,
-    subject,
-    html: `${bodyHtml}${share ? `<p><a href="${share}">Open client link</a></p>` : ""}`,
+  const result = await deliverApprovedReport({
+    db: ctx.db,
     env,
-    senderName: workspace?.senderName,
-    senderDomain: workspace?.senderDomain,
-    customSender: ent.allowsCustomSender,
-  });
-
-  if (body.ccClient?.trim()) {
-    await sendTransactionalEmail({
-      to: body.ccClient.trim(),
-      subject: `${row.brandName}: this week's visibility report`,
-      html: `<p>Prepared for you by ${ctx.workspace.name}.</p><p>${row.report.summary || ""}</p>${
-        share ? `<p><a href="${share}">Read the report</a></p>` : ""
-      }`,
-      env,
-      senderName: workspace?.senderName,
-      senderDomain: workspace?.senderDomain,
-      customSender: ent.allowsCustomSender,
-    });
-  }
-
-  await ctx.db.update(reports).set({ sentAt: new Date() }).where(eq(reports.id, id));
-
-  await writeAuditLog(ctx.db, {
-    action: "report.send",
     workspaceId: ctx.workspace.id,
+    workspaceName: ctx.workspace.name,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email,
-    targetType: "report",
-    targetId: id,
     request,
-    metadata: { to, ccClient: body.ccClient?.trim() || null, brandId: row.report.brandId },
+    row,
+    ent,
+    to,
+    ccClient: body.ccClient,
   });
-
-  if (ent.allowsSlack && workspace?.slackWebhookUrl) {
-    await postSlackIncomingWebhook({
-      webhookUrl: workspace.slackWebhookUrl,
-      text: `CiteBrief Friday send: ${row.brandName} emailed to ${to}${body.ccClient ? ` (CC ${body.ccClient})` : ""}.`,
-    });
-  }
-
-  return jsonOk({ ok: true, to, ccClient: body.ccClient?.trim() || null });
+  if (!result.ok) return jsonError(result.error, result.status);
+  return jsonOk({ ok: true, to: result.to, ccClient: result.ccClient });
 }

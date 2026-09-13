@@ -56,21 +56,32 @@
   "browser": {
     "binding": "BROWSER"
   },
+  // Cloudflare Email Service outbound binding. Onboard getcitebrief.com in the Email dashboard.
+  // Do not set destination_address — invites, auth, and Friday sends go to arbitrary inboxes.
+  // Local `next dev` has no binding and stubs. Wrangler/Workers runtime uses EMAIL.send().
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
   "vars": {
     "BETTER_AUTH_URL": "https://getcitebrief.com",
-    "DODO_PAYMENTS_ENVIRONMENT": "test_mode"
+    "DODO_PAYMENTS_ENVIRONMENT": "test_mode",
+    "CF_EMAIL_FROM": "CiteBrief <auth@getcitebrief.com>"
   },
   "env": {
     "preview": {
       "vars": {
         "BETTER_AUTH_URL": "https://citebrief.sarmaasis.workers.dev",
-        "DODO_PAYMENTS_ENVIRONMENT": "test_mode"
+        "DODO_PAYMENTS_ENVIRONMENT": "test_mode",
+        "CF_EMAIL_FROM": "CiteBrief <auth@getcitebrief.com>"
       }
     },
     "dev": {
       "vars": {
         "BETTER_AUTH_URL": "http://localhost:3000",
-        "DODO_PAYMENTS_ENVIRONMENT": "test_mode"
+        "DODO_PAYMENTS_ENVIRONMENT": "test_mode",
+        "CF_EMAIL_FROM": "CiteBrief <auth@getcitebrief.com>"
       }
     }
   },

@@ -23,6 +23,7 @@ import {
 import { extractFromAnswer } from "@/lib/extractor";
 import { putReportObject, reportObjectKeys } from "@/lib/r2";
 import { writeReport, type PromptAgg } from "@/lib/report-writer";
+import { reportReadyEmail } from "@/emails";
 import { sendTransactionalEmail } from "@/lib/email";
 import { resolveRunEngines } from "@/lib/plan-engines";
 import { postSlackIncomingWebhook } from "@/lib/slack";
@@ -355,19 +356,28 @@ export async function processRun(
     await settleBillableExtraRun({ db, env, workspaceId: bundle.workspace.id, runId });
   }
 
-  const sub = await getWorkspaceSubscription(db, bundle.workspace.id);
   const ent = workspaceEntitlements(sub);
 
   if (options?.notifyEmail && ent.allowsEmailSend) {
     try {
+      const origin = (env.BETTER_AUTH_URL || "").replace(/\/$/, "");
+      const id = existing?.id ?? reportId;
+      const mail = reportReadyEmail({
+        brandName: bundle.brand.name,
+        summary: written.summary,
+        named: written.scoreMentioned,
+        total: written.scoreTotal,
+        url: origin ? `${origin}/app/brands/${bundle.brand.id}/reports/${id}` : undefined,
+      });
       await sendTransactionalEmail({
         to: options.notifyEmail,
-        subject: `${bundle.brand.name}: Friday report ready`,
-        html: `<p>Your CiteBrief report for <strong>${bundle.brand.name}</strong> is ready.</p><p>${written.summary}</p>`,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
         env,
       });
     } catch (error) {
-      console.info("[run-processor] email stub/error", error);
+      console.error("[run-processor] email failed", error);
     }
   }
 

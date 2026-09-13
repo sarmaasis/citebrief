@@ -22,6 +22,8 @@ export const workspaces = sqliteTable("workspaces", {
   senderDomain: text("sender_domain"),
   defaultEngines: text("default_engines"),
   slackWebhookUrl: text("slack_webhook_url"),
+  /** PRODUCT §18.2.1: owner-adjustable minutes saved per generated report (45–90). */
+  minutesSavedPerReport: integer("minutes_saved_per_report").notNull().default(60),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -292,6 +294,31 @@ export const auditLogs = sqliteTable(
     index("audit_logs_workspace_idx").on(table.workspaceId),
     index("audit_logs_action_idx").on(table.action),
     index("audit_logs_created_idx").on(table.createdAt),
+  ],
+);
+
+export const opportunityPlans = sqliteTable(
+  "opportunity_plans",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    brandId: text("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    reportId: text("report_id").references(() => reports.id, { onDelete: "set null" }),
+    opportunityKey: text("opportunity_key").notNull(),
+    plannedAt: integer("planned_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("opportunity_plans_workspace_brand_key_idx").on(
+      table.workspaceId,
+      table.brandId,
+      table.opportunityKey,
+    ),
+    index("opportunity_plans_workspace_idx").on(table.workspaceId),
   ],
 );
 

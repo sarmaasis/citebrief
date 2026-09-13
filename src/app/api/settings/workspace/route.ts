@@ -3,6 +3,7 @@ import { workspaces } from "@/db/schema";
 import { isValidSenderDomain } from "@/lib/email";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { writeAuditLog } from "@/lib/audit";
+import { clampMinutesSaved } from "@/lib/command-center";
 import { isValidIanaTimeZone } from "@/lib/friday-tz";
 import { validateDefaultEngines } from "@/lib/plan-engines";
 import { requireSettingsAccess } from "@/lib/permissions";
@@ -32,6 +33,7 @@ export async function GET() {
       senderDomain: workspace.senderDomain,
       defaultEngines: workspace.defaultEngines,
       slackWebhookUrl: workspace.slackWebhookUrl,
+      minutesSavedPerReport: clampMinutesSaved(workspace.minutesSavedPerReport),
     },
     entitlements: {
       allowsSlack: ent.allowsSlack,
@@ -55,6 +57,7 @@ export async function PUT(request: Request) {
     senderDomain?: string;
     defaultEngines?: string;
     slackWebhookUrl?: string | null;
+    minutesSavedPerReport?: number;
   };
   const name = body.name?.trim();
   if (!name) return jsonError("Workspace name is required.");
@@ -101,6 +104,7 @@ export async function PUT(request: Request) {
       senderDomain: ent.allowsCustomSender ? senderDomain : null,
       defaultEngines: engines.normalized,
       slackWebhookUrl,
+      minutesSavedPerReport: clampMinutesSaved(body.minutesSavedPerReport),
       updatedAt: new Date(),
     })
     .where(eq(workspaces.id, ctx.workspace.id));

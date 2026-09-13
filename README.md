@@ -49,7 +49,7 @@ npm install
 cp .dev.vars.example .dev.vars
 ```
 
-Edit `.dev.vars` and set at least `BETTER_AUTH_SECRET` (32+ random characters). Outside development, also set `INTERNAL_PROCESS_SECRET` and `CRON_SECRET` (Bearer auth for `/api/internal/process-run` and `/api/cron/friday`). Stub values are fine for Google, Resend, Dodo, and engines until Cloudflare AI Gateway is configured.
+Edit `.dev.vars` and set at least `BETTER_AUTH_SECRET` (32+ random characters). Outside development, also set `INTERNAL_PROCESS_SECRET` and `CRON_SECRET` (Bearer auth for `/api/internal/process-run` and `/api/cron/friday`). Stub values are fine for Google, Dodo, and engines until Cloudflare AI Gateway is configured. Local email stubs when the `EMAIL` binding is unbound.
 
 ### Next.js dev (Node)
 
@@ -140,8 +140,6 @@ npx wrangler secret put BETTER_AUTH_SECRET
 npx wrangler secret put BETTER_AUTH_URL
 npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
-npx wrangler secret put RESEND_API_KEY
-npx wrangler secret put RESEND_FROM
 npx wrangler secret put DODO_PAYMENTS_API_KEY
 npx wrangler secret put DODO_PAYMENTS_WEBHOOK_KEY
 npx wrangler secret put DODO_PAYMENTS_ENVIRONMENT
@@ -177,8 +175,8 @@ npm run deploy
 | `BETTER_AUTH_URL` | Single canonical auth/app origin | `http://localhost:3000` locally |
 | `GOOGLE_CLIENT_ID` | Google OAuth | Stub until you add a Google client |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth | Stub until you add a Google client |
-| `RESEND_API_KEY` | Magic-link + report email | `stub` logs and skips send |
-| `RESEND_FROM` | From address | Defaults to `CiteBrief <auth@getcitebrief.com>` |
+| `EMAIL` binding | Cloudflare Email Service outbound | `wrangler.jsonc` `send_email`. Production fails closed if missing. |
+| `CF_EMAIL_FROM` | Default From | Worker var, not a secret. Default `CiteBrief <auth@getcitebrief.com>` |
 | `DODO_PAYMENTS_API_KEY` | Checkout | Stub uses local success URL |
 | `DODO_PAYMENTS_WEBHOOK_KEY` | Webhook verify | Stub accepts payloads |
 | `DODO_PAYMENTS_ENVIRONMENT` | `test_mode` or `live_mode` | `test_mode` |
@@ -204,6 +202,7 @@ Auth is created inside the request from `env.DB`. Do not cache a global D1 bindi
 | `R2` | R2 | Report PDFs (`reports/{workspace}/{brand}/{yyyy-mm-dd}.pdf`) |
 | `RUNS_QUEUE` | Queue producer + consumer | Engine runs (`citebrief-runs`; consumer in `worker.ts`) |
 | `BROWSER` | Browser Rendering | Optional AI Overviews path |
+| `EMAIL` | Email Service (`send_email`) | Transactional mail: auth, invites, Friday send, dunning |
 
 ## Scripts
 

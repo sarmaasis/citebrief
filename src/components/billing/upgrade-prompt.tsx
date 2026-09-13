@@ -40,9 +40,14 @@ export function UpgradePrompt({
 }
 
 export const UPGRADE_COPY = {
+  thirdBrand: {
+    title: "Need a third client brand?",
+    body: `Starter includes ${PLANS.starter.brands} brands. Agency includes ${PLANS.agency.brands} client brands and weekly Friday reports so every retainer gets a finished artifact.`,
+    cta: "Upgrade to Agency",
+  },
   fourthBrand: {
-    title: "Need more brands?",
-    body: `Agency includes ${PLANS.agency.brands} client brands and weekly Friday reports so every retainer gets a finished artifact.`,
+    title: "Need a third client brand?",
+    body: `Starter includes ${PLANS.starter.brands} brands. Agency includes ${PLANS.agency.brands} client brands and weekly Friday reports so every retainer gets a finished artifact.`,
     cta: "Upgrade to Agency",
   },
   weeklyStarter: {

@@ -87,9 +87,9 @@ export function AuthForm({
         setStatus(result.error.message ?? "Could not send the magic link.");
         return;
       }
-      setStatus("If Resend is configured, check email. Otherwise the Worker log has the stub.");
+      setStatus("If Cloudflare Email is configured, check your inbox. Otherwise the Worker log has the stub.");
     } catch {
-      setStatus("Magic link stub needs /api/auth and Resend or a local log.");
+      setStatus("Magic link stub needs /api/auth and a local log when EMAIL is unbound.");
     } finally {
       setPending(false);
     }

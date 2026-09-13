@@ -6,6 +6,7 @@ import {
   PLANS,
   planAllowsClientCc,
   planAllowsBulkSend,
+  planAllowsCommandCenter,
   planAllowsCustomSender,
   planAllowsEmailSend,
   planAllowsStudioEngines,
@@ -49,6 +50,9 @@ assert.equal(planAllowsStudioEngines("agency"), false);
 assert.equal(planAllowsStudioEngines("enterprise"), true);
 assert.equal(planAllowsBulkSend("agency"), false);
 assert.equal(planAllowsBulkSend("studio"), true);
+assert.equal(planAllowsCommandCenter("starter"), false);
+assert.equal(planAllowsCommandCenter("agency"), true);
+assert.equal(planAllowsCommandCenter("studio"), true);
 
 // Stub gateway detection
 assert.equal(isAiGatewayConfigured(undefined), false);

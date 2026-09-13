@@ -45,8 +45,8 @@ export default function SampleReportPage() {
         <div className="mt-10 flex flex-col items-start justify-between gap-4 border-t border-cb-line pt-10 sm:flex-row sm:items-center">
           <p className="max-w-xl text-sm text-cb-muted">
             {TRIAL_DAYS}-day trial. {TRIAL_BRAND_CAP} brand. {TRIAL_RUN_CAP} full report. Then Agency
-            at ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands and weekly Friday
-            sending.
+            at ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands, weekly Friday sending,
+            and the command-center dashboard.
           </p>
           <div className="flex flex-wrap gap-3">
             <MarketingPrimaryCta signedOutLabel="Send a Friday report" />

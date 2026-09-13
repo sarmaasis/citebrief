@@ -43,13 +43,13 @@ function signupCopy(
   if (plan === "starter") {
     return {
       title: "Start the first report",
-      body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Starter is $${listed.amountUsd}/mo after that for monthly reports on ${listed.brands} brands.`,
+      body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Starter is $${listed.amountUsd}/mo after that for monthly reports on ${listed.brands} brands. No weekly send, client email, or portfolio dashboard.`,
     };
   }
   if (plan === "studio") {
     return {
       title: "Start the first report",
-      body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Studio is $${listed.amountUsd}/mo for ${listed.brands} brands, a custom sender, and weekly Friday reports.`,
+      body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Studio is $${listed.amountUsd}/mo for ${listed.brands} brands, a custom sender, bulk send, and weekly Friday reports.`,
     };
   }
   if (plan === "enterprise") {
@@ -60,7 +60,7 @@ function signupCopy(
   }
   return {
     title: "Start the first report",
-    body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. No weekly send until paid. Agency is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, and ${PLANS.agency.seats} seats.`,
+    body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. No weekly send until paid. Agency is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, ${PLANS.agency.seats} seats, and the command-center dashboard.`,
   };
 }
 

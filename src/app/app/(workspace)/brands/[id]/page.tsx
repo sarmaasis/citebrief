@@ -12,6 +12,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { clientRisk, opportunityFromRow } from "@/lib/command-center";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { formatShortDate, nextFriday } from "@/lib/friday";
+import { isSendOverdue } from "@/lib/friday-tz";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { getBrandBundle, getBrandInsights } from "@/server/workspace-data";
@@ -28,7 +29,7 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
   }
 
   const { brand, competitors, latestRun, latestReport, prompts } = bundle;
-  const insights = await getBrandInsights(ctx, id);
+  const insights = await getBrandInsights(ctx, id, brand.name);
   const friday = formatShortDate(nextFriday());
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
@@ -38,18 +39,26 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
   const total = latestReport?.scoreTotal ?? 20;
   const recommended = latestReport?.scoreRecommended ?? insights.recommendedCount;
   const runStatus = latestRun?.status;
-  const risk = clientRisk({
+  const commandRow = {
     promptCount: prompts.length,
     mentionedDelta: insights.mentionedDelta,
+    competitorLeadShare: insights.competitorLeadShare,
+    competitorLeadCount: insights.competitorLeadCount,
+    competitorLeader: insights.competitorLeader,
+    missingSources: insights.missingSources,
+    sendOverdue: isSendOverdue({
+      sentAt: latestReport?.sentAt,
+      reportCreatedAt: latestReport?.createdAt,
+      timezone: ctx.workspace.timezone || "America/New_York",
+      weekly: allowsWeekly,
+    }),
     latestRun,
     latestReport,
-  });
+  };
+  const risk = clientRisk(commandRow);
   const opportunity = opportunityFromRow({
+    ...commandRow,
     brand: { id: brand.id, name: brand.name },
-    promptCount: prompts.length,
-    mentionedDelta: insights.mentionedDelta,
-    latestRun,
-    latestReport,
   });
 
   return (

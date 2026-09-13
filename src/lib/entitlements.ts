@@ -5,10 +5,12 @@ import {
   planAllowsApproval,
   planAllowsBulkSend,
   planAllowsClientCc,
+  planAllowsCommandCenter,
   planAllowsCustomSender,
   planAllowsEmailSend,
   planAllowsHistory,
   planAllowsMembers,
+  planAllowsPortfolioExport,
   planAllowsSlack,
   planAllowsStudioEngines,
   planAllowsWeeklyCadence,
@@ -127,6 +129,11 @@ export type WorkspaceEntitlements = {
   allowsStudioEngines: boolean;
   allowsBulkSend: boolean;
   allowsApproval: boolean;
+  allowsCommandCenter: boolean;
+  allowsPortfolioRollups: boolean;
+  allowsWeeklySendQueue: boolean;
+  allowsOpportunityRollups: boolean;
+  allowsPortfolioExport: boolean;
   allowsPremiumEnginePack: boolean;
   allowsExtraBrands: boolean;
   allowsExtraSeats: boolean;
@@ -171,6 +178,11 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
       allowsStudioEngines: false,
       allowsBulkSend: false,
       allowsApproval: false,
+      allowsCommandCenter: false,
+      allowsPortfolioRollups: false,
+      allowsWeeklySendQueue: false,
+      allowsOpportunityRollups: false,
+      allowsPortfolioExport: false,
       allowsPremiumEnginePack: false,
       allowsExtraBrands: false,
       allowsExtraSeats: false,
@@ -204,6 +216,11 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
     allowsStudioEngines: planAllowsStudioEngines(plan) || premiumEnginePack,
     allowsBulkSend: planAllowsBulkSend(plan),
     allowsApproval: planAllowsApproval(plan),
+    allowsCommandCenter: planAllowsCommandCenter(plan),
+    allowsPortfolioRollups: planAllowsCommandCenter(plan),
+    allowsWeeklySendQueue: planAllowsWeeklyCadence(plan),
+    allowsOpportunityRollups: planAllowsCommandCenter(plan),
+    allowsPortfolioExport: planAllowsPortfolioExport(plan),
     allowsPremiumEnginePack: isAgencyPlus(plan),
     allowsExtraBrands: isAgencyPlus(plan),
     allowsExtraSeats: planAllowsMembers(plan),
@@ -228,6 +245,13 @@ export function upgradeHintForBrandCap(ent: WorkspaceEntitlements): string {
     return `Studio includes ${PLANS.studio.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.studio}/mo) or talk to us about Enterprise.`;
   }
   return `Enterprise brand limits are contractual. Buy an extra brand ($${EXTRA_BRAND_USD.enterprise}/mo) or ask support to raise the floor.`;
+}
+
+export function commandCenterDenial(ent: WorkspaceEntitlements): { status: 403; error: string } | null {
+  if (!ent.allowsCommandCenter) {
+    return { status: 403, error: "Command Center requires Agency, Studio, or Enterprise." };
+  }
+  return null;
 }
 
 export function upgradeHintForSeatCap(ent: WorkspaceEntitlements): string {

@@ -30,6 +30,7 @@ export default async function WorkspaceSettingsPage() {
           slackAllowed={ent.allowsSlack}
           customSenderAllowed={ent.allowsCustomSender}
           studioEnginesAllowed={ent.allowsStudioEngines}
+          showRoiMinutes={ent.allowsCommandCenter}
           initial={{
             name: workspace.name,
             timezone: workspace.timezone,
@@ -37,6 +38,7 @@ export default async function WorkspaceSettingsPage() {
             senderDomain: workspace.senderDomain || "",
             defaultEngines: workspace.defaultEngines || "chatgpt,perplexity,gemini,aio",
             slackWebhookUrl: workspace.slackWebhookUrl || "",
+            minutesSavedPerReport: workspace.minutesSavedPerReport ?? 60,
           }}
         />
       </div>

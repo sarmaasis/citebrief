@@ -9,12 +9,22 @@ interface CloudflareEnv {
   WORKER_SELF_REFERENCE: Fetcher;
   /** Optional Cloudflare Browser Rendering binding for AI Overviews. */
   BROWSER?: Fetcher;
+  /** Cloudflare Email Service send binding (`wrangler.jsonc` send_email.name = EMAIL). */
+  EMAIL?: {
+    send(message: {
+      to: string | { email: string; name?: string } | Array<string | { email: string; name?: string }>;
+      from: string | { email: string; name?: string };
+      subject: string;
+      html?: string;
+      text?: string;
+    }): Promise<{ messageId?: string } | void>;
+  };
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
-  RESEND_API_KEY: string;
-  RESEND_FROM?: string;
+  /** Default From for CiteBrief sender. Not a secret. Studio custom sender still uses workspace domain. */
+  CF_EMAIL_FROM?: string;
   DODO_PAYMENTS_API_KEY: string;
   DODO_PAYMENTS_WEBHOOK_KEY: string;
   DODO_PAYMENTS_ENVIRONMENT: "test_mode" | "live_mode" | string;

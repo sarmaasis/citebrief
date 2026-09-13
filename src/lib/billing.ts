@@ -258,3 +258,12 @@ export function planAllowsApproval(plan: PlanId | string | null | undefined) {
 export function planAllowsHistory(plan: PlanId | string | null | undefined) {
   return planAllowsMembers(plan);
 }
+
+/** Agency+ Command Center: portfolio health, risk, opportunities, ROI. */
+export function planAllowsCommandCenter(plan: PlanId | string | null | undefined) {
+  return isAgencyPlus(plan);
+}
+
+export function planAllowsPortfolioExport(plan: PlanId | string | null | undefined) {
+  return planAllowsBulkSend(plan);
+}

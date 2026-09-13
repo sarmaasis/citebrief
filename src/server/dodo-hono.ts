@@ -5,6 +5,7 @@ import type { Database } from "@/db";
 import { subscriptions, webhookEvents, workspaces, workspaceMembers, users } from "@/db/schema";
 import { parseBillingInterval, parsePlanId } from "@/lib/billing";
 import { dodoCurrentPeriodEnd, dodoProductId } from "@/lib/dodo";
+import { dunningEmail } from "@/emails";
 import { sendTransactionalEmail } from "@/lib/email";
 import { bumpExtraBrands, bumpExtraRunCredits, bumpExtraSeats, setPremiumEnginePack } from "@/lib/usage";
 
@@ -200,10 +201,16 @@ export async function applyDodoWebhookPayload(
         const to = await ownerEmail(db, workspaceId);
         const [workspace] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
         if (to) {
+          const origin = (env.BETTER_AUTH_URL || "").replace(/\/$/, "");
+          const mail = dunningEmail({
+            workspaceName: workspace?.name || "your workspace",
+            billingUrl: origin ? `${origin}/app/settings/billing` : undefined,
+          });
           await sendTransactionalEmail({
             to,
-            subject: "CiteBrief billing needs attention",
-            html: `<p>We could not renew CiteBrief for <strong>${workspace?.name || "your workspace"}</strong>.</p><p>Update your payment method in Billing to keep Friday reports running. PDFs stay available for 90 days if the subscription ends.</p>`,
+            subject: mail.subject,
+            html: mail.html,
+            text: mail.text,
             env,
           });
         }

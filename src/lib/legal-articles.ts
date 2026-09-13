@@ -50,7 +50,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
       {
         heading: "Processors",
         paragraphs: [
-          "Cloudflare (hosting, D1, R2, KV, AI Gateway), Dodo Payments (cards), Resend (transactional email), and Google (optional OAuth). Details: subprocessors page.",
+          "Cloudflare (hosting, D1, R2, KV, AI Gateway, Email Service), Dodo Payments (cards), and Google (optional OAuth). Details: subprocessors page.",
         ],
       },
       {
@@ -120,7 +120,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
     path: "/legal/dpa",
     title: "Data Processing Addendum",
     description:
-      "CiteBrief DPA for agency workspace data. Cloudflare hosting, Dodo payments, Resend email, AI Gateway. Standard contractual clauses on request.",
+      "CiteBrief DPA for agency workspace data. Cloudflare hosting and Email Service, Dodo payments, AI Gateway. Standard contractual clauses on request.",
     updated: "14 Sep 2026",
     sections: [
       {
@@ -156,15 +156,14 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
     path: "/legal/subprocessors",
     title: "Subprocessors",
     description:
-      "CiteBrief subprocessors: Cloudflare, Dodo Payments, Resend, and Google OAuth. AI providers are reached through Cloudflare AI Gateway.",
+      "CiteBrief subprocessors: Cloudflare (including Email Service), Dodo Payments, and Google OAuth. AI providers are reached through Cloudflare AI Gateway.",
     updated: "14 Sep 2026",
     sections: [
       {
         heading: "Current list",
         bullets: [
-          "Cloudflare — application hosting, D1, R2, KV, Queue, AI Gateway, Browser Rendering",
+          "Cloudflare — application hosting, D1, R2, KV, Queue, AI Gateway, Browser Rendering, Email Service",
           "Dodo Payments — checkout, subscriptions, customer portal, invoices",
-          "Resend — magic links, verification, report email",
           "Google — optional sign-in (OAuth) when configured",
         ],
         paragraphs: [
@@ -202,7 +201,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
     path: "/legal/security",
     title: "Security",
     description:
-      "CiteBrief security: single-domain Better Auth on getcitebrief.com, D1 storage, Dodo payments, Resend email, Cloudflare AI Gateway, 90-day client links, incident contact.",
+      "CiteBrief security: single-domain Better Auth on getcitebrief.com, D1 storage, Dodo payments, Cloudflare Email, Cloudflare AI Gateway, 90-day client links, incident contact.",
     updated: "14 Sep 2026",
     sections: [
       {
@@ -220,7 +219,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
       {
         heading: "Payments, email, AI",
         paragraphs: [
-          "Cards are handled by Dodo Payments. We do not store card numbers. Transactional email is Resend. Model calls go through Cloudflare AI Gateway rather than raw provider keys in product code. Live engines do not silently stub-succeed.",
+          "Cards are handled by Dodo Payments. We do not store card numbers. Transactional email is Cloudflare Email Service. Model calls go through Cloudflare AI Gateway rather than raw provider keys in product code. Live engines do not silently stub-succeed.",
         ],
       },
       {

@@ -1,6 +1,8 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
-import type { AppContext } from "@/lib/session";
 import { brands, competitors, prompts, reports, runRows, runs } from "@/db/schema";
+import { competitorSignalsFromRows } from "@/lib/command-center";
+import { isSendOverdue } from "@/lib/friday-tz";
+import type { AppContext } from "@/lib/session";
 
 export async function listWorkspaceBrands(ctx: AppContext, includeArchived = false) {
   const rows = await ctx.db
@@ -86,14 +88,71 @@ export async function listHomeRows(ctx: AppContext) {
         previousReport,
         promptCount: promptCountRows.length,
         mentionedDelta,
+        competitorLeadShare: null as number | null,
+        competitorLeadCount: 0,
+        competitorLeader: null as string | null,
+        missingSources: false,
+        sendOverdue: false,
       };
     }),
   );
 
-  return results;
+  const runIds = results.map((row) => row.latestRun?.id).filter((id): id is string => Boolean(id));
+  if (runIds.length === 0) return results;
+
+  const signalRows = await ctx.db
+    .select({
+      runId: runRows.runId,
+      promptId: runRows.promptId,
+      whoWon: runRows.whoWon,
+      citedUrls: runRows.citedUrls,
+      citedBrandUrl: runRows.citedBrandUrl,
+    })
+    .from(runRows)
+    .where(inArray(runRows.runId, runIds));
+
+  const byRun = new Map<string, typeof signalRows>();
+  for (const row of signalRows) {
+    const list = byRun.get(row.runId) ?? [];
+    list.push(row);
+    byRun.set(row.runId, list);
+  }
+
+  return results.map((row) => {
+    const runId = row.latestRun?.id;
+    const signals = runId
+      ? competitorSignalsFromRows(row.brand.name, byRun.get(runId) ?? [])
+      : {
+          competitorLeadShare: null,
+          competitorLeadCount: 0,
+          competitorLeader: null,
+          missingSources: false,
+        };
+    return { ...row, ...signals };
+  });
 }
 
-export async function getBrandInsights(ctx: AppContext, brandId: string) {
+export function withSendOverdue<
+  T extends {
+    latestReport: { sentAt: Date | string | null; createdAt?: Date | string | null } | null;
+  },
+>(
+  rows: T[],
+  args: { timezone: string; weekly: boolean; now?: Date },
+): Array<T & { sendOverdue: boolean }> {
+  return rows.map((row) => ({
+    ...row,
+    sendOverdue: isSendOverdue({
+      sentAt: row.latestReport?.sentAt,
+      reportCreatedAt: row.latestReport?.createdAt,
+      timezone: args.timezone,
+      weekly: args.weekly,
+      now: args.now,
+    }),
+  }));
+}
+
+export async function getBrandInsights(ctx: AppContext, brandId: string, brandName = "") {
   const reportList = await ctx.db
     .select()
     .from(reports)
@@ -110,6 +169,10 @@ export async function getBrandInsights(ctx: AppContext, brandId: string) {
 
   let recommendedCount: number | null = null;
   let missingQuestions: string[] = [];
+  let competitorLeadShare: number | null = null;
+  let competitorLeadCount = 0;
+  let competitorLeader: string | null = null;
+  let missingSources = false;
   const trend = [...reportList].reverse().map((report) => ({
     period: report.createdAt.toISOString().slice(0, 10),
     mentioned: report.scoreMentioned ?? 0,
@@ -122,6 +185,9 @@ export async function getBrandInsights(ctx: AppContext, brandId: string) {
         promptText: prompts.text,
         mentioned: runRows.mentioned,
         recommended: runRows.recommended,
+        whoWon: runRows.whoWon,
+        citedUrls: runRows.citedUrls,
+        citedBrandUrl: runRows.citedBrandUrl,
       })
       .from(runRows)
       .innerJoin(prompts, eq(prompts.id, runRows.promptId))
@@ -146,6 +212,13 @@ export async function getBrandInsights(ctx: AppContext, brandId: string) {
         .slice(0, 3)
         .map((item) => item.text);
     }
+    if (brandName) {
+      const signals = competitorSignalsFromRows(brandName, rows);
+      competitorLeadShare = signals.competitorLeadShare;
+      competitorLeadCount = signals.competitorLeadCount;
+      competitorLeader = signals.competitorLeader;
+      missingSources = signals.missingSources;
+    }
   }
 
   return {
@@ -154,6 +227,10 @@ export async function getBrandInsights(ctx: AppContext, brandId: string) {
     recommendedTotal: latest?.scoreTotal ?? 20,
     missingQuestions,
     trend,
+    competitorLeadShare,
+    competitorLeadCount,
+    competitorLeader,
+    missingSources,
   };
 }
 

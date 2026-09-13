@@ -4,6 +4,7 @@ import { brands, prompts, runs, users, workspaceMembers, workspaces } from "@/db
 import { emptyEngineStatus } from "@/lib/engines";
 import { formatWeekOf } from "@/lib/friday";
 import { isLocalFirstFridaySix, isLocalFridaySix } from "@/lib/friday-tz";
+import { fridayQueuedEmail } from "@/emails";
 import { sendTransactionalEmail } from "@/lib/email";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { postSlackIncomingWebhook } from "@/lib/slack";
@@ -124,10 +125,19 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
       }
 
       if (ent.allowsEmailSend) {
+        const origin = (env.BETTER_AUTH_URL || "").replace(/\/$/, "");
+        const mail = fridayQueuedEmail({
+          brandName: brand.name,
+          workspaceName: workspace.name,
+          timezone: tz,
+          runId,
+          url: origin ? `${origin}/app/brands/${brand.id}` : undefined,
+        });
         await sendTransactionalEmail({
           to: notifyTo,
-          subject: `${brand.name} Friday report queued`,
-          html: `<p>Friday 06:00 (${tz}) enqueued ${brand.name} for ${workspace.name}.</p><p>runId=${runId}</p>`,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
           env,
         });
       }

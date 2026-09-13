@@ -1,5 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { writeAuditLog } from "@/lib/audit";
+import { deletionOwnerEmail, deletionSupportEmail } from "@/emails";
 import { sendTransactionalEmail } from "@/lib/email";
 import { requireOwner } from "@/lib/permissions";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
@@ -33,18 +34,29 @@ export async function POST(request: Request) {
     request,
   });
 
+  const support = deletionSupportEmail({
+    ownerEmail: ctx.user.email,
+    workspaceId: ctx.workspace.id,
+    workspaceName: ctx.workspace.name,
+  });
+  const origin = (env.BETTER_AUTH_URL || "").replace(/\/$/, "");
+  const owner = deletionOwnerEmail({
+    workspaceName: ctx.workspace.name,
+    settingsUrl: origin ? `${origin}/app/settings/workspace` : undefined,
+  });
   await sendTransactionalEmail({
     env,
     to: "support@getcitebrief.com",
-    subject: `Deletion request: ${ctx.workspace.name}`,
-    html: `<p>${ctx.user.email} requested deletion of workspace ${ctx.workspace.id} (${ctx.workspace.name}).</p>`,
+    subject: support.subject,
+    html: support.html,
+    text: support.text,
   });
-
   await sendTransactionalEmail({
     env,
     to: ctx.user.email,
-    subject: "CiteBrief deletion request received",
-    html: `<p>We received your request to delete ${ctx.workspace.name}. Support will confirm once workspace data is removed. Export a copy first from Settings if you still need it.</p>`,
+    subject: owner.subject,
+    html: owner.html,
+    text: owner.text,
   });
 
   return jsonOk({

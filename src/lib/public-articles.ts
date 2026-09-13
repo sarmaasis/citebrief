@@ -12,7 +12,7 @@ export type PublicArticle = {
   related?: { href: string; label: string }[];
 };
 
-const ctaNote = `${TRIAL_DAYS}-day trial is ${TRIAL_BRAND_CAP} brand and ${TRIAL_RUN_CAP} full report. No weekly send until paid. Agency at $${PLANS.agency.amountUsd}/mo is the plan for ${PLANS.agency.brands} brands, weekly Friday sending, client CC, and ${PLANS.agency.seats} seats.`;
+const ctaNote = `${TRIAL_DAYS}-day trial is ${TRIAL_BRAND_CAP} brand and ${TRIAL_RUN_CAP} full report. No weekly send until paid. Agency at $${PLANS.agency.amountUsd}/mo is the plan for ${PLANS.agency.brands} brands, weekly Friday sending, client CC, ${PLANS.agency.seats} seats, and the command-center dashboard.`;
 
 export const PUBLIC_ARTICLES: PublicArticle[] = [
   {

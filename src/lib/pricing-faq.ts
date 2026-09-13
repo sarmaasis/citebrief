@@ -28,7 +28,7 @@ export const PRICING_FAQS = [
   },
   {
     q: "What if I outgrow Starter?",
-    a: `Move to Agency at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, history, Slack, extra brands, and ${PLANS.agency.seats} seats. Studio is $${PLANS.studio.amountUsd}/mo for a custom sender, ${PLANS.studio.brands} brands, ${PLANS.studio.prompts} questions, ${PLANS.studio.seats} seats, and limited Claude/Grok capacity. Enterprise starts at $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract for custom limits, SSO, and SLA. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are $${EXTRA_BRAND_USD.agency}/mo on Agency and $${EXTRA_BRAND_USD.studio}/mo on Studio only.`,
+    a: `Move to Agency at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, history, Slack, extra brands, ${PLANS.agency.seats} seats, and the command-center dashboard (which clients need attention, which reports are ready, what you can sell next). Studio is $${PLANS.studio.amountUsd}/mo for a custom sender, ${PLANS.studio.brands} brands, ${PLANS.studio.prompts} questions, ${PLANS.studio.seats} seats, bulk send, and limited Claude/Grok capacity. Enterprise starts at $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract for custom limits, SSO, and SLA. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are $${EXTRA_BRAND_USD.agency}/mo on Agency and $${EXTRA_BRAND_USD.studio}/mo on Studio only.`,
   },
   {
     q: "Can I pay annually?",

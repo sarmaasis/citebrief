@@ -3,7 +3,8 @@ import { betterAuth } from "better-auth";
 import { withCloudflare } from "better-auth-cloudflare";
 import { magicLink } from "better-auth/plugins";
 import { getDb } from "@/db";
-import { sendTransactionalEmail } from "@/lib/email";
+import { magicLinkEmail, verifyEmail } from "@/emails";
+import { isEmailBindingReady, sendTransactionalEmail } from "@/lib/email";
 import { isForbiddenProductionSecret, isProductionRuntime } from "@/lib/runtime-env";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
 
@@ -67,16 +68,18 @@ async function createAuth() {
         },
         emailAndPassword: {
           enabled: true,
-          requireEmailVerification: !isStubValue(env.RESEND_API_KEY),
+          requireEmailVerification: isProductionRuntime(env) || isEmailBindingReady(env),
         },
         emailVerification: {
           sendOnSignUp: true,
           sendVerificationEmail: async ({ user, url }) => {
+            const mail = verifyEmail({ url });
             await sendTransactionalEmail({
               env,
               to: user.email,
-              subject: "Verify your CiteBrief email",
-              html: `<p>Confirm this email to open your CiteBrief workspace.</p><p><a href="${url}">Verify email</a></p>`,
+              subject: mail.subject,
+              html: mail.html,
+              text: mail.text,
             });
           },
         },
@@ -86,11 +89,13 @@ async function createAuth() {
         plugins: [
           magicLink({
             sendMagicLink: async ({ email, url }) => {
+              const mail = magicLinkEmail({ url });
               await sendTransactionalEmail({
                 env,
                 to: email,
-                subject: "Sign in to CiteBrief",
-                html: `<p>Use this link to sign in to CiteBrief.</p><p><a href="${url}">Open magic link</a></p>`,
+                subject: mail.subject,
+                html: mail.html,
+                text: mail.text,
               });
             },
           }),

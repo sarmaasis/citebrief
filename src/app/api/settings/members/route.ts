@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { users, workspaceInvites, workspaceMembers } from "@/db/schema";
+import { inviteEmail } from "@/emails";
 import { sendTransactionalEmail } from "@/lib/email";
 import { upgradeHintForSeatCap, workspaceEntitlements } from "@/lib/entitlements";
 import { writeAuditLog } from "@/lib/audit";
@@ -122,10 +123,12 @@ export async function POST(request: Request) {
   });
 
   const link = `${(env.BETTER_AUTH_URL || "").replace(/\/$/, "")}/invite/${token}`;
+  const mail = inviteEmail({ workspaceName: ctx.workspace.name, role, acceptUrl: link });
   await sendTransactionalEmail({
     to: email,
-    subject: `Join ${ctx.workspace.name} on CiteBrief`,
-    html: `<p>You were invited to <strong>${ctx.workspace.name}</strong> as ${role}.</p><p><a href="${link}">Accept invite</a></p>`,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
     env,
   });
 

@@ -28,6 +28,7 @@ export function WorkspaceForm({
   slackAllowed,
   customSenderAllowed,
   studioEnginesAllowed,
+  showRoiMinutes,
 }: {
   initial: {
     name: string;
@@ -36,10 +37,12 @@ export function WorkspaceForm({
     senderDomain: string;
     defaultEngines: string;
     slackWebhookUrl: string;
+    minutesSavedPerReport: number;
   };
   slackAllowed: boolean;
   customSenderAllowed: boolean;
   studioEnginesAllowed: boolean;
+  showRoiMinutes?: boolean;
 }) {
   const [name, setName] = useState(initial.name);
   const [timezone, setTimezone] = useState(initial.timezone);
@@ -47,6 +50,7 @@ export function WorkspaceForm({
   const [senderDomain, setSenderDomain] = useState(initial.senderDomain);
   const [defaultEngines, setDefaultEngines] = useState(initial.defaultEngines);
   const [slackWebhookUrl, setSlackWebhookUrl] = useState(initial.slackWebhookUrl);
+  const [minutesSavedPerReport, setMinutesSavedPerReport] = useState(String(initial.minutesSavedPerReport));
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showSenderUpgrade, setShowSenderUpgrade] = useState(false);
@@ -60,7 +64,15 @@ export function WorkspaceForm({
       const response = await fetch("/api/settings/workspace", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, timezone, senderName, senderDomain, defaultEngines, slackWebhookUrl }),
+        body: JSON.stringify({
+          name,
+          timezone,
+          senderName,
+          senderDomain,
+          defaultEngines,
+          slackWebhookUrl,
+          minutesSavedPerReport: Number(minutesSavedPerReport),
+        }),
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -146,6 +158,22 @@ export function WorkspaceForm({
           onChange={setDefaultEngines}
           studioAllowed={studioEnginesAllowed}
         />
+        {showRoiMinutes ? (
+          <div className="space-y-2">
+            <Label htmlFor="minutesSavedPerReport">Minutes saved per report</Label>
+            <Input
+              id="minutesSavedPerReport"
+              type="number"
+              min={45}
+              max={90}
+              value={minutesSavedPerReport}
+              onChange={(e) => setMinutesSavedPerReport(e.target.value)}
+            />
+            <p className="text-xs text-cb-muted">
+              Command Center hours-saved uses 45–90 minutes per generated report. Default is 60.
+            </p>
+          </div>
+        ) : null}
         <div className="space-y-2">
           <Label htmlFor="slackWebhookUrl">Slack incoming webhook (Agency+)</Label>
           <Input

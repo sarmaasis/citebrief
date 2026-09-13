@@ -87,7 +87,7 @@ Production hardening:
 - Production must never accept `dev-admin`.
 - Production must never run with `stub` internal secrets.
 - Report token links should be revocable from the UI.
-- Resend sender/domain authentication must be verified before client CC launch.
+- Cloudflare Email Service: onboard `getcitebrief.com`, verify SPF/DKIM/DMARC, then confirm Friday and invite sends.
 - Dodo live webhook verification must be tested with actual live/test-mode webhook payloads.
 
 ## SEO Audit
@@ -296,7 +296,7 @@ CiteBrief should be considered premium-launch ready only when:
 - `npm test`, `npm run lint`, and `npm run build` pass.
 - Live AI Gateway calls are verified.
 - Live Dodo checkout and webhooks are verified.
-- Resend deliverability is verified.
+- Cloudflare Email deliverability is verified (auth, invite, Friday send).
 - Friday cron works across multiple tenant timezones.
 - Client links expire and can be revoked.
 - Security headers are live.

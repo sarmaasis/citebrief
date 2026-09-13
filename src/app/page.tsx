@@ -180,8 +180,9 @@ export default function HomePage() {
               <h2 className="text-2xl font-semibold tracking-tight">Agency is the weekly reporting system.</h2>
               <p className="mt-2 max-w-xl text-sm text-cb-muted">
                 ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands, weekly Friday reports,
-                white-label, client CC, history, Slack, and {PLANS.agency.seats} seats. A repeatable
-                client deliverable, not a dashboard seat.
+                white-label, client CC, history, Slack, and {PLANS.agency.seats} seats. The command
+                center shows which clients need attention, which reports are ready to send, and what
+                you can sell next.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
