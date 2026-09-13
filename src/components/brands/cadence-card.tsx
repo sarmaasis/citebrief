@@ -18,7 +18,7 @@ export function CadenceCard({
       <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
         <p className="text-xs text-cb-muted">Next Friday</p>
         <p className="mt-3 text-sm text-cb-text">{friday}</p>
-        <p className="mt-2 text-xs text-cb-muted">Friday cron send lands in a later phase.</p>
+        <p className="mt-2 text-xs text-cb-muted">Queued for Friday 06:00 in your workspace timezone.</p>
       </div>
     );
   }
