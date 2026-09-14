@@ -35,7 +35,7 @@ function FooterColumn({ title, items }: { title: string; items: { href: string; 
 export function MarketingFooter() {
   return (
     <footer className="border-t border-cb-line">
-      <div className="mx-auto max-w-6xl px-6 py-12 lg:py-16">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
         <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_1fr_1fr] md:items-start">
           <div>
             <Logo muted />

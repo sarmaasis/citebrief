@@ -17,6 +17,7 @@ import {
   resolveSelectedPlan,
   SEAT_OVERAGE_USD,
 } from "./billing";
+import { UPGRADE_COPY } from "./upgrade-copy";
 import {
   commandCenterDenial,
   isPaidActive,
@@ -202,6 +203,9 @@ assert.equal(resolveSelectedPlan("agency"), "agency");
 assert.equal(resolveSelectedPlan(""), "agency");
 assert.deepEqual([...PUBLIC_PLAN_IDS], ["starter", "agency", "studio"]);
 assert.equal(PUBLIC_PLAN_IDS.includes("enterprise" as (typeof PUBLIC_PLAN_IDS)[number]), false);
+assert.ok(UPGRADE_COPY.weeklyStarter.title);
+assert.ok(UPGRADE_COPY.commandCenter.title);
+assert.ok(UPGRADE_COPY.sendStarter.title);
 
 const trialStarterCards = (["starter", "agency", "studio"] as const).map((id) =>
   planCardState({

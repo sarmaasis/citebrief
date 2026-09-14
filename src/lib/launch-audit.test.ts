@@ -26,7 +26,13 @@ import {
   productionTrafficBlocked,
   canonicalRedirectLocation,
 } from "./runtime-env";
-import { securityHeaders } from "./security-headers";
+import {
+  applySecurityHeaders,
+  contentSecurityPolicy,
+  isInsecureLocalUrl,
+  securityHeaderList,
+  securityHeaders,
+} from "./security-headers";
 import { shareAccessState } from "./share";
 
 const prodHeaders = securityHeaders({ NEXTJS_ENV: "production" });
@@ -34,8 +40,44 @@ const devHeaders = securityHeaders({ NEXTJS_ENV: "development" });
 assert.ok(prodHeaders["Content-Security-Policy"].includes("frame-ancestors 'none'"));
 assert.ok(!prodHeaders["Content-Security-Policy"].includes("unsafe-eval"));
 assert.ok(prodHeaders["Content-Security-Policy"].includes("script-src 'self' 'unsafe-inline'"));
+assert.ok(prodHeaders["Content-Security-Policy"].includes("upgrade-insecure-requests"));
 assert.ok(devHeaders["Content-Security-Policy"].includes("unsafe-eval"));
 assert.ok(devHeaders["Content-Security-Policy"].includes("script-src 'self' 'unsafe-inline' 'unsafe-eval'"));
+assert.ok(!devHeaders["Content-Security-Policy"].includes("upgrade-insecure-requests"));
+assert.ok(
+  !securityHeaders({ NEXTJS_ENV: "production", BETTER_AUTH_URL: "https://getcitebrief.com" }, { allowInsecureLocal: true })[
+    "Content-Security-Policy"
+  ].includes("upgrade-insecure-requests"),
+);
+assert.ok(
+  !securityHeaders(
+    { NEXTJS_ENV: "production" },
+    { requestUrl: "http://localhost:3000/login" },
+  )["Content-Security-Policy"].includes("upgrade-insecure-requests"),
+);
+assert.ok(
+  contentSecurityPolicy({ production: true, allowInsecureLocal: false }).includes("upgrade-insecure-requests"),
+);
+assert.ok(
+  !contentSecurityPolicy({ production: true, allowInsecureLocal: true }).includes("upgrade-insecure-requests"),
+);
+assert.equal(isInsecureLocalUrl("http://localhost:3000"), true);
+assert.equal(isInsecureLocalUrl("https://getcitebrief.com"), false);
+assert.ok(!securityHeaderList()[0]?.value.includes("upgrade-insecure-requests"));
+{
+  const upgraded = applySecurityHeaders(
+    new Response("ok"),
+    { NEXTJS_ENV: "production" },
+    new Request("https://getcitebrief.com/"),
+  );
+  assert.ok(upgraded.headers.get("Content-Security-Policy")?.includes("upgrade-insecure-requests"));
+  const local = applySecurityHeaders(
+    new Response("ok"),
+    { NEXTJS_ENV: "production", BETTER_AUTH_URL: "https://getcitebrief.com" },
+    new Request("http://localhost:3000/"),
+  );
+  assert.ok(!local.headers.get("Content-Security-Policy")?.includes("upgrade-insecure-requests"));
+}
 assert.equal(prodHeaders["X-Frame-Options"], "DENY");
 assert.equal(prodHeaders["Referrer-Policy"], "strict-origin-when-cross-origin");
 assert.ok(prodHeaders["Permissions-Policy"].includes("camera=()"));

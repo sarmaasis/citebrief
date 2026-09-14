@@ -3,7 +3,8 @@ import { EmptyState } from "@/components/app/empty-state";
 import { PipelineStrip } from "@/components/app/pipeline-strip";
 import { PortfolioExport } from "@/components/app/portfolio-export";
 import { PortfolioFilters } from "@/components/app/portfolio-filters";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { pageFilters, pipelineCounts } from "@/lib/command-center";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
@@ -37,9 +38,9 @@ export default async function ReportsPipelinePage({
         <p className="mt-3 text-sm text-cb-muted">Pipeline and Friday send queue are on Agency.</p>
         <div className="mt-6">
           <UpgradePrompt
-            title={UPGRADE_COPY.weeklyStarter.title}
-            body={UPGRADE_COPY.weeklyStarter.body}
-            cta={UPGRADE_COPY.weeklyStarter.cta}
+            title={UPGRADE_COPY.commandCenter.title}
+            body={UPGRADE_COPY.commandCenter.body}
+            cta={UPGRADE_COPY.commandCenter.cta}
           />
         </div>
       </div>

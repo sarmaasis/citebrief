@@ -23,7 +23,7 @@ export default async function BillingSuccessPage({
 
   if (isTest && !ent.paid) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6">
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 sm:px-6">
         <h1 className="text-xl font-semibold tracking-tight">Checkout did not activate {PLANS[requested].name}</h1>
         <p className="mt-3 text-sm text-cb-muted">
           This workspace is still on a trial. Return to Billing and choose a plan again. Test checkout must write a
@@ -39,7 +39,7 @@ export default async function BillingSuccessPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6">
+    <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 sm:px-6">
       <h1 className="text-xl font-semibold tracking-tight">
         {isTest ? `${name} is ready for this workspace` : `${name} is active`}
       </h1>

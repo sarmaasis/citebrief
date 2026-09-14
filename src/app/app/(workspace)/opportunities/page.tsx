@@ -3,7 +3,8 @@ import { CopyRecommendation } from "@/components/app/copy-recommendation";
 import { EmptyState } from "@/components/app/empty-state";
 import { MarkPlanned } from "@/components/app/mark-planned";
 import { PortfolioFilters } from "@/components/app/portfolio-filters";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { pageFilters } from "@/lib/command-center";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
@@ -34,9 +35,9 @@ export default async function OpportunitiesPage({
         <p className="mt-3 text-sm text-cb-muted">Upsell notes from Friday reports are on Agency.</p>
         <div className="mt-6">
           <UpgradePrompt
-            title={UPGRADE_COPY.weeklyStarter.title}
-            body={UPGRADE_COPY.weeklyStarter.body}
-            cta={UPGRADE_COPY.weeklyStarter.cta}
+            title={UPGRADE_COPY.commandCenter.title}
+            body={UPGRADE_COPY.commandCenter.body}
+            cta={UPGRADE_COPY.commandCenter.cta}
           />
         </div>
       </div>

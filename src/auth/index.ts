@@ -1,9 +1,11 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { betterAuth } from "better-auth";
 import { withCloudflare } from "better-auth-cloudflare";
-import { magicLink } from "better-auth/plugins";
+import { emailOTP, magicLink } from "better-auth/plugins";
 import { getDb } from "@/db";
 import { magicLinkEmail, verifyEmail } from "@/emails";
+import { logDevEmailOtp, logDevMagicLink } from "@/lib/auth-otp";
+import { createAuthSecondaryStorage, isKvLike } from "@/lib/auth-secondary-storage";
 import { isEmailBindingReady, sendTransactionalEmail } from "@/lib/email";
 import { isForbiddenProductionSecret, isProductionRuntime } from "@/lib/runtime-env";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
@@ -16,20 +18,14 @@ async function createAuth() {
   const db = await getDb();
   const { env, cf } = await getCloudflareContext({ async: true });
 
-  const google =
-    !isStubValue(env.GOOGLE_CLIENT_ID) && !isStubValue(env.GOOGLE_CLIENT_SECRET)
-      ? {
-          clientId: env.GOOGLE_CLIENT_ID,
-          clientSecret: env.GOOGLE_CLIENT_SECRET,
-        }
-      : {
-          clientId: env.GOOGLE_CLIENT_ID || "stub-google-client-id",
-          clientSecret: env.GOOGLE_CLIENT_SECRET || "stub-google-client-secret",
-        };
+  const googleLive =
+    !isStubValue(env.GOOGLE_CLIENT_ID) && !isStubValue(env.GOOGLE_CLIENT_SECRET);
   const baseURL = (env.BETTER_AUTH_URL || "http://localhost:3000").replace(/\/$/, "");
   if (isProductionRuntime(env) && isForbiddenProductionSecret(env.BETTER_AUTH_SECRET)) {
     throw new Error("BETTER_AUTH_SECRET must be set to a non-stub value in production.");
   }
+
+  const kv = isKvLike(env.KV) ? env.KV : undefined;
 
   return betterAuth({
     ...withCloudflare(
@@ -44,7 +40,7 @@ async function createAuth() {
             debugLogs: false,
           },
         },
-        kv: env.KV as unknown as import("@cloudflare/workers-types").KVNamespace,
+        kv: kv as unknown as import("@cloudflare/workers-types").KVNamespace,
       },
       {
         appName: "CiteBrief",
@@ -68,10 +64,12 @@ async function createAuth() {
         },
         emailAndPassword: {
           enabled: true,
-          requireEmailVerification: isProductionRuntime(env) || isEmailBindingReady(env),
+          requireEmailVerification: true,
         },
         emailVerification: {
-          sendOnSignUp: true,
+          sendOnSignUp: false,
+          sendOnSignIn: false,
+          autoSignInAfterVerification: true,
           sendVerificationEmail: async ({ user, url }) => {
             const mail = verifyEmail({ url });
             await sendTransactionalEmail({
@@ -83,20 +81,52 @@ async function createAuth() {
             });
           },
         },
-        socialProviders: {
-          google,
-        },
+        socialProviders: googleLive
+          ? {
+              google: {
+                clientId: env.GOOGLE_CLIENT_ID,
+                clientSecret: env.GOOGLE_CLIENT_SECRET,
+              },
+            }
+          : {},
         plugins: [
           magicLink({
             sendMagicLink: async ({ email, url }) => {
+              logDevMagicLink(email, url, env);
               const mail = magicLinkEmail({ url });
-              await sendTransactionalEmail({
-                env,
-                to: email,
-                subject: mail.subject,
-                html: mail.html,
-                text: mail.text,
-              });
+              try {
+                await sendTransactionalEmail({
+                  env,
+                  to: email,
+                  subject: mail.subject,
+                  html: mail.html,
+                  text: mail.text,
+                });
+              } catch (error) {
+                if (isEmailBindingReady(env)) throw error;
+              }
+            },
+          }),
+          emailOTP({
+            otpLength: 6,
+            expiresIn: 300,
+            sendVerificationOnSignUp: true,
+            overrideDefaultEmailVerification: false,
+            sendVerificationOTP: async ({ email, otp }) => {
+              logDevEmailOtp(email, otp, env);
+              const verifyUrl = `${baseURL}/verify?email=${encodeURIComponent(email)}`;
+              const mail = verifyEmail({ otp, url: verifyUrl });
+              try {
+                await sendTransactionalEmail({
+                  env,
+                  to: email,
+                  subject: mail.subject,
+                  html: mail.html,
+                  text: mail.text,
+                });
+              } catch (error) {
+                if (isEmailBindingReady(env)) throw error;
+              }
             },
           }),
         ],
@@ -126,6 +156,7 @@ async function createAuth() {
         },
       },
     ),
+    secondaryStorage: createAuthSecondaryStorage(kv),
   });
 }
 

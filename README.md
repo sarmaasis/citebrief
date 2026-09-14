@@ -167,6 +167,36 @@ npm run deploy
 
 `BETTER_AUTH_URL` must be the single canonical public origin, for example `https://getcitebrief.com`. Optional domains such as `citebrief.xyz` should redirect there and must not participate in auth/session sharing.
 
+### GitHub Actions
+
+`.github/workflows/deploy.yml` deploys on push (and `workflow_dispatch`) of that branch:
+
+| Branch | Wrangler env | Worker | `BETTER_AUTH_URL` | D1 migrations |
+|---|---|---|---|---|
+| `main` | default | `citebrief` | `https://getcitebrief.com` | `wrangler d1 migrations apply citebrief --remote` |
+| `development` | `--env preview` (staging) | `citebrief-preview` | `https://citebrief.sarmaasis.workers.dev` | `wrangler d1 migrations apply citebrief-staging --remote --env preview` |
+
+Create the staging database once (do not reuse the production D1 id):
+
+```bash
+npx wrangler d1 create citebrief-staging
+```
+
+Paste the returned `database_id` into `wrangler.jsonc` `env.preview.d1_databases`, and/or set the GitHub Actions **variable** `STAGING_D1_DATABASE_ID`. Staging CI fails if the id is still the placeholder or matches production.
+
+Required **GitHub** secrets (not app secrets):
+
+| Secret | Purpose |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Workers deploy + D1 migrate (both envs) |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account |
+
+Optional **GitHub** variable: `STAGING_D1_DATABASE_ID` (overrides the wrangler placeholder before staging migrate).
+
+Put Worker app secrets with `npx wrangler secret put …` (and again with `--env preview` for staging). Do not commit `.dev.vars`.
+
+Local staging: `npm run db:migrate:staging` then `npm run deploy:staging`.
+
 ## Required secrets
 
 | Secret | Purpose | Stub / notes |
@@ -212,9 +242,11 @@ Auth is created inside the request from `env.DB`. Do not cache a global D1 bindi
 | `npm run build` | Next.js production build |
 | `npm test` | Prompt, extractor, and Friday-TZ unit checks |
 | `npm run preview` | OpenNext build + local Workers runtime |
-| `npm run deploy` | OpenNext build + deploy to Workers |
+| `npm run deploy` | OpenNext build + deploy to production Workers |
+| `npm run deploy:staging` | OpenNext build + deploy `--env preview` (staging) |
 | `npm run db:migrate:local` | Apply D1 migrations locally |
-| `npm run db:migrate:remote` | Apply D1 migrations remotely |
+| `npm run db:migrate:remote` | Apply production D1 migrations remotely |
+| `npm run db:migrate:staging` | Apply `citebrief-staging` migrations (`--env preview`) |
 | `npm run cf-typegen` | Regenerate `cloudflare-env.d.ts` |
 
 ## Design

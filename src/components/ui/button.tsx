@@ -3,7 +3,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-cb-control text-sm font-medium transition-[opacity,transform,background-color] duration-[var(--cb-duration)] ease-[var(--cb-ease)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cb-accent/40 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-cb-control text-sm font-medium transition-[opacity,transform,background-color] duration-[var(--cb-duration)] ease-[var(--cb-ease)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cb-ring)] disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {

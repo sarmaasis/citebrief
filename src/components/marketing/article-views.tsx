@@ -14,7 +14,7 @@ export function PublicArticleView({ article }: { article: PublicArticle }) {
     <div className="min-h-screen bg-cb-bg">
       <JsonLd json={articleJsonLd(article)} />
       <MarketingHeader />
-      <main id="main" className="mx-auto max-w-2xl px-6 py-16">
+      <main id="main" className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-16">
         {article.kicker ? (
           <p className="text-xs font-medium uppercase tracking-wide text-cb-accent">{article.kicker}</p>
         ) : null}
@@ -67,7 +67,7 @@ export function LegalArticleView({ article }: { article: LegalArticle }) {
     <div className="min-h-screen bg-cb-bg">
       <JsonLd json={legalJsonLd(article.slug)} />
       <MarketingHeader />
-      <main id="main" className="mx-auto max-w-2xl px-6 py-16">
+      <main id="main" className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-16">
         <h1 className="text-3xl font-semibold tracking-tight">{article.title}</h1>
         <p className="mt-2 text-xs text-cb-muted">Updated {article.updated}</p>
         <div className="mt-8 space-y-8 text-sm leading-6 text-cb-muted">

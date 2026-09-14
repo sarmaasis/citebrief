@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { BrandFields, type BrandFieldValues } from "@/components/brands/brand-fields";
 import { Button } from "@/components/ui/button";
 

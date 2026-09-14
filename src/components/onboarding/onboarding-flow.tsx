@@ -11,7 +11,8 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { CORE_ENGINES, ENGINES, type EngineState } from "@/lib/engines";
 import { onboardingStepFromResume, syncOnboardingBrandQuery, type OnboardingResume } from "@/lib/onboarding-resume";
 import { type PromptDraft, validatePromptSet } from "@/lib/prompts";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
@@ -385,7 +386,7 @@ export function OnboardingFlow({
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-[560px] px-6 py-10">
+    <div className="mx-auto min-h-screen max-w-[560px] px-4 py-10 sm:px-6">
       <div className="flex items-center justify-between">
         <Logo href="/app" />
         <div className="flex items-center gap-2">
@@ -395,7 +396,7 @@ export function OnboardingFlow({
           <SignOutButton />
         </div>
       </div>
-      <ol className="mt-10 flex gap-4 text-xs text-cb-muted">
+      <ol className="mt-10 flex flex-wrap gap-3 text-xs text-cb-muted sm:gap-4">
         {steps.map((label, index) => {
           const n = index + 1;
           const current = step === n;

@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { Menu } from "lucide-react";
 import { UserMenu } from "@/components/app/user-menu";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 
@@ -13,11 +15,13 @@ export function AppTopBar({
   roleLabel,
   brands,
   signedIn = true,
+  onOpenNav,
 }: {
   userLabel: string;
   roleLabel?: string | null;
   brands: Array<{ id: string; name: string }>;
   signedIn?: boolean;
+  onOpenNav?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -50,13 +54,23 @@ export function AppTopBar({
   }
 
   return (
-    <header className="relative flex h-14 items-center justify-between border-b border-cb-line bg-cb-bg px-6">
-      <div className="flex min-w-0 items-center gap-3 text-sm">
+    <header className="relative flex min-h-14 flex-wrap items-center justify-between gap-2 border-b border-cb-line bg-cb-bg px-4 py-2 sm:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-2 text-sm sm:gap-3">
+        {onOpenNav ? (
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-cb-control border border-cb-line text-cb-text lg:hidden"
+            aria-label="Open menu"
+            onClick={onOpenNav}
+          >
+            <Menu size={18} strokeWidth={1.5} />
+          </button>
+        ) : null}
         {brands.length ? (
           <label className="flex min-w-0 items-center gap-2 text-cb-muted">
             <span className="sr-only">Switch brand</span>
             <NativeSelect
-              className="h-9 w-[220px]"
+              className="h-9 w-full max-w-[220px] min-w-0"
               value={current?.id}
               onChange={(event) => router.push(`/app/brands/${event.target.value}`)}
             >
@@ -70,7 +84,7 @@ export function AppTopBar({
         ) : null}
         {error ? <span className="truncate text-xs text-cb-danger">{error}</span> : null}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         {hasBrand ? (
           <Button type="button" onClick={() => void runNow()} disabled={pending}>
             {pending ? "Queuing…" : "Run now"}
@@ -85,7 +99,7 @@ export function AppTopBar({
         )}
       </div>
       {showRunUpgrade ? (
-        <div className="absolute left-1/2 top-16 z-30 w-[min(32rem,calc(100%-3rem))] -translate-x-1/2">
+        <div className="absolute left-1/2 top-16 z-30 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2">
           <UpgradePrompt
             title={UPGRADE_COPY.extraRun.title}
             body={UPGRADE_COPY.extraRun.body}

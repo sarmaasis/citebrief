@@ -39,7 +39,7 @@ export function AppSidebar({
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-[var(--cb-sidebar-width)] shrink-0 flex-col border-r border-cb-line bg-cb-surface">
+    <aside className="flex h-full w-[var(--cb-sidebar-width)] max-w-[85vw] shrink-0 flex-col border-r border-cb-line bg-cb-surface">
       <div className="flex h-14 items-center px-5">
         <Logo href="/app" />
       </div>

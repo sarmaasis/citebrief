@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "@/db";
 import { subscriptions, workspaceInvites, workspaceMembers, workspaces } from "@/db/schema";
+import { isVerifiedAuthUser } from "@/lib/auth-access";
 import { planSeatCap, trialSubscriptionPatch } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -105,8 +106,7 @@ export async function ensureWorkspaceForUser(
     return;
   }
 
-  const verified = user.emailVerified !== false;
-  if (!verified) {
+  if (!isVerifiedAuthUser(user)) {
     return;
   }
 

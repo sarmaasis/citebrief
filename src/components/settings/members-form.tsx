@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FormNoticeText, type FormNotice } from "@/components/ui/form-notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SEAT_OVERAGE_USD } from "@/lib/billing";
 
@@ -200,7 +201,7 @@ export function MembersForm({
 
       <section>
         <h2 className="text-sm font-medium">People in this workspace</h2>
-        <div className="mt-3 overflow-hidden rounded-cb-card border border-cb-line bg-cb-surface">
+        <div className="mt-3 overflow-x-auto rounded-cb-card border border-cb-line bg-cb-surface">
           <table className="w-full text-sm">
             <thead className="bg-cb-surface text-left text-cb-muted">
               <tr className="h-12 border-b border-cb-line">

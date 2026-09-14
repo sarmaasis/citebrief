@@ -50,7 +50,7 @@ export function PortfolioFilters({
       {fields.includes("stage") ? (
         <NativeSelect
           aria-label="Pipeline"
-          className="w-auto min-w-40"
+          className="w-full min-w-0 sm:w-auto sm:min-w-40"
           value={search.get("stage") || search.get("pipeline") || ""}
           onChange={(event) => setParam("stage", event.target.value)}
         >
@@ -65,7 +65,7 @@ export function PortfolioFilters({
       {fields.includes("risk") ? (
         <NativeSelect
           aria-label="Risk"
-          className="w-auto min-w-36"
+          className="w-full min-w-0 sm:w-auto sm:min-w-36"
           value={search.get("risk") || ""}
           onChange={(event) => setParam("risk", event.target.value)}
         >
@@ -78,7 +78,7 @@ export function PortfolioFilters({
       {fields.includes("owner") && owners.length > 0 ? (
         <NativeSelect
           aria-label="Owner"
-          className="w-auto min-w-40"
+          className="w-full min-w-0 sm:w-auto sm:min-w-40"
           value={search.get("owner") || ""}
           onChange={(event) => setParam("owner", event.target.value)}
         >
@@ -93,7 +93,7 @@ export function PortfolioFilters({
       {fields.includes("brandId") && brands.length > 1 ? (
         <NativeSelect
           aria-label="Brand"
-          className="w-auto min-w-40"
+          className="w-full min-w-0 sm:w-auto sm:min-w-40"
           value={search.get("brandId") || search.get("brand") || ""}
           onChange={(event) => setParam("brandId", event.target.value)}
         >
@@ -108,7 +108,7 @@ export function PortfolioFilters({
       {fields.includes("sent") ? (
         <NativeSelect
           aria-label="Sent"
-          className="w-auto min-w-36"
+          className="w-full min-w-0 sm:w-auto sm:min-w-36"
           value={search.get("sent") || ""}
           onChange={(event) => setParam("sent", event.target.value)}
         >
@@ -120,7 +120,7 @@ export function PortfolioFilters({
       {fields.includes("opportunityType") ? (
         <NativeSelect
           aria-label="Opportunity type"
-          className="w-auto min-w-44"
+          className="w-full min-w-0 sm:w-auto sm:min-w-44"
           value={search.get("opportunityType") || ""}
           onChange={(event) => setParam("opportunityType", event.target.value)}
         >

@@ -23,7 +23,7 @@ export default function SampleReportPage() {
     <div className="min-h-screen bg-cb-bg">
       <JsonLd json={reportJsonLd()} />
       <MarketingHeader />
-      <main id="main" className="mx-auto max-w-6xl px-6 py-12 lg:py-16">
+      <main id="main" className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
         <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">Sample Friday report</h1>

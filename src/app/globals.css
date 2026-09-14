@@ -53,6 +53,11 @@
   --radius-xl: 16px;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 html,
 body {
   background: var(--cb-bg);
@@ -60,6 +65,8 @@ body {
 }
 
 body {
+  max-width: 100%;
+  overflow-x: hidden;
   letter-spacing: var(--cb-tracking-ui);
   font-size: 14px;
 }

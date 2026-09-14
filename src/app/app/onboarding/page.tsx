@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { serializeOnboardingResume, shouldResumeOnboardingBrand } from "@/lib/onboarding-resume";
@@ -12,12 +13,13 @@ export default async function OnboardingPage({
 }) {
   const params = await searchParams;
   const ctx = await getAppContext();
-  const sub = ctx ? await getWorkspaceSubscription(ctx.db, ctx.workspace.id) : null;
+  if (!ctx) redirect("/login");
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   const startFresh = params.new === "1";
 
   let resume = null;
-  if (ctx && !startFresh) {
+  if (!startFresh) {
     const rows = await listWorkspaceBrands(ctx);
     const resumeId = shouldResumeOnboardingBrand({
       startFresh,

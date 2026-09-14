@@ -27,6 +27,8 @@
   --cb-missing-subtle: #f4e7e0;
   --cb-pending-subtle: #f6ead4;
   --cb-muted-bg: #f3f2ee;
+  --cb-overlay: rgba(23, 23, 23, 0.28);
+  --cb-ring: rgba(11, 61, 46, 0.35);
 
   /* Radius - §20.4 */
   --cb-radius-control: 8px;
@@ -82,4 +84,6 @@
   --cb-missing-subtle: #3a2418;
   --cb-pending-subtle: #3a2e14;
   --cb-muted-bg: #1a1f1c;
+  --cb-overlay: rgba(15, 20, 18, 0.48);
+  --cb-ring: rgba(200, 230, 217, 0.4);
 }

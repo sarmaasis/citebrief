@@ -6,6 +6,7 @@ import { initAuth } from "@/auth";
 import { getDb, type Database } from "@/db";
 import { workspaceMembers, workspaces } from "@/db/schema";
 import { actAsCookieName, parseActAsCookieValue, readActAsFromRequest } from "@/lib/admin-impersonate";
+import { isVerifiedAuthUser } from "@/lib/auth-access";
 import { parseWorkspaceRole, type WorkspaceRole } from "@/lib/permissions";
 import { isForbiddenProductionSecret, isProductionRuntime } from "@/lib/runtime-env";
 import { countActiveBrands } from "@/lib/usage";
@@ -70,7 +71,7 @@ export type MarketingAuth = {
 export const getMarketingAuth = cache(async (): Promise<MarketingAuth> => {
   try {
     const session = await getAuthSession();
-    if (!session?.user?.id || !session.user.email) {
+    if (!session?.user?.id || !session.user.email || !isVerifiedAuthUser(session.user)) {
       return { signedIn: false, appHref: "/app" };
     }
 
@@ -102,11 +103,24 @@ async function getAuthSession() {
   });
 }
 
+/** Unverified cookie: send the user to `/verify`, not `/app`. */
+export const getUnverifiedSessionEmail = cache(async (): Promise<string | null> => {
+  try {
+    const session = await getAuthSession();
+    if (session?.user?.email && !isVerifiedAuthUser(session.user)) {
+      return session.user.email;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+});
+
 export async function getAppContext(): Promise<AppContext | null> {
   try {
     const requestHeaders = await headers();
     const session = await getAuthSession();
-    if (!session?.user?.id || !session.user.email) {
+    if (!session?.user?.id || !session.user.email || !isVerifiedAuthUser(session.user)) {
       return null;
     }
 

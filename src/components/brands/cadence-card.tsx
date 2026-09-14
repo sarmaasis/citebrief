@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { Button } from "@/components/ui/button";
 
 export function CadenceCard({

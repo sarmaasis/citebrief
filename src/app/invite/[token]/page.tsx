@@ -41,7 +41,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const workspaceName = workspace?.name || "this workspace";
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12 sm:px-6 sm:py-16">
       <Logo />
       <h1 className="mt-10 text-2xl font-semibold tracking-tight">Join {workspaceName}</h1>
       <p className="mt-2 text-sm text-cb-muted">

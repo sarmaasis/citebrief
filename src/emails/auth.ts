@@ -1,14 +1,21 @@
+import { escapeHtml } from "./escape";
 import { renderEmailLayout } from "./layout";
 
-export function verifyEmail(args: { url: string }) {
+export function verifyEmail(args: { otp?: string; url?: string }) {
+  const otp = args.otp?.replace(/\D/g, "").slice(0, 8);
+  const bodyHtml = otp
+    ? `<p style="margin:0 0 16px">Enter this code to confirm your email and open CiteBrief. It expires in 5 minutes.</p>
+<p style="margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:28px;line-height:1.2;letter-spacing:0.28em;font-weight:600">${escapeHtml(otp)}</p>`
+    : `<p style="margin:0">Confirm this address to open your CiteBrief workspace and start the first Friday report.</p>`;
+
   return {
-    subject: "Verify your CiteBrief email",
+    subject: otp ? "Your CiteBrief verification code" : "Verify your CiteBrief email",
     ...renderEmailLayout({
-      preheader: "Confirm this address to open your workspace.",
+      preheader: otp ? "Your 6-digit verification code." : "Confirm this address to open your workspace.",
       eyebrow: "Account",
       title: "Verify your email",
-      bodyHtml: `<p style="margin:0">Confirm this address to open your CiteBrief workspace and start the first Friday report.</p>`,
-      cta: { href: args.url, label: "Verify email" },
+      bodyHtml,
+      cta: args.url ? { href: args.url, label: otp ? "Enter the code" : "Verify email" } : undefined,
     }),
   };
 }

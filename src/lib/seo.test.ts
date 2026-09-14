@@ -48,7 +48,7 @@ assert.equal(new Set(INDEXABLE_PATHS).size, INDEXABLE_PATHS.length);
 assert.ok(!INDEXABLE_PATHS.includes("/login" as (typeof INDEXABLE_PATHS)[number]));
 assert.ok(!INDEXABLE_PATHS.includes("/signup" as (typeof INDEXABLE_PATHS)[number]));
 
-assert.deepEqual([...ROBOTS_DISALLOW], ["/app/", "/api/", "/r/", "/invite/"]);
+assert.deepEqual([...ROBOTS_DISALLOW], ["/app/", "/api/", "/r/", "/invite/", "/verify"]);
 
 const urls = sitemapEntries().map((entry) => entry.url);
 assert.deepEqual(urls, INDEXABLE_PATHS.map((path) => canonicalPath(path)));

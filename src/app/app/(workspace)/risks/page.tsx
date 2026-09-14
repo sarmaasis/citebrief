@@ -2,7 +2,8 @@ import Link from "next/link";
 import { EmptyState } from "@/components/app/empty-state";
 import { PortfolioFilters } from "@/components/app/portfolio-filters";
 import { RiskPill } from "@/components/app/risk-pill";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { pageFilters } from "@/lib/command-center";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
@@ -28,9 +29,9 @@ export default async function RisksPage({
         <p className="mt-3 text-sm text-cb-muted">Stable / Watch / At risk rollups are on Agency.</p>
         <div className="mt-6">
           <UpgradePrompt
-            title={UPGRADE_COPY.weeklyStarter.title}
-            body={UPGRADE_COPY.weeklyStarter.body}
-            cta={UPGRADE_COPY.weeklyStarter.cta}
+            title={UPGRADE_COPY.commandCenter.title}
+            body={UPGRADE_COPY.commandCenter.body}
+            cta={UPGRADE_COPY.commandCenter.cta}
           />
         </div>
       </div>
@@ -79,7 +80,7 @@ export default async function RisksPage({
             : "No Watch or At risk clients this week."}
         </p>
       ) : (
-        <div className="mt-8 overflow-hidden rounded-cb-card border border-cb-line">
+        <div className="mt-8 overflow-x-auto rounded-cb-card border border-cb-line">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
               <tr className="h-12 border-b border-cb-line">

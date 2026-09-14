@@ -136,7 +136,7 @@ export function ReportsQueue({
         </div>
       ) : null}
       {message ? <p className="mb-4 text-sm text-cb-muted">{message}</p> : null}
-      <div className="overflow-hidden rounded-cb-card border border-cb-line">
+      <div className="overflow-x-auto rounded-cb-card border border-cb-line">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
             <tr className="h-12 border-b border-cb-line">

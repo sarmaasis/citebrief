@@ -51,7 +51,7 @@ export function SourcesDrawer({
     <>
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-black/10 transition-opacity duration-150",
+          "fixed inset-0 z-40 bg-[color:var(--cb-overlay)] transition-opacity duration-150",
           open ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={() => onOpenChange(false)}

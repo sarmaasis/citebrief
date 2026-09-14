@@ -1,0 +1,158 @@
+# Deploy CiteBrief (OpenNext → Cloudflare Workers)
+#
+#   main          → production Worker `citebrief` (default wrangler env)
+#   development   → staging Worker `citebrief-preview` (`wrangler --env preview`)
+#   workflow_dispatch on that branch does the same
+#
+# Staging is the existing wrangler `preview` env (not a new `staging` env).
+# BETTER_AUTH_URL stays https://citebrief.sarmaasis.workers.dev — it must not
+# overwrite production https://getcitebrief.com.
+#
+# Required GitHub Actions secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN    Account permission: Workers Scripts Edit, D1 Edit
+#   CLOUDFLARE_ACCOUNT_ID   Cloudflare account id
+#
+# Staging D1 (required — CI does not use the production D1 id):
+#   npx wrangler d1 create citebrief-staging
+#   Paste database_id into wrangler.jsonc env.preview.d1_databases
+#   and/or set Actions variable STAGING_D1_DATABASE_ID (overrides the placeholder).
+#
+# App secrets (BETTER_AUTH_SECRET, Dodo, AI Gateway, CRON_SECRET, …) live on
+# the Worker via `npx wrangler secret put`. Put them on both the default Worker
+# and `--env preview`. Do not commit .dev.vars or tokens.
+#
+# D1 migrations (both environments, never skipped):
+#   production: wrangler d1 migrations apply citebrief --remote
+#   staging:    wrangler d1 migrations apply citebrief-staging --remote --env preview
+
+name: Deploy
+
+on:
+  push:
+    branches: [main, development]
+    paths-ignore:
+      - "**/*.md"
+      - "design/**"
+  workflow_dispatch:
+
+concurrency:
+  group: citebrief-deploy-${{ github.ref_name == 'main' && 'production' || 'staging' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    name: Production
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build OpenNext
+        run: npx opennextjs-cloudflare build
+
+      - name: Apply D1 migrations (production)
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply citebrief --remote
+
+      - name: Deploy production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx opennextjs-cloudflare deploy
+
+  staging:
+    name: Staging
+    if: github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build OpenNext
+        run: npx opennextjs-cloudflare build
+
+      - name: Resolve staging D1 id
+        env:
+          STAGING_D1_DATABASE_ID: ${{ vars.STAGING_D1_DATABASE_ID }}
+        run: |
+          set -euo pipefail
+          PLACEHOLDER="00000000-0000-0000-0000-000000000000"
+          if [ -n "${STAGING_D1_DATABASE_ID:-}" ]; then
+            node -e '
+              const fs = require("fs");
+              const id = process.env.STAGING_D1_DATABASE_ID;
+              let s = fs.readFileSync("wrangler.jsonc", "utf8");
+              s = s.replace(
+                /("database_name": "citebrief-staging",\s*"database_id": ")[^"]+(")/,
+                `$1${id}$2`,
+              );
+              fs.writeFileSync("wrangler.jsonc", s);
+            '
+          fi
+          ID=$(node -e '
+            const s = require("fs").readFileSync("wrangler.jsonc", "utf8");
+            const m = s.match(/"database_name": "citebrief-staging",\s*"database_id": "([^"]+)"/);
+            process.stdout.write(m ? m[1] : "");
+          ')
+          if [ -z "$ID" ] || [ "$ID" = "$PLACEHOLDER" ]; then
+            echo "::error::Staging D1 is not configured. Run: npx wrangler d1 create citebrief-staging"
+            echo "::error::Paste database_id into wrangler.jsonc env.preview, or set Actions variable STAGING_D1_DATABASE_ID."
+            exit 1
+          fi
+          if [ "$ID" = "aa4c730e-4f0c-453e-b0a9-dc6bbfaf3527" ]; then
+            echo "::error::Staging D1 must not use the production database_id."
+            exit 1
+          fi
+          echo "Staging D1 database_id is set (citebrief-staging)."
+
+      - name: Apply D1 migrations (staging)
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply citebrief-staging --remote --env preview
+
+      - name: Deploy staging (wrangler --env preview)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx opennextjs-cloudflare deploy -- --env preview

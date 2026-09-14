@@ -94,7 +94,7 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
 
   if (rateLimited) {
     return (
-      <main className="mx-auto max-w-xl px-6 py-24 text-center">
+      <main className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
         <h1 className="text-xl font-semibold">{rateUnavailable ? "Report unavailable" : "Too many requests"}</h1>
         <p className="mt-3 text-sm text-cb-muted">
           {rateUnavailable
@@ -111,7 +111,7 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
   if (!row || state !== "live") {
     const copy = shareUnavailableCopy(state);
     return (
-      <main className="mx-auto max-w-xl px-6 py-24 text-center">
+      <main className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
         <h1 className="text-xl font-semibold">{copy.title}</h1>
         <p className="mt-3 text-sm text-cb-muted">{copy.body}</p>
       </main>
@@ -144,7 +144,7 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
   return (
     <main className="min-h-screen bg-cb-bg">
       <header className="border-b border-cb-line bg-cb-surface">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             {kit?.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -168,12 +168,12 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
       </header>
 
       {row.run.status === "failed" ? (
-        <div className="border-b border-cb-line bg-cb-pending-subtle px-6 py-3 text-center text-sm text-cb-pending">
+        <div className="border-b border-cb-line bg-cb-pending-subtle px-4 py-3 text-center text-sm text-cb-pending sm:px-6">
           This week’s answers were incomplete. Ask your agency if you need a follow-up.
         </div>
       ) : null}
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         {html ? (
           <iframe title="Client report" className="min-h-[80vh] w-full rounded-cb-card border border-cb-line bg-cb-surface" srcDoc={html} />
         ) : (

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/app/empty-state";
 import { RiskPill } from "@/components/app/risk-pill";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { ArchiveButton } from "@/components/brands/archive-button";
 import { DuplicateBrandButton } from "@/components/brands/duplicate-brand-button";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,7 @@ export default async function BrandsPage({
           href="/app/onboarding"
         />
       ) : (
-        <div className="overflow-hidden rounded-cb-card border border-cb-line bg-cb-surface">
+        <div className="overflow-x-auto rounded-cb-card border border-cb-line bg-cb-surface">
           <table className="w-full text-sm">
             <thead className="bg-cb-surface text-left text-cb-muted">
               <tr className="h-12 border-b border-cb-line">

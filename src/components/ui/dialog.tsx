@@ -44,7 +44,7 @@ export function Dialog({
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-cb-text/30"
+        className="absolute inset-0 bg-[color:var(--cb-overlay)]"
         onClick={() => onOpenChange(false)}
       />
       <div

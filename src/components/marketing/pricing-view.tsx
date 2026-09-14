@@ -107,15 +107,15 @@ export function PricingView({
   const annualLive = missingAnnual.length === 0;
 
   return (
-    <main id="main" className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
-      <h1 className="font-serif text-5xl tracking-tight">Simple pricing for agency retainers</h1>
+    <main id="main" className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-24">
+      <h1 className="font-serif text-3xl tracking-tight sm:text-5xl">Simple pricing for agency retainers</h1>
       <p className="mt-4 max-w-2xl text-lg text-cb-muted">
         Agency at ${PLANS.agency.amountUsd}/mo is the plan to buy: {PLANS.agency.brands} brands ($
         {(PLANS.agency.amountUsd / PLANS.agency.brands).toFixed(2)}/client), weekly Friday reports,
         white-label, and {PLANS.agency.seats} seats. Not a $29 vanity score.
       </p>
 
-      <div className="mt-8 inline-flex rounded-cb-control border border-cb-line bg-cb-surface p-1">
+      <div className="mt-8 inline-flex max-w-full flex-wrap rounded-cb-control border border-cb-line bg-cb-surface p-1">
         <button
           type="button"
           onClick={() => setAnnual(false)}

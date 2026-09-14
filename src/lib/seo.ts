@@ -30,7 +30,7 @@ export const INDEXABLE_PATHS = [
 export type IndexablePath = (typeof INDEXABLE_PATHS)[number];
 
 /** Private or authenticated surfaces that must not be crawled. */
-export const ROBOTS_DISALLOW = ["/app/", "/api/", "/r/", "/invite/"] as const;
+export const ROBOTS_DISALLOW = ["/app/", "/api/", "/r/", "/invite/", "/verify"] as const;
 
 /**
  * Public list prices from PRODUCT.md §11. /pricing stays three plans + FAQ.
@@ -79,6 +79,11 @@ export const PAGE_COPY = {
   invite: {
     title: "Workspace invite",
     description: "Accept a CiteBrief workspace invite.",
+    follow: false,
+  },
+  verify: {
+    title: "Verify email",
+    description: "Enter the verification code sent to your email.",
     follow: false,
   },
 } as const;
@@ -165,6 +170,7 @@ export const metadataPages = {
   login: privateMetadata(PAGE_COPY.login),
   signup: privateMetadata(PAGE_COPY.signup),
   invite: privateMetadata(PAGE_COPY.invite),
+  verify: privateMetadata(PAGE_COPY.verify),
 } satisfies Record<string, Metadata>;
 
 export const appMetadata: Metadata = {

@@ -3,9 +3,27 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/auth/client";
+import { VerifyEmailForm } from "@/components/auth/verify-email-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LOCAL_OTP_HINT } from "@/lib/auth-otp";
+
+/** Product kill: hide Google OAuth until we turn it back on. Provider stays in auth/index.ts. */
+export const SHOW_GOOGLE_AUTH = false;
+
+function needsEmailVerify(error: { code?: string; message?: string | null } | null | undefined) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  return code === "EMAIL_NOT_VERIFIED" || /not verified/i.test(message);
+}
+
+function verifyHref(email: string, nextPath: string, inviteToken?: string | null) {
+  const params = new URLSearchParams({ email });
+  if (inviteToken) params.set("invite", inviteToken);
+  if (nextPath && nextPath !== "/app") params.set("next", nextPath);
+  return `/verify?${params.toString()}`;
+}
 
 export function AuthForm({
   mode,
@@ -21,6 +39,7 @@ export function AuthForm({
   const [name, setName] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [verifyStep, setVerifyStep] = useState(false);
   const router = useRouter();
   const resolvedNext = inviteToken
     ? `/invite/${inviteToken}`
@@ -44,16 +63,7 @@ export function AuthForm({
           setStatus(result.error.message ?? "Could not create the account.");
           return;
         }
-        if (inviteToken) {
-          await fetch("/api/invites/accept", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: inviteToken }),
-          });
-        }
-        setStatus(resolvedNext.startsWith("/api/checkout") ? "Account created. Opening checkout." : "Account created. Opening the app.");
-        router.push(resolvedNext);
-        router.refresh();
+        router.replace(verifyHref(email, resolvedNext, inviteToken));
         return;
       }
 
@@ -63,6 +73,15 @@ export function AuthForm({
         callbackURL: resolvedNext,
       });
       if (result.error) {
+        if (needsEmailVerify(result.error)) {
+          await authClient.emailOtp.sendVerificationOtp({
+            email,
+            type: "email-verification",
+          });
+          setVerifyStep(true);
+          setStatus(null);
+          return;
+        }
         setStatus(result.error.message ?? "Could not sign in.");
         return;
       }
@@ -81,15 +100,16 @@ export function AuthForm({
     try {
       const result = await authClient.signIn.magicLink({
         email,
-        callbackURL: resolvedNext,
+        name: name || email.split("@")[0],
+        callbackURL: resolvedNext === "/app" && mode === "signup" ? "/app/onboarding" : resolvedNext,
       });
       if (result.error) {
         setStatus(result.error.message ?? "Could not send the magic link.");
         return;
       }
-      setStatus("If Cloudflare Email is configured, check your inbox. Otherwise the Worker log has the stub.");
+      setStatus("We emailed a sign-in link. In local dev it is printed in the terminal running next dev.");
     } catch {
-      setStatus("Magic link stub needs /api/auth and a local log when EMAIL is unbound.");
+      setStatus("Could not send the magic link. Check /api/auth and the next-dev terminal.");
     } finally {
       setPending(false);
     }
@@ -107,6 +127,17 @@ export function AuthForm({
       setStatus("Google OAuth needs live GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
       setPending(false);
     }
+  }
+
+  if (verifyStep) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-cb-muted">
+          Password accepted for {email}. {LOCAL_OTP_HINT}
+        </p>
+        <VerifyEmailForm email={email} nextPath={resolvedNext} inviteToken={inviteToken} hideEmail />
+      </div>
+    );
   }
 
   return (
@@ -151,12 +182,14 @@ export function AuthForm({
       </form>
 
       <div className="grid gap-2">
-        <Button type="button" variant="outline" onClick={onMagicLink} disabled={pending || !email}>
+        <Button type="button" variant="outline" className="w-full" onClick={() => void onMagicLink()} disabled={pending || !email}>
           Email a magic link
         </Button>
-        <Button type="button" variant="outline" onClick={onGoogle} disabled={pending}>
-          Continue with Google
-        </Button>
+        {SHOW_GOOGLE_AUTH ? (
+          <Button type="button" variant="outline" onClick={() => void onGoogle()} disabled={pending}>
+            Continue with Google
+          </Button>
+        ) : null}
       </div>
 
       {status ? <p className="text-sm text-cb-muted">{status}</p> : null}

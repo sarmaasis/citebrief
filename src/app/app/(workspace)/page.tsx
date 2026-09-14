@@ -122,7 +122,7 @@ export default async function AppHomePage() {
               Send queue
             </Link>
           </div>
-          <div className="overflow-hidden rounded-cb-card border border-cb-line">
+          <div className="overflow-x-auto rounded-cb-card border border-cb-line">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
                 <tr className="h-12 border-b border-cb-line">
@@ -161,7 +161,7 @@ export default async function AppHomePage() {
               All risks
             </Link>
           </div>
-          <div className="overflow-hidden rounded-cb-card border border-cb-line">
+          <div className="overflow-x-auto rounded-cb-card border border-cb-line">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
                 <tr className="h-12 border-b border-cb-line">
@@ -250,7 +250,7 @@ export default async function AppHomePage() {
 
       <section>
         <h2 className="mb-3 text-sm font-medium">This week</h2>
-        <div className="overflow-hidden rounded-cb-card border border-cb-line bg-cb-surface">
+        <div className="overflow-x-auto rounded-cb-card border border-cb-line bg-cb-surface">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
               <tr className="h-12 border-b border-cb-line">
@@ -386,7 +386,7 @@ function LightHome({
       {actions.length ? (
         <section className="mb-10">
           <h2 className="mb-3 text-sm font-medium">This week’s actions</h2>
-          <div className="overflow-hidden rounded-cb-card border border-cb-line">
+          <div className="overflow-x-auto rounded-cb-card border border-cb-line">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
                 <tr className="h-12 border-b border-cb-line">
@@ -419,7 +419,7 @@ function LightHome({
 
       <section>
         <h2 className="mb-3 text-sm font-medium">This week</h2>
-        <div className="overflow-hidden rounded-cb-card border border-cb-line bg-cb-surface">
+        <div className="overflow-x-auto rounded-cb-card border border-cb-line bg-cb-surface">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
               <tr className="h-12 border-b border-cb-line">

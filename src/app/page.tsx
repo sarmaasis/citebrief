@@ -86,9 +86,9 @@ export default function HomePage() {
       <JsonLd json={homeJsonLd()} />
       <MarketingHeader />
       <main id="main">
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-2 lg:py-24">
+        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-2 lg:py-24">
           <div>
-            <h1 className="font-serif text-[56px] leading-[1.05] tracking-tight text-cb-text lg:text-[64px]">
+            <h1 className="font-serif text-4xl leading-[1.1] tracking-tight text-cb-text sm:text-5xl lg:text-[56px] lg:leading-[1.05] xl:text-[64px]">
               The Friday AI-search report your client actually reads.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-cb-muted">
@@ -111,7 +111,7 @@ export default function HomePage() {
           <PdfPreview />
         </section>
 
-        <section className="mx-auto max-w-6xl px-6 pb-20 lg:pb-24">
+        <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-20 lg:pb-24">
           <div className="grid gap-4 md:grid-cols-2">
             {bento.map((cell) => (
               <div key={cell.kicker} className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
@@ -124,7 +124,7 @@ export default function HomePage() {
         </section>
 
         <section className="border-t border-cb-line">
-          <div className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-24">
             <h2 className="text-2xl font-semibold tracking-tight">From one client brand to a Friday PDF</h2>
             <p className="mt-2 max-w-2xl text-sm text-cb-muted">
               The weekly artifact is the PDF. The product is the agency workflow around it.
@@ -142,7 +142,7 @@ export default function HomePage() {
         </section>
 
         <section className="border-t border-cb-line">
-          <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 lg:grid-cols-2 lg:py-24">
+          <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-2 lg:py-24">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">For agencies that already sell retainers</h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-cb-muted">
@@ -175,7 +175,7 @@ export default function HomePage() {
         </section>
 
         <section className="border-t border-cb-line">
-          <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-6 py-16 md:flex-row md:items-center lg:py-24">
+          <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-4 py-12 sm:px-6 sm:py-16 md:flex-row md:items-center lg:py-24">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">Agency is the weekly reporting system.</h2>
               <p className="mt-2 max-w-xl text-sm text-cb-muted">

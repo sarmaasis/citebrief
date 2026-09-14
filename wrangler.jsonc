@@ -70,7 +70,20 @@
     "CF_EMAIL_FROM": "CiteBrief <auth@getcitebrief.com>"
   },
   "env": {
+    // GitHub Actions staging (`development` branch) deploys `--env preview`
+    // as Worker `citebrief-preview`. BETTER_AUTH_URL is workers.dev, not getcitebrief.com.
+    // D1 is citebrief-staging (never the production database_id). Create it, then paste the id:
+    //   npx wrangler d1 create citebrief-staging
+    // Or set GitHub Actions variable STAGING_D1_DATABASE_ID (CI writes it before migrate).
     "preview": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "citebrief-staging",
+          "database_id": "551d69eb-8378-4fcd-b538-729d22b54097",
+          "migrations_dir": "migrations"
+        }
+      ],
       "vars": {
         "BETTER_AUTH_URL": "https://citebrief.sarmaasis.workers.dev",
         "DODO_PAYMENTS_ENVIRONMENT": "test_mode",

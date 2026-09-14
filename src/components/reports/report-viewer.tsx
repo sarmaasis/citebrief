@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { UpgradePrompt, UPGRADE_COPY } from "@/components/billing/upgrade-prompt";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { SourcesDrawer, type AuditEngineRow } from "@/components/reports/sources-drawer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogActions, DialogCloseButton } from "@/components/ui/dialog";
@@ -304,8 +305,8 @@ export function ReportViewer({
   }
 
   return (
-    <div className="-mx-8 -mt-8 min-h-[calc(100vh-3.5rem)] bg-cb-bg">
-      <div className="flex h-14 items-center justify-between border-b border-cb-line bg-cb-surface px-6">
+    <div className="-mx-4 -mt-6 min-h-[calc(100vh-3.5rem)] bg-cb-bg sm:-mx-8 sm:-mt-8">
+      <div className="flex flex-col gap-3 border-b border-cb-line bg-cb-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-cb-text">
             {brandName}
@@ -389,13 +390,13 @@ export function ReportViewer({
       </div>
 
       {partial ? (
-        <div className="border-b border-cb-line bg-cb-pending-subtle px-6 py-3 text-sm text-cb-pending">
+        <div className="border-b border-cb-line bg-cb-pending-subtle px-4 py-3 text-sm text-cb-pending sm:px-6">
           This PDF still shipped. One source did not return; numbers use what we have.
         </div>
       ) : null}
 
       {sendUpgrade ? (
-        <div className="border-b border-cb-line px-6 py-4">
+        <div className="border-b border-cb-line px-4 py-4 sm:px-6">
           <UpgradePrompt
             title={UPGRADE_COPY.sendStarter.title}
             body={UPGRADE_COPY.sendStarter.body}
@@ -406,7 +407,7 @@ export function ReportViewer({
       ) : null}
 
       {ccUpgrade ? (
-        <div className="border-b border-cb-line px-6 py-4">
+        <div className="border-b border-cb-line px-4 py-4 sm:px-6">
           <UpgradePrompt
             title={UPGRADE_COPY.ccStarter.title}
             body={UPGRADE_COPY.ccStarter.body}
@@ -416,7 +417,7 @@ export function ReportViewer({
         </div>
       ) : null}
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <div className="mb-6 rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-medium">Review before you send</h2>

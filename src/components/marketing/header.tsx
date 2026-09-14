@@ -19,14 +19,14 @@ export async function MarketingHeader() {
   });
 
   return (
-    <header className="sticky top-0 z-20 border-b border-cb-line bg-cb-bg/95">
+    <header className="sticky top-0 z-20 border-b border-cb-line bg-cb-bg">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-cb-control focus:bg-cb-surface focus:px-3 focus:py-2 focus:text-sm"
       >
         Skip to content
       </a>
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
+      <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 sm:px-6">
         <Logo />
         <nav className="hidden items-center gap-6 text-sm text-cb-muted md:flex">
           {productNav.map((item) => (
@@ -38,16 +38,16 @@ export async function MarketingHeader() {
             {account.label}
           </Link>
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Link href={account.href} className="text-sm text-cb-muted hover:text-cb-text md:hidden">
             {account.label}
           </Link>
-          <Button asChild>
+          <Button asChild className="max-sm:h-9 max-sm:px-3 max-sm:text-xs">
             <Link href={primary.href}>{primary.label}</Link>
           </Button>
         </div>
       </div>
-      <nav className="flex gap-4 border-t border-cb-line px-6 py-2 text-sm text-cb-muted md:hidden">
+      <nav className="flex gap-4 border-t border-cb-line px-4 py-2 text-sm text-cb-muted sm:px-6 md:hidden">
         <Link href="/pricing" className="hover:text-cb-text">
           Pricing
         </Link>

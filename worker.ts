@@ -25,7 +25,7 @@ export type RunQueueMessage = {
 export default {
   async fetch(request, env, ctx) {
     const location = canonicalRedirectLocation(request);
-    if (location) return canonicalRedirectResponse(location, env);
+    if (location) return canonicalRedirectResponse(location, env, request);
 
     const url = new URL(request.url);
     if (productionSecretGate === null) {
@@ -42,11 +42,12 @@ export default {
           },
         }),
         env,
+        request,
       );
     }
 
     const response = await handler.fetch(request, env, ctx);
-    return applySecurityHeaders(response, env);
+    return applySecurityHeaders(response, env, request);
   },
 
   async queue(batch, env): Promise<void> {
