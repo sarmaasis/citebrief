@@ -7,6 +7,10 @@ interface CloudflareEnv {
   RUNS_QUEUE: Queue;
   ASSETS: Fetcher;
   WORKER_SELF_REFERENCE: Fetcher;
+  /** Workers AI binding. Used for low-cost prompt writing under Workers AI billing. */
+  AI?: {
+    run(model: string, input: unknown, options?: unknown): Promise<unknown>;
+  };
   /** Optional Cloudflare Browser Rendering binding for AI Overviews. */
   BROWSER?: Fetcher;
   /** Cloudflare Email Service send binding (`wrangler.jsonc` send_email.name = EMAIL). */

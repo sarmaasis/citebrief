@@ -1,74 +1,77 @@
 "use client";
 
-import { CORE_ENGINES, STUDIO_ENGINES } from "@/lib/engines";
-import { Label } from "@/components/ui/label";
+import { CORE_ENGINES, isClaudeDisabled, type EngineId } from "@/lib/engines";
+import {
+  defaultEngineStringForPlan,
+  selectableEngineIds,
+  type PlanEngineGate,
+} from "@/lib/plan-engines";
+
+const CATALOG_ENGINES = CORE_ENGINES.filter((engine) => !isClaudeDisabled(engine.id));
 
 export function EnginePicker({
   value,
   onChange,
+  paid,
   studioAllowed,
 }: {
   value: string;
   onChange: (next: string) => void;
+  paid: boolean;
   studioAllowed: boolean;
 }) {
+  const gate: PlanEngineGate = { paid, allowsStudioEngines: studioAllowed };
+  const allowedIds = selectableEngineIds(gate);
+  const allowed = new Set<EngineId>(allowedIds);
+  const planDefault = defaultEngineStringForPlan(gate);
   const selected = new Set(
     value
       .split(",")
       .map((part) => part.trim().toLowerCase())
-      .filter(Boolean),
+      .filter((id): id is EngineId => Boolean(id) && allowed.has(id as EngineId)),
   );
 
-  function toggle(id: string, checked: boolean) {
+  function toggle(id: EngineId, checked: boolean) {
+    if (!allowed.has(id) || isClaudeDisabled(id)) return;
     const next = new Set(selected);
     if (checked) next.add(id);
     else next.delete(id);
-    const core = CORE_ENGINES.map((engine) => engine.id).filter((id) => next.has(id));
-    const studio = STUDIO_ENGINES.map((engine) => engine.id).filter((id) => next.has(id));
-    onChange([...core, ...studio].join(",") || "chatgpt,perplexity,gemini,aio");
+    const core = allowedIds.filter((engineId) => next.has(engineId));
+    onChange(core.join(",") || planDefault);
   }
 
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium text-cb-text">Default engines</legend>
       <p className="text-xs text-cb-muted">
-        Friday reports still ship if three of the four core sources return.
+        {paid
+          ? "Friday reports use ChatGPT, Gemini, Grok, and AI Overviews. Agency reports ship if three of four sources return."
+          : "Trial reports use ChatGPT and Gemini only. Grok and AI Overviews unlock on Agency or Studio."}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
-        {CORE_ENGINES.map((engine) => (
-          <label key={engine.id} className="flex h-10 items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="size-4 accent-[var(--cb-accent)]"
-              checked={selected.has(engine.id)}
-              onChange={(event) => toggle(engine.id, event.target.checked)}
-            />
-            {engine.label}
-          </label>
-        ))}
-      </div>
-      <div className="pt-2">
-        <Label className="text-xs text-cb-muted">Studio add-on</Label>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {STUDIO_ENGINES.map((engine) => (
+        {CATALOG_ENGINES.map((engine) => {
+          const locked = !allowed.has(engine.id);
+          return (
             <label
               key={engine.id}
-              className={`flex h-10 items-center gap-2 text-sm ${studioAllowed ? "" : "text-cb-muted"}`}
+              className={`flex h-10 items-center gap-2 text-sm ${locked ? "text-cb-muted" : ""}`}
             >
               <input
                 type="checkbox"
                 className="size-4 accent-[var(--cb-accent)]"
-                checked={selected.has(engine.id)}
-                disabled={!studioAllowed}
+                checked={!locked && selected.has(engine.id)}
+                disabled={locked}
                 onChange={(event) => toggle(engine.id, event.target.checked)}
               />
-              {engine.label}
+              <span>
+                {engine.label}
+                {locked ? (
+                  <span className="ml-1 text-xs text-cb-muted">(Agency+)</span>
+                ) : null}
+              </span>
             </label>
-          ))}
-        </div>
-        {!studioAllowed ? (
-          <p className="mt-1 text-xs text-cb-muted">Claude and Grok are on Studio.</p>
-        ) : null}
+          );
+        })}
       </div>
     </fieldset>
   );

@@ -44,7 +44,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
       {
         heading: "AI answers",
         paragraphs: [
-          "Reports query third-party AI search surfaces (ChatGPT, Perplexity, Gemini, and Google AI Overviews) through Cloudflare AI Gateway. Those answers may be incomplete or change. We store engine outputs, source URLs, timestamps, and gateway request ids so your team can inspect a finding. See the AI disclaimer.",
+          "Reports query third-party AI search surfaces (ChatGPT, Gemini, Grok, and Google AI Overviews) through Cloudflare AI Gateway where API-based. Those answers may be incomplete or change. We store engine outputs, source URLs, timestamps, and gateway request ids so your team can inspect a finding. See the AI disclaimer.",
         ],
       },
       {
@@ -167,7 +167,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
           "Google — optional sign-in (OAuth) when configured",
         ],
         paragraphs: [
-          "Engine providers (OpenAI, Perplexity, Google Gemini, and similar) receive the buyer questions you configure, via Cloudflare AI Gateway. They do not receive your client’s login. Changes to this list will be reflected on this page.",
+          "Engine providers (OpenAI, Google Gemini, xAI, and similar) receive the buyer questions you configure, via Cloudflare AI Gateway where API-based. They do not receive your client’s login. Changes to this list will be reflected on this page.",
         ],
       },
     ],
@@ -276,7 +276,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
           "Not a substitute for your own editorial review before sending to a client",
         ],
         paragraphs: [
-          "If fewer than three engines succeed, treat the week as incomplete. Partial reports can still ship when three of four engines return.",
+          "Paid runs monitor ChatGPT, Gemini, Grok, and Google AI Overviews. If fewer than three of those four engines succeed, treat the week as incomplete. Partial reports can still ship when three of four scheduled sources return.",
         ],
       },
     ],

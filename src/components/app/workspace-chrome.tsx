@@ -13,6 +13,7 @@ export function WorkspaceChrome({
   impersonating,
   signedIn,
   brands,
+  recheckHint,
 }: {
   children: React.ReactNode;
   workspaceName: string;
@@ -21,6 +22,7 @@ export function WorkspaceChrome({
   impersonating?: boolean;
   signedIn: boolean;
   brands: Array<{ id: string; name: string }>;
+  recheckHint?: string | null;
 }) {
   const pathname = usePathname();
   const [navState, setNavState] = useState({ open: false, pathname });
@@ -74,8 +76,9 @@ export function WorkspaceChrome({
           signedIn={signedIn}
           brands={brands}
           onOpenNav={openNav}
+          recheckHint={recheckHint}
         />
-        <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8">
+        <main id="main" className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 sm:px-8 sm:py-8">
           {children}
         </main>
       </div>

@@ -50,6 +50,9 @@ export default async function BillingSettingsPage() {
             runsUsed: snapshot.runsUsed,
             extraRuns: snapshot.extraRuns,
             extraRunCredits: snapshot.extraRunCredits,
+            monthlyRecheckCredits: snapshot.monthlyRecheckCredits,
+            monthlyRechecksUsed: snapshot.monthlyRechecksUsed,
+            monthlyRechecksRemaining: snapshot.monthlyRechecksRemaining,
             trialEndsAt: snapshot.trialEndsAt ? formatShortDate(new Date(snapshot.trialEndsAt)) : null,
             currentPeriodEnd: snapshot.currentPeriodEnd
               ? formatShortDate(new Date(snapshot.currentPeriodEnd))

@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { PromptsPage } from "@/components/prompts/prompts-page";
-import type { PromptDraft, PromptMix } from "@/lib/prompts";
+import { workspaceEntitlements } from "@/lib/entitlements";
+import { normalizePromptDrafts, type PromptDraft, type PromptMix } from "@/lib/prompts";
 import { getAppContext } from "@/lib/session";
+import { getWorkspaceSubscription } from "@/lib/usage";
 import { getBrandBundle } from "@/server/workspace-data";
 
 export default async function BrandPromptsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,11 +17,18 @@ export default async function BrandPromptsPage({ params }: { params: Promise<{ i
     notFound();
   }
 
-  const initial: PromptDraft[] = bundle.prompts.map((row) => ({
-    text: row.text,
-    mix: row.mix as PromptMix,
-    sortOrder: row.sortOrder,
-  }));
+  const initial: PromptDraft[] = normalizePromptDrafts(
+    bundle.prompts.map((row) => ({
+      text: row.text,
+      mix: row.mix as PromptMix,
+      sortOrder: row.sortOrder,
+    })),
+  );
 
-  return <PromptsPage brandId={bundle.brand.id} brandName={bundle.brand.name} initial={initial} />;
+  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+  const promptCap = workspaceEntitlements(sub).promptCap;
+
+  return (
+    <PromptsPage brandId={bundle.brand.id} brandName={bundle.brand.name} initial={initial} promptCap={promptCap} />
+  );
 }

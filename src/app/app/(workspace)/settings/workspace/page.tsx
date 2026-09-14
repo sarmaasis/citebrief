@@ -4,6 +4,7 @@ import { WorkspaceForm } from "@/components/settings/workspace-form";
 import { DataPrivacyCard } from "@/components/settings/data-privacy-card";
 import { workspaces } from "@/db/schema";
 import { workspaceEntitlements } from "@/lib/entitlements";
+import { defaultEngineStringForPlan, validateDefaultEngines } from "@/lib/plan-engines";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 
@@ -18,6 +19,11 @@ export default async function WorkspaceSettingsPage() {
   if (!workspace) notFound();
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
+  const engineGate = { paid: ent.paid, allowsStudioEngines: ent.allowsStudioEngines };
+  const engines = validateDefaultEngines(workspace.defaultEngines, engineGate);
+  const defaultEngines = engines.ok
+    ? engines.normalized
+    : defaultEngineStringForPlan(engineGate);
 
   return (
     <div>
@@ -30,13 +36,14 @@ export default async function WorkspaceSettingsPage() {
           slackAllowed={ent.allowsSlack}
           customSenderAllowed={ent.allowsCustomSender}
           studioEnginesAllowed={ent.allowsStudioEngines}
+          paid={ent.paid}
           showRoiMinutes={ent.allowsCommandCenter}
           initial={{
             name: workspace.name,
             timezone: workspace.timezone,
             senderName: workspace.senderName || "",
             senderDomain: workspace.senderDomain || "",
-            defaultEngines: workspace.defaultEngines || "chatgpt,perplexity,gemini,aio",
+            defaultEngines,
             slackWebhookUrl: workspace.slackWebhookUrl || "",
             minutesSavedPerReport: workspace.minutesSavedPerReport ?? 60,
           }}

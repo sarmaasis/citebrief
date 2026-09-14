@@ -1,5 +1,5 @@
 import { brands, competitors, prompts } from "@/db/schema";
-import { assertBrandCap } from "@/lib/usage";
+import { assertBrandCap, capDenialFromError } from "@/lib/usage";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
 import { getBrandBundle, getWorkspaceBrand } from "@/server/workspace-data";
@@ -18,7 +18,10 @@ export async function POST(_request: Request, context: RouteContext) {
   try {
     await assertBrandCap(ctx.db, ctx.workspace.id);
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Brand cap reached.", 402);
+    const denial = capDenialFromError(error);
+    return jsonError(error instanceof Error ? error.message : "Brand cap reached.", 402, {
+      code: denial?.code ?? "brand_cap",
+    });
   }
 
   const bundle = await getBrandBundle(ctx, id);
@@ -39,6 +42,7 @@ export async function POST(_request: Request, context: RouteContext) {
     incumbent: source.incumbent,
     constraintNote: source.constraintNote,
     clientOwner: source.clientOwner,
+    clientNotes: source.clientNotes,
     createdAt: now,
     updatedAt: now,
   });
@@ -55,8 +59,8 @@ export async function POST(_request: Request, context: RouteContext) {
   }
 
   if (bundle.prompts.length) {
-    await ctx.db.insert(prompts).values(
-      bundle.prompts.map((row) => ({
+    for (const row of bundle.prompts) {
+      await ctx.db.insert(prompts).values({
         id: crypto.randomUUID(),
         brandId: newId,
         text: row.text,
@@ -64,8 +68,8 @@ export async function POST(_request: Request, context: RouteContext) {
         sortOrder: row.sortOrder,
         createdAt: now,
         updatedAt: now,
-      })),
-    );
+      });
+    }
   }
 
   return jsonOk({ id: newId }, 201);

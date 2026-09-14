@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
-import { UPGRADE_COPY } from "@/lib/upgrade-copy";
+import { UpgradeDialog } from "@/components/billing/upgrade-prompt";
+import { upgradeCopyForCapCode, UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { BrandFields, type BrandFieldValues } from "@/components/brands/brand-fields";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +17,7 @@ export function BrandForm({
   const router = useRouter();
   const [values, setValues] = useState(initial);
   const [status, setStatus] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
@@ -24,6 +25,7 @@ export function BrandForm({
     event.preventDefault();
     setPending(true);
     setStatus(null);
+    setCode(null);
     setShowUpgrade(false);
     try {
       const response = await fetch(brandId ? `/api/brands/${brandId}` : "/api/brands", {
@@ -31,9 +33,10 @@ export function BrandForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
-      const data = (await response.json()) as { id?: string; error?: string };
+      const data = (await response.json()) as { id?: string; error?: string; code?: string };
       if (!response.ok) {
         setStatus(data.error ?? "Could not save the brand.");
+        setCode(data.code ?? null);
         if (!brandId && (response.status === 402 || response.status === 403 || data.error?.toLowerCase().includes("cap"))) {
           setShowUpgrade(true);
         }
@@ -46,23 +49,24 @@ export function BrandForm({
     }
   }
 
+  const upgrade = upgradeCopyForCapCode(code, status) ?? UPGRADE_COPY.trialBrand;
+
   return (
-    <div className="space-y-6">
-      {showUpgrade ? (
-        <UpgradePrompt
-          title={UPGRADE_COPY.fourthBrand.title}
-          body={UPGRADE_COPY.fourthBrand.body}
-          cta={UPGRADE_COPY.fourthBrand.cta}
-          onDismiss={() => setShowUpgrade(false)}
-        />
-      ) : null}
+    <div className="min-w-0 space-y-6">
       <form onSubmit={onSubmit} className="max-w-xl space-y-6">
         <BrandFields values={values} onChange={setValues} />
-        {status ? <p className="text-sm text-cb-danger">{status}</p> : null}
+        {status && !showUpgrade ? <p className="text-sm text-cb-danger">{status}</p> : null}
         <Button type="submit" disabled={pending}>
           {brandId ? "Save brand" : "Add brand"}
         </Button>
       </form>
+      <UpgradeDialog
+        open={showUpgrade}
+        onOpenChange={setShowUpgrade}
+        title={upgrade.title}
+        body={status ?? upgrade.body}
+        cta={upgrade.cta}
+      />
     </div>
   );
 }

@@ -99,3 +99,23 @@ export function isSendOverdue(args: {
     : lastLocalFirstFridaySix(args.timezone, args.now);
   return last != null && created.getTime() < last.getTime();
 }
+
+/** Next Friday 06:00 local (weekly) or next first-Friday 06:00 (monthly). */
+export function nextScheduledRunAt(args: {
+  timezone: string;
+  weekly: boolean;
+  now?: Date;
+}): Date | null {
+  const zone = args.timezone || "America/New_York";
+  const cursor = new Date((args.now ?? new Date()).getTime());
+  // Walk forward hour-by-hour up to ~6 weeks.
+  for (let i = 0; i < 45 * 24; i += 1) {
+    cursor.setTime(cursor.getTime() + 60 * 60 * 1000);
+    if (args.weekly) {
+      if (isLocalFridaySix(zone, cursor)) return cursor;
+    } else if (isLocalFirstFridaySix(zone, cursor)) {
+      return cursor;
+    }
+  }
+  return null;
+}

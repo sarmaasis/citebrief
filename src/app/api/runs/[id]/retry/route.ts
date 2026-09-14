@@ -1,12 +1,10 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { CORE_ENGINES, isStudioEngine, parseEngineStatus, type EngineId } from "@/lib/engines";
+import { CORE_ENGINES, isClaudeDisabled, parseEngineStatus, type EngineId } from "@/lib/engines";
 import { retryFailedEngine } from "@/lib/run-processor";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
 import { brands, reports, runs } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { workspaceEntitlements } from "@/lib/entitlements";
-import { getWorkspaceSubscription } from "@/lib/usage";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +31,10 @@ export async function POST(request: Request, context: RouteContext) {
     return jsonError("Only a failed engine can be retried.");
   }
 
-  if (isStudioEngine(engine)) {
-    const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
-    const ent = workspaceEntitlements(sub);
-    if (!ent.allowsStudioEngines) {
-      return jsonError("Claude and Grok require Studio.", 403);
-    }
-  } else if (!CORE_ENGINES.some((item) => item.id === engine)) {
+  if (isClaudeDisabled(engine)) {
+    return jsonError("Claude is unavailable on all plans for now.", 403);
+  }
+  if (!CORE_ENGINES.some((item) => item.id === engine)) {
     return jsonError("Unknown engine.");
   }
 

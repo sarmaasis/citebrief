@@ -14,6 +14,7 @@ export type BrandFieldValues = {
   competitors: string;
   constraintNote: string;
   clientOwner: string;
+  clientNotes: string;
 };
 
 export const emptyBrandFields: BrandFieldValues = {
@@ -28,6 +29,7 @@ export const emptyBrandFields: BrandFieldValues = {
   competitors: "",
   constraintNote: "",
   clientOwner: "",
+  clientNotes: "",
 };
 
 export function BrandFields({
@@ -120,6 +122,14 @@ export function BrandFields({
           placeholder="Account manager on this retainer"
           value={values.clientOwner}
           onChange={(event) => set("clientOwner", event.target.value)}
+        />
+      </Field>
+      <Field id="clientNotes" label="Client notes">
+        <Textarea
+          id="clientNotes"
+          placeholder="Call notes, recommendations, context for the next Friday send"
+          value={values.clientNotes}
+          onChange={(event) => set("clientNotes", event.target.value)}
         />
       </Field>
       <Field id="constraintNote" label="Must-have constraint">

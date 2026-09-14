@@ -11,6 +11,10 @@ import {
   planAllowsEmailSend,
   planAllowsStudioEngines,
   planAllowsWeeklyCadence,
+  planHardStop,
+  planIncludedRunCap,
+  planManualRerunCap,
+  planMonthlyRecheckCredits,
   planSeatCap,
 } from "./billing";
 import { isEngineApiConfigured, usesDeterministicStub } from "./engine-adapters";
@@ -34,6 +38,19 @@ assert.equal(EXTRA_BRAND_USD.studio, 29);
 assert.equal(EXTRA_BRAND_USD.enterprise, 29);
 assert.equal(EXTRA_RUN_USD.agency, 9);
 assert.equal(EXTRA_RUN_USD.studio, 9);
+assert.equal(PLANS.agency.manualRerunsPerBrandPerWeek, 0);
+assert.equal(PLANS.agency.includedRunsPerBrandPerWeek, 1);
+assert.equal(planManualRerunCap("agency"), 0);
+assert.equal(planMonthlyRecheckCredits("agency"), 10);
+assert.equal(planIncludedRunCap("agency"), 1);
+assert.equal(planHardStop("agency"), 3);
+assert.equal(PLANS.starter.manualRerunsPerBrandPerWeek, 1);
+assert.equal(planMonthlyRecheckCredits("starter"), 2);
+assert.equal(planIncludedRunCap("starter"), 2);
+assert.equal(PLANS.studio.manualRerunsPerBrandPerWeek, 2);
+assert.equal(planMonthlyRecheckCredits("studio"), 100);
+assert.equal(planIncludedRunCap("studio"), 3);
+assert.equal(planHardStop("studio"), 9);
 
 assert.equal(planAllowsWeeklyCadence("starter"), false);
 assert.equal(planAllowsWeeklyCadence("agency"), true);

@@ -1,37 +1,108 @@
 import type { Database } from "@/db";
-import { isEngineApiConfigured } from "@/lib/engine-adapters";
-import { CORE_ENGINES, ENGINES, STUDIO_ENGINES, type EngineId } from "@/lib/engines";
+import {
+  AGENCY_ENGINE_IDS,
+  CORE_ENGINES,
+  ENGINES,
+  STUDIO_ENGINE_IDS,
+  TRIAL_ENGINE_IDS,
+  isClaudeDisabled,
+  type EngineId,
+} from "@/lib/engines";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getWorkspaceSubscription } from "@/lib/usage";
 
+/** Trial default: ChatGPT + Gemini only. */
+export const TRIAL_DEFAULT_ENGINE_STRING = "chatgpt,gemini";
+/** Agency default: ChatGPT, Gemini, Grok, AIO — no Claude. */
+export const DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio";
+/** Studio default: same coverage as Agency (includes Grok); Claude not selectable for now. */
+export const STUDIO_DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio";
+
 const KNOWN_IDS = new Set(ENGINES.map((engine) => engine.id));
 
+export type PlanEngineGate = {
+  paid: boolean;
+  allowsStudioEngines?: boolean;
+};
+
+/** Engines the workspace may select in Settings / persist as defaults (Claude never included). */
+export function selectableEngineIds(gate: PlanEngineGate): EngineId[] {
+  if (!gate.paid) return [...TRIAL_ENGINE_IDS];
+  const planIds = gate.allowsStudioEngines ? STUDIO_ENGINE_IDS : AGENCY_ENGINE_IDS;
+  return planIds.filter((id) => !isClaudeDisabled(id));
+}
+
+export function defaultEngineStringForPlan(gate: PlanEngineGate): string {
+  if (!gate.paid) return TRIAL_DEFAULT_ENGINE_STRING;
+  return gate.allowsStudioEngines ? STUDIO_DEFAULT_ENGINE_STRING : DEFAULT_ENGINE_STRING;
+}
+
 export function parseRequestedEngines(value: string | null | undefined): string[] {
-  return (value || "chatgpt,perplexity,gemini,aio")
+  const tokens = (value || DEFAULT_ENGINE_STRING)
     .split(",")
     .map((part) => part.trim().toLowerCase())
     .filter(Boolean);
+  const migrated = tokens.flatMap((token) => {
+    // Legacy aliases: old "studio"/"perplexity" packs mapped to Claude+Grok; Claude is off.
+    if (token === "perplexity" || token === "studio") return ["grok"];
+    if (token === "-perplexity") return [];
+    if (token === "-studio") return ["-grok"];
+    return [token];
+  });
+  return Array.from(new Set(migrated));
 }
 
 export function validateDefaultEngines(
   value: string | null | undefined,
-  studioOk: boolean,
+  gate: PlanEngineGate | boolean,
 ): { ok: true; normalized: string } | { ok: false; error: string } {
+  // Legacy callers passed studioOk boolean only (assumed paid).
+  const opts: PlanEngineGate =
+    typeof gate === "boolean" ? { paid: true, allowsStudioEngines: gate } : gate;
+  const allowed = new Set(selectableEngineIds(opts));
+  const fallback = defaultEngineStringForPlan(opts);
   const requested = parseRequestedEngines(value);
   if (requested.length === 0) {
-    return { ok: true, normalized: "chatgpt,perplexity,gemini,aio" };
+    return { ok: true, normalized: fallback };
   }
+  const kept: string[] = [];
   for (const token of requested) {
     const id = token.startsWith("-") ? token.slice(1) : token;
-    if (id === "studio") continue;
     if (!KNOWN_IDS.has(id as EngineId)) {
-      return { ok: false, error: `Unknown engine "${id}". Use chatgpt, perplexity, gemini, aio, claude, grok.` };
+      return { ok: false, error: `Unknown engine "${id}". Use chatgpt, gemini, grok, aio.` };
     }
-    if (!studioOk && (id === "claude" || id === "grok")) {
-      return { ok: false, error: "Claude and Grok require Studio, Enterprise, or the premium engine pack." };
-    }
+    // Claude stays in the catalog for adapters/history but is not plan-selectable.
+    if (isClaudeDisabled(id)) continue;
+    if (!allowed.has(id as EngineId)) continue;
+    kept.push(token);
   }
-  return { ok: true, normalized: requested.join(",") };
+  if (kept.length === 0) {
+    return { ok: true, normalized: fallback };
+  }
+  return { ok: true, normalized: kept.join(",") };
+}
+
+export function enginesForRun(args: {
+  requested: string[];
+  paid: boolean;
+  allowsStudioEngines?: boolean;
+}): Array<{ id: EngineId; label: string }> {
+  if (!args.paid) {
+    const trial = CORE_ENGINES.filter((engine) => TRIAL_ENGINE_IDS.includes(engine.id));
+    const fromRequest = CORE_ENGINES.filter(
+      (engine) => args.requested.includes(engine.id) && TRIAL_ENGINE_IDS.includes(engine.id),
+    );
+    return fromRequest.length > 0 ? fromRequest : trial;
+  }
+
+  const studioOk = Boolean(args.allowsStudioEngines);
+  const planIds = studioOk ? STUDIO_ENGINE_IDS : AGENCY_ENGINE_IDS;
+  const allowed = CORE_ENGINES.filter(
+    (engine) => planIds.includes(engine.id) && !isClaudeDisabled(engine.id),
+  );
+  const fromRequest = allowed.filter((engine) => args.requested.includes(engine.id));
+  if (fromRequest.length > 0) return fromRequest;
+  return allowed;
 }
 
 export async function resolveRunEngines(args: {
@@ -42,27 +113,13 @@ export async function resolveRunEngines(args: {
 }): Promise<{ engines: Array<{ id: EngineId; label: string }>; includeStudio: boolean }> {
   const sub = await getWorkspaceSubscription(args.db, args.workspaceId);
   const ent = workspaceEntitlements(sub);
-  const studioOk = ent.allowsStudioEngines;
-
   const requested = parseRequestedEngines(args.defaultEngines);
-
-  const core = CORE_ENGINES.filter((engine) => requested.includes(engine.id));
-  const coreList = core.length > 0 ? [...core] : [...CORE_ENGINES];
-
-  const studio: Array<{ id: EngineId; label: string }> = [];
-  if (studioOk) {
-    for (const engine of STUDIO_ENGINES) {
-      const excluded = requested.includes(`-${engine.id}`);
-      if (excluded) continue;
-      const wanted = requested.includes(engine.id) || requested.includes("studio");
-      if (wanted || isEngineApiConfigured(engine.id, args.env)) {
-        studio.push(engine);
-      }
-    }
-  }
-
   return {
-    engines: [...coreList, ...studio],
-    includeStudio: studio.length > 0,
+    engines: enginesForRun({
+      requested,
+      paid: ent.paid,
+      allowsStudioEngines: ent.allowsStudioEngines,
+    }),
+    includeStudio: ent.allowsStudioEngines,
   };
 }

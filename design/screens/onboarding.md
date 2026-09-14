@@ -47,6 +47,6 @@ Live engine status (4). Then open report viewer / download.
 - Step 2 title: **Confirm twenty buyer questions**
 - Vanity reject: **That reads like SEO, not a buyer. Try a comparison or job question.**
 - Step 3 title: **Running this week's report**
-- Engine line: **Perplexity · Running**
+- Engine line: **ChatGPT · Running**
 - Success: **CiteBrief finished the first PDF.**
 - CTA: **Open report**

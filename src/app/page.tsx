@@ -7,7 +7,7 @@ import { MarketingPrimaryCta } from "@/components/marketing/primary-cta";
 import { PdfPreview } from "@/components/marketing/pdf-preview";
 import { SAMPLE_REPORT } from "@/components/marketing/sample-report-data";
 import { JsonLd } from "@/components/seo/json-ld";
-import { PLANS, TRIAL_BRAND_CAP, TRIAL_DAYS, TRIAL_RUN_CAP } from "@/lib/billing";
+import { PLANS, TRIAL_BRAND_CAP, TRIAL_DAYS, TRIAL_PROMPT_CAP, TRIAL_RUN_CAP } from "@/lib/billing";
 import { homeJsonLd, metadataPages } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -40,12 +40,12 @@ const steps = [
   {
     n: "01",
     title: "Add one client brand",
-    body: "Six fields. CiteBrief writes twenty buying questions. No vanity prompts about whether ChatGPT mentioned the brand.",
+    body: "Six fields. CiteBrief writes buyer questions (5 on trial, 20 when paid). No vanity prompts about whether ChatGPT mentioned the brand.",
   },
   {
     n: "02",
-    title: "Check the four engines",
-    body: "ChatGPT, Perplexity, Gemini, and Google AI Overviews. Named, recommended, and who won.",
+    title: "Check four AI surfaces",
+    body: "ChatGPT, Gemini, Grok, and Google AI Overviews. Named, recommended, and who won.",
   },
   {
     n: "03",
@@ -64,11 +64,11 @@ const fit = [
 const posture = [
   {
     against: "Cheap trackers",
-    line: "Your client cannot read a dashboard score.",
+    line: "Your client cannot read a vanity score. They need a Friday letter.",
   },
   {
     against: "Deep platforms",
-    line: "Your account manager needs a finished report by Friday.",
+    line: "Your account manager needs a finished report by Friday, plus a clear next-action queue.",
   },
   {
     against: "SEO suite tabs",
@@ -76,7 +76,7 @@ const posture = [
   },
   {
     against: "Manual slides",
-    line: "Stop spending strategist time copying screenshots.",
+    line: "Stop spending strategist time copying screenshots into decks.",
   },
 ];
 
@@ -92,9 +92,10 @@ export default function HomePage() {
               The Friday AI-search report your client actually reads.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-cb-muted">
-              Track buyer questions across ChatGPT, Perplexity, Gemini, and AI Overviews. Send a
-              white-label PDF with who won, where you were missing, and what to do next. Built for
-              agencies managing multiple clients.
+              Track buyer questions across ChatGPT, Gemini, Grok, and AI Overviews. Send a
+              white-label PDF with who won, where you were missing, and what to do next. On Agency,
+              the command center shows whether you are improving, who is beating you, what changed,
+              and what to do this week.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <MarketingPrimaryCta signedOutLabel="Send a Friday report" size="lg" />
@@ -103,9 +104,10 @@ export default function HomePage() {
               </Button>
             </div>
             <p className="mt-4 text-sm text-cb-muted">
-              {TRIAL_DAYS}-day trial. {TRIAL_BRAND_CAP} brand. {TRIAL_RUN_CAP} full report. No
-              weekly send until paid. Agency is ${PLANS.agency.amountUsd}/mo for{" "}
-              {PLANS.agency.brands} brands.
+              {TRIAL_DAYS}-day trial: {TRIAL_BRAND_CAP} brand, {TRIAL_PROMPT_CAP} buyer questions,
+              ChatGPT + Gemini, {TRIAL_RUN_CAP} full report. Paid plans use {PLANS.agency.prompts}{" "}
+              questions and four AI surfaces. No weekly send or command center until paid. Agency is $
+              {PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands.
             </p>
           </div>
           <PdfPreview />
@@ -161,7 +163,10 @@ export default function HomePage() {
               </p>
             </div>
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Win on the report, not another dashboard</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">Win on the Friday letter, not a client login</h2>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-cb-muted">
+                Clients read the PDF. Your team uses the Agency command center between Fridays.
+              </p>
               <ul className="mt-8 space-y-0">
                 {posture.map((item) => (
                   <li key={item.against} className="border-t border-cb-line py-4 first:border-t-0 first:pt-0">
@@ -181,8 +186,8 @@ export default function HomePage() {
               <p className="mt-2 max-w-xl text-sm text-cb-muted">
                 ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands, weekly Friday reports,
                 white-label, client CC, history, Slack, and {PLANS.agency.seats} seats. The command
-                center shows which clients need attention, which reports are ready to send, and what
-                you can sell next.
+                center answers four questions: are we improving, who is winning, what changed, and
+                what should we do next.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">

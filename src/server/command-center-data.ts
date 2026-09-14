@@ -14,6 +14,10 @@ import {
   weeklyAction,
   type CommandCenterFilters,
 } from "@/lib/command-center";
+import {
+  commandRowMatchesSavedView,
+  type AgencySavedView,
+} from "@/lib/dashboard-metrics";
 import type { WorkspaceEntitlements } from "@/lib/entitlements";
 import type { AppContext } from "@/lib/session";
 import { listHomeRows, withSendOverdue } from "@/server/workspace-data";
@@ -78,9 +82,11 @@ export async function buildCommandCenterSnapshot(
   ctx: AppContext,
   ent: WorkspaceEntitlements,
   filters: CommandCenterFilters = {},
+  opts?: { view?: AgencySavedView },
 ) {
   const { rows, minutesSavedPerReport, planned } = await loadCommandRows(ctx, ent.allowsWeeklyCadence);
-  const filtered = filterCommandRows(rows, filters);
+  const view = opts?.view ?? "all";
+  const filtered = filterCommandRows(rows, filters).filter((row) => commandRowMatchesSavedView(row, view));
   const opportunities = filtered
     .map((row) => opportunityFromRow(row))
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
@@ -106,6 +112,8 @@ export async function buildCommandCenterSnapshot(
       export: ent.allowsPortfolioExport,
     },
     minutesSavedPerReport,
+    view,
+    unfilteredCount: rows.length,
     kpis: {
       clientsMonitored: filtered.length,
       portfolioVisibility: averageNamedScore(filtered),

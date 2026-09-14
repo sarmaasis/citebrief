@@ -1,10 +1,13 @@
 import {
   ANNUAL_MONTHS_CHARGED,
   EXTRA_BRAND_USD,
+  EXTRA_RUN_USD,
+  MONTHLY_RECHECK_CREDITS,
   PLANS,
   SEAT_OVERAGE_USD,
   TRIAL_BRAND_CAP,
   TRIAL_DAYS,
+  TRIAL_PROMPT_CAP,
   TRIAL_RUN_CAP,
 } from "@/lib/billing";
 
@@ -16,19 +19,19 @@ export const PRICING_FAQS = [
   },
   {
     q: "What if one engine fails?",
-    a: "We soft-fail. If three of four engines return, the Friday PDF still ships. Failed engines stay out of the client-facing report unless fewer than three succeed.",
+    a: "We soft-fail. Paid Friday runs check ChatGPT, Gemini, Grok, and AI Overviews. If three of those four return, the PDF still ships. Failed sources stay out of the client-facing report unless fewer than three succeed.",
   },
   {
     q: "Is this a GEO optimizer or an SEO tracker?",
-    a: "No. CiteBrief is the report layer agencies send to clients. It is not a cheap visibility score, a keyword tracker, a content generator, or a Peec or Profound replacement.",
+    a: "No. CiteBrief is the report layer agencies send to clients, plus an Agency+ command center for risk, opportunities, and send pipeline. It is not a cheap visibility score, a keyword tracker, a content generator, or a Peec or Profound replacement.",
   },
   {
     q: "What is included in the trial?",
-    a: `${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, ${TRIAL_RUN_CAP} full report. No weekly send until paid. No Studio engines in trial. No free forever plan. After the trial, Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands on a monthly cadence; weekly Friday sending is Agency ($${PLANS.agency.amountUsd}/mo, ${PLANS.agency.brands} brands) and Studio ($${PLANS.studio.amountUsd}/mo).`,
+    a: `${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, ${TRIAL_PROMPT_CAP} buyer questions, ${TRIAL_RUN_CAP} full report on ChatGPT + Gemini only. No weekly send, no command center, no unlimited reruns, and no extra-brand add-on until paid. No free forever plan. After the trial, Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands on a monthly cadence; weekly Friday sending is Agency ($${PLANS.agency.amountUsd}/mo, ${PLANS.agency.brands} brands) and Studio ($${PLANS.studio.amountUsd}/mo).`,
   },
   {
     q: "What if I outgrow Starter?",
-    a: `Move to Agency at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, history, Slack, extra brands, ${PLANS.agency.seats} seats, and the command-center dashboard (which clients need attention, which reports are ready, what you can sell next). Studio is $${PLANS.studio.amountUsd}/mo for a custom sender, ${PLANS.studio.brands} brands, ${PLANS.studio.prompts} questions, ${PLANS.studio.seats} seats, bulk send, and limited Claude/Grok capacity. Enterprise starts at $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract for custom limits, SSO, and SLA. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are $${EXTRA_BRAND_USD.agency}/mo on Agency and $${EXTRA_BRAND_USD.studio}/mo on Studio only.`,
+    a: `Move to Agency at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, ${MONTHLY_RECHECK_CREDITS.agency} manual re-check credits/mo, white-label, client CC, history, Slack, extra brands at $${EXTRA_BRAND_USD.agency}/mo, ${PLANS.agency.seats} seats, and the command-center dashboard (scorecards, competitor movement, opportunities, risks, send pipeline). Studio is $${PLANS.studio.amountUsd}/mo for a custom sender, ${PLANS.studio.brands} brands, ${PLANS.studio.prompts} questions, ${MONTHLY_RECHECK_CREDITS.studio} manual re-check credits/mo, ${PLANS.studio.seats} seats, bulk send, portfolio CSV export, and ChatGPT, Gemini, Grok, and AI Overviews. Extra re-checks are $${EXTRA_RUN_USD.agency} after monthly credits on paid plans. Enterprise starts at $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract for custom limits, SSO, and SLA. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are Agency+ only (not Starter or trial).`,
   },
   {
     q: "Can I pay annually?",

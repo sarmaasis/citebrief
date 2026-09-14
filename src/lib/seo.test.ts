@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { PLANS } from "./billing";
+import { PLANS, TRIAL_PROMPT_CAP } from "./billing";
+import { LEGAL_ARTICLES } from "./legal-articles";
+import { PUBLIC_ARTICLES } from "./public-articles";
 import {
   CANONICAL_ORIGIN,
   HOME_DESCRIPTION,
@@ -7,6 +9,8 @@ import {
   INDEXABLE_PATHS,
   PAGE_COPY,
   PRICING_FAQS,
+  PUBLIC_ENGINE_LABELS,
+  PUBLIC_ENGINES_PHRASE,
   ROBOTS_DISALLOW,
   SEO_PLAN_OFFERS,
   canonicalPath,
@@ -29,6 +33,10 @@ assert.ok(INDEXABLE_PATHS.includes("/legal/privacy"));
 assert.ok(INDEXABLE_PATHS.includes("/legal/terms"));
 assert.ok(INDEXABLE_PATHS.includes("/legal/dpa"));
 assert.ok(INDEXABLE_PATHS.includes("/legal/security"));
+assert.ok(INDEXABLE_PATHS.includes("/legal/subprocessors"));
+assert.ok(INDEXABLE_PATHS.includes("/legal/retention"));
+assert.ok(INDEXABLE_PATHS.includes("/legal/cookies"));
+assert.ok(INDEXABLE_PATHS.includes("/legal/disclaimer"));
 assert.ok(INDEXABLE_PATHS.includes("/for-seo-agencies"));
 assert.ok(INDEXABLE_PATHS.includes("/for-pr-agencies"));
 assert.ok(INDEXABLE_PATHS.includes("/white-label-ai-visibility-reports"));
@@ -47,6 +55,14 @@ assert.equal(
 assert.equal(new Set(INDEXABLE_PATHS).size, INDEXABLE_PATHS.length);
 assert.ok(!INDEXABLE_PATHS.includes("/login" as (typeof INDEXABLE_PATHS)[number]));
 assert.ok(!INDEXABLE_PATHS.includes("/signup" as (typeof INDEXABLE_PATHS)[number]));
+assert.ok(!INDEXABLE_PATHS.some((path) => path.startsWith("/app")));
+
+for (const article of LEGAL_ARTICLES) {
+  assert.ok(INDEXABLE_PATHS.includes(article.path as (typeof INDEXABLE_PATHS)[number]), article.path);
+}
+for (const article of PUBLIC_ARTICLES) {
+  assert.ok(INDEXABLE_PATHS.includes(article.path as (typeof INDEXABLE_PATHS)[number]), article.path);
+}
 
 assert.deepEqual([...ROBOTS_DISALLOW], ["/app/", "/api/", "/r/", "/invite/", "/verify"]);
 
@@ -60,10 +76,14 @@ assert.equal(
 assert.match(HOME_TITLE, /CiteBrief/);
 assert.match(HOME_TITLE, /Friday PDF/);
 assert.doesNotMatch(HOME_TITLE, /GEO|AEO|Peec|Profound|keyword tracker/i);
+assert.equal(PUBLIC_ENGINES_PHRASE, "ChatGPT, Gemini, Grok, and AI Overviews");
+assert.deepEqual([...PUBLIC_ENGINE_LABELS], ["ChatGPT", "Gemini", "Grok", "AI Overviews"]);
 assert.match(HOME_DESCRIPTION, /ChatGPT/);
-assert.match(HOME_DESCRIPTION, /Perplexity/);
 assert.match(HOME_DESCRIPTION, /Gemini/);
+assert.match(HOME_DESCRIPTION, /Grok/);
 assert.match(HOME_DESCRIPTION, /AI Overviews/);
+assert.doesNotMatch(HOME_DESCRIPTION, /Claude/);
+assert.match(HOME_DESCRIPTION, new RegExp(PUBLIC_ENGINES_PHRASE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 
 const titles = [
   PAGE_COPY.home.title,
@@ -75,6 +95,22 @@ const titles = [
 assert.equal(new Set(titles).size, titles.length);
 assert.equal(PRICING_FAQS.length, 6);
 assert.ok(PRICING_FAQS.some((item) => item.q === "Can I pay annually?"));
+
+const softFailFaq = PRICING_FAQS.find((item) => item.q === "What if one engine fails?");
+assert.ok(softFailFaq);
+assert.match(softFailFaq.a, /three of those four/);
+assert.doesNotMatch(softFailFaq.a, /four of five|Claude/i);
+
+const trialFaq = PRICING_FAQS.find((item) => item.q === "What is included in the trial?");
+assert.ok(trialFaq);
+assert.match(trialFaq.a, new RegExp(`${TRIAL_PROMPT_CAP} buyer questions`));
+assert.match(trialFaq.a, /ChatGPT \+ Gemini only/);
+assert.doesNotMatch(trialFaq.a, /Claude/);
+
+for (const item of PRICING_FAQS) {
+  assert.doesNotMatch(item.a, /Claude/);
+  assert.doesNotMatch(item.a, /four of five/);
+}
 
 const descriptions = [
   PAGE_COPY.home.description,
@@ -109,6 +145,7 @@ assert.doesNotMatch(String(pricingMeta.description), /\$149/);
 assert.doesNotMatch(String(pricingMeta.description), /Studio \$499/);
 assert.doesNotMatch(String(pricingMeta.description), /8 client brands/);
 assert.doesNotMatch(String(pricingMeta.description), /20 client brands/);
+assert.doesNotMatch(String(pricingMeta.description), /Claude/);
 
 const graph = homeJsonLd()["@graph"] as Array<{ "@type": string; offers?: { name: string; price: string }[] }>;
 assert.equal(graph.some((node) => node["@type"] === "Organization"), true);
@@ -129,6 +166,13 @@ assert.deepEqual(
 assert.equal(app.offers[1]?.name, `CiteBrief ${PLANS.agency.name}`);
 assert.match(String(app.offers[1]?.description), new RegExp(`${PLANS.agency.brands} client brands`));
 assert.ok(app.featureList?.some((item) => item.includes(`${PLANS.agency.brands} Agency`)));
+assert.ok(app.featureList?.some((item) => item.includes(PUBLIC_ENGINES_PHRASE)));
+assert.ok(app.featureList?.some((item) => /command center/i.test(item)));
+assert.ok(app.featureList?.some((item) => /competitor intelligence/i.test(item)));
+assert.equal(
+  app.featureList?.some((item) => /Claude/i.test(item)),
+  false,
+);
 assert.equal(
   app.offers.some(
     (offer) =>
@@ -155,5 +199,25 @@ assert.equal(
   privacy["@graph"].some((node) => node["@type"] === "BreadcrumbList"),
   true,
 );
+
+const disclaimer = LEGAL_ARTICLES.find((article) => article.slug === "disclaimer");
+assert.ok(disclaimer);
+const disclaimerText = disclaimer.sections.flatMap((section) => section.paragraphs).join(" ");
+assert.match(disclaimerText, /three of four/);
+assert.doesNotMatch(disclaimerText, /four of five|Claude/);
+
+for (const article of PUBLIC_ARTICLES) {
+  assert.doesNotMatch(article.description, /Claude/);
+  assert.doesNotMatch(article.lede, /Claude/);
+  for (const section of article.sections) {
+    for (const paragraph of section.paragraphs) {
+      assert.doesNotMatch(paragraph, /Claude/);
+    }
+  }
+}
+
+const sampleCta = PUBLIC_ARTICLES[0]?.sections.flatMap((section) => section.paragraphs).join(" ") ?? "";
+assert.match(sampleCta, new RegExp(`${TRIAL_PROMPT_CAP} buyer questions`));
+assert.match(sampleCta, /ChatGPT \+ Gemini only/);
 
 console.log("seo.test.ts ok");

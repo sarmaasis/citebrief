@@ -35,7 +35,7 @@ Public `/r/[token]`: same single-column viewer, agency logo, no app sidebar, no 
 | Loading | Skeleton page stage |
 | Empty | "No report for this period yet." + **Run now** |
 | Error | "Report failed to load." + retry; expired token: "This client link expired." |
-| Partial | Banner: **3 of 4 engines returned. Numbers reflect available engines.** |
+| Partial | Banner: **Partial engine set returned. Numbers reflect available engines.** |
 | Success | Toast after copy/CC/download |
 
 ## Copy examples (no em dashes)

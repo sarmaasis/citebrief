@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
 import Link from "next/link";
+import { AgencySavedViews } from "@/components/app/agency-saved-views";
 import { CopyRecommendation } from "@/components/app/copy-recommendation";
+import { DataTable, Td, Th } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
-import { MarkPlanned } from "@/components/app/mark-planned";
+import { OpportunityStatusControl } from "@/components/app/opportunity-status";
 import { PipelineStrip } from "@/components/app/pipeline-strip";
 import { PortfolioExport } from "@/components/app/portfolio-export";
 import { RiskPill } from "@/components/app/risk-pill";
@@ -10,25 +12,33 @@ import { ScoreChange } from "@/components/app/score-change";
 import { Button } from "@/components/ui/button";
 import { workspaces } from "@/db/schema";
 import { PIPELINE_LABEL, pipelineCounts, pipelineStage, weeklyAction } from "@/lib/command-center";
+import { parseAgencySavedView } from "@/lib/dashboard-metrics";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { buildCommandCenterSnapshot } from "@/server/command-center-data";
+import { buildDashboardSnapshot } from "@/server/dashboard-data";
 import { listHomeRows, withSendOverdue } from "@/server/workspace-data";
 
-export default async function AppHomePage() {
+export default async function AppHomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ view?: string }>;
+}) {
   const ctx = await getAppContext();
   if (!ctx) {
     return (
       <div>
-        <h1 className="mb-8 text-xl font-semibold tracking-tight">Home</h1>
+        <h1 className="mb-8 text-xl font-semibold tracking-tight">Overview</h1>
         <EmptyState line="Sign in to start the first Friday report." cta="Sign in" href="/login" />
       </div>
     );
   }
 
+  const params = (await searchParams) ?? {};
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
+  const savedView = parseAgencySavedView(params.view);
 
   if (!ent.allowsCommandCenter) {
     const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
@@ -36,14 +46,25 @@ export default async function AppHomePage() {
       timezone: workspace?.timezone || "America/New_York",
       weekly: ent.allowsWeeklyCadence,
     });
-    return <LightHome rows={rows} allowsEmailSend={ent.allowsEmailSend} />;
+    const dash = await buildDashboardSnapshot(ctx, ent);
+    return (
+      <LightHome
+        rows={rows}
+        overview={dash.overview}
+        allowsEmailSend={ent.allowsEmailSend}
+        promptCap={ent.promptCap}
+        canAddBrand={rows.length < ent.brandLimit}
+        showRechecks={dash.modules.recheckCreditVisibility}
+      />
+    );
   }
 
-  const snapshot = await buildCommandCenterSnapshot(ctx, ent);
-  if (snapshot.rows.length === 0) {
+  const snapshot = await buildCommandCenterSnapshot(ctx, ent, {}, { view: savedView });
+  const dash = await buildDashboardSnapshot(ctx, ent, { view: savedView });
+  if (snapshot.unfilteredCount === 0) {
     return (
       <div>
-        <h1 className="mb-8 text-xl font-semibold tracking-tight">Home</h1>
+        <h1 className="mb-8 text-xl font-semibold tracking-tight">Overview</h1>
         <EmptyState
           title="No brands yet"
           line="Start the first Friday report."
@@ -54,40 +75,84 @@ export default async function AppHomePage() {
     );
   }
 
-  const onlyBrand = snapshot.rows.length === 1 ? snapshot.rows[0] : null;
+  const onlyBrand = snapshot.unfilteredCount === 1 && snapshot.rows.length === 1 ? snapshot.rows[0] : null;
   const firstBrandNeedsSetup = Boolean(onlyBrand && !onlyBrand.latestReport);
+  const nextAction = dash.overview.suggestedNextAction ?? snapshot.actions[0] ?? null;
+  const ov = dash.overview;
+  const canAddBrand = snapshot.unfilteredCount < ent.brandLimit;
+  const opportunityItems = dash.opportunities;
+  const riskItems = dash.risks;
 
   return (
-    <div>
-      <div className="mb-8 flex items-center justify-between gap-3">
+    <div className="min-w-0">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Home</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
           <p className="mt-1 text-sm text-cb-muted">
-            Which clients need attention, which reports should go out, and what you can sell next.
+            Are we improving, who is winning, what changed, and what to do next.
+            {ov.movementLabel !== "unknown" ? ` Portfolio is ${ov.movementLabel}.` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {ent.allowsPortfolioExport ? <PortfolioExport /> : null}
-          <Button asChild>
-            <Link href="/app/onboarding?new=1">Add a brand</Link>
-          </Button>
+          {canAddBrand ? (
+            <Button asChild>
+              <Link href="/app/onboarding?new=1">Add a brand</Link>
+            </Button>
+          ) : (
+            <Button asChild variant="outline">
+              <Link href="/app/settings/billing">Upgrade to add a brand</Link>
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat label="Clients" value={String(snapshot.kpis.clientsMonitored)} href="/app" />
-        <Stat
-          label="Avg named"
-          value={snapshot.kpis.portfolioVisibility == null ? "—" : String(snapshot.kpis.portfolioVisibility)}
-        />
-        <Stat label="At risk" value={String(snapshot.kpis.clientsAtRisk)} href="/app/risks" />
-        <Stat label="Opportunities" value={String(snapshot.kpis.opportunitiesFound)} href="/app/opportunities" />
-        <Stat label="Est. hours saved" value={String(snapshot.kpis.hoursSaved)} />
+      <div className="mb-8">
+        <AgencySavedViews active={savedView} basePath="/app" paramKey="view" />
       </div>
-      <div className="mb-8 grid gap-3 sm:grid-cols-3">
+
+      {nextAction ? (
+        <div className="mb-8 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
+          <p className="text-xs text-cb-muted">Suggested next action</p>
+          <p className="mt-2 text-sm font-medium">
+            {nextAction.brandName}: {nextAction.verb}
+          </p>
+          <p className="mt-1 text-sm text-cb-muted">{nextAction.reason}</p>
+          <Link href={nextAction.href} className="mt-3 inline-block text-sm text-cb-accent">
+            Open
+          </Link>
+        </div>
+      ) : null}
+
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+        <Stat label="AI visibility" value={ov.visibilityScore == null ? "—" : String(ov.visibilityScore)} />
+        <Stat
+          label="Movement"
+          value={ov.movement == null ? "—" : ov.movement > 0 ? `+${ov.movement}` : String(ov.movement)}
+        />
+        <Stat label="Brands" value={String(ov.brandsMonitored)} href="/app/brands" />
+        <Stat label="Prompts tracked" value={String(ov.promptsTracked)} href="/app/prompts" />
+        <Stat label="Engines" value={String(ov.enginesMonitored)} href="/app/competitors" />
+        <Stat label="Competitor wins" value={String(ov.competitorMentions)} href="/app/competitors" />
+      </div>
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <Stat label="At risk" value={String(ov.activeRisks)} href="/app/risks" />
+        <Stat label="Opportunities" value={String(ov.openOpportunities)} href="/app/opportunities" />
         <Stat label="Reports ready" value={String(snapshot.kpis.reportsReady)} href="/app/reports" />
         <Stat label="Reports sent" value={String(snapshot.kpis.reportsSent)} href="/app/reports?sent=1" />
-        <Stat label="Failed / partial" value={String(snapshot.kpis.failedOrPartial)} />
+        <Stat
+          label="Run success"
+          value={ov.runSuccessRate == null ? "—" : `${ov.runSuccessRate}%`}
+        />
+        <Stat
+          label={dash.modules.recheckCreditVisibility ? "Rechecks left" : "Failed / partial"}
+          value={
+            dash.modules.recheckCreditVisibility
+              ? String(ov.recheckCreditsRemaining)
+              : String(snapshot.kpis.failedOrPartial)
+          }
+          href={dash.modules.recheckCreditVisibility ? "/app/settings/billing" : undefined}
+        />
       </div>
       <div className="mb-8">
         <PipelineStrip pipeline={snapshot.pipeline} />
@@ -96,11 +161,13 @@ export default async function AppHomePage() {
       {firstBrandNeedsSetup && onlyBrand ? (
         <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <p className="text-sm font-medium">Finish the first report</p>
-          <p className="mt-1 text-sm text-cb-muted">Generate twenty buyer questions, run the report, then open the PDF.</p>
+          <p className="mt-1 text-sm text-cb-muted">
+            Generate {ent.promptCap} buyer questions, run the report, then open the PDF.
+          </p>
           <div className="mt-3 flex flex-wrap gap-3 text-sm">
             {onlyBrand.promptCount === 0 ? (
               <Link href={`/app/brands/${onlyBrand.brand.id}/prompts`} className="text-cb-accent">
-                Generate 20 prompts
+                Generate {ent.promptCap} prompts
               </Link>
             ) : (
               <Link href={`/app/brands/${onlyBrand.brand.id}`} className="text-cb-accent">
@@ -122,38 +189,38 @@ export default async function AppHomePage() {
               Send queue
             </Link>
           </div>
-          <div className="overflow-x-auto rounded-cb-card border border-cb-line">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
-                <tr className="h-12 border-b border-cb-line">
-                  <th className="px-4 font-medium">Brand</th>
-                  <th className="px-4 font-medium">Action</th>
-                  <th className="px-4 font-medium">Why</th>
+          <DataTable minWidth="560px">
+            <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
+              <tr className="h-12 border-b border-cb-line">
+                <Th>Brand</Th>
+                <Th>Action</Th>
+                <Th>Why</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {snapshot.actions.map((item) => (
+                <tr key={`${item.brandId}-${item.verb}`} className="h-12 border-b border-cb-line last:border-0">
+                  <Td>
+                    <Link href={`/app/brands/${item.brandId}`} className="text-cb-accent">
+                      {item.brandName}
+                    </Link>
+                  </Td>
+                  <Td>
+                    <Link href={item.href} className="text-cb-accent">
+                      {item.verb}
+                    </Link>
+                  </Td>
+                  <Td truncate className="text-cb-muted">
+                    {item.reason}
+                  </Td>
                 </tr>
-              </thead>
-              <tbody>
-                {snapshot.actions.map((item) => (
-                  <tr key={`${item.brandId}-${item.verb}`} className="h-12 border-b border-cb-line last:border-0">
-                    <td className="px-4">
-                      <Link href={`/app/brands/${item.brandId}`} className="text-cb-accent">
-                        {item.brandName}
-                      </Link>
-                    </td>
-                    <td className="px-4">
-                      <Link href={item.href} className="text-cb-accent">
-                        {item.verb}
-                      </Link>
-                    </td>
-                    <td className="px-4 text-cb-muted">{item.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </DataTable>
         </section>
       ) : null}
 
-      {snapshot.risks.length ? (
+      {riskItems.length ? (
         <section className="mb-10">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-medium">Client risk</h2>
@@ -161,32 +228,41 @@ export default async function AppHomePage() {
               All risks
             </Link>
           </div>
-          <div className="overflow-x-auto rounded-cb-card border border-cb-line">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
-                <tr className="h-12 border-b border-cb-line">
-                  <th className="px-4 font-medium">Brand</th>
-                  <th className="px-4 font-medium">Risk</th>
-                  <th className="px-4 font-medium">Why</th>
+          <DataTable minWidth="720px">
+            <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
+              <tr className="h-12 border-b border-cb-line">
+                <Th>Brand</Th>
+                <Th>Risk</Th>
+                <Th>Why</Th>
+                <Th>First seen</Th>
+                <Th>Affected</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {riskItems.map((item) => (
+                <tr key={item.brandId} className="h-12 border-b border-cb-line last:border-0">
+                  <Td>
+                    <Link href={`/app/brands/${item.brandId}`} className="text-cb-accent">
+                      {item.brandName}
+                    </Link>
+                  </Td>
+                  <Td>
+                    <RiskPill risk={item.severity} />
+                  </Td>
+                  <Td truncate className="text-cb-muted">
+                    {item.whatHappened}
+                  </Td>
+                  <Td className="text-xs text-cb-muted">
+                    {item.firstSeenAt ? item.firstSeenAt.slice(0, 10) : "—"}
+                  </Td>
+                  <Td truncate className="text-xs text-cb-muted">
+                    {[item.affectedEngines.join(", "), item.affectedPrompts[0]].filter(Boolean).join(" · ") ||
+                      "—"}
+                  </Td>
                 </tr>
-              </thead>
-              <tbody>
-                {snapshot.risks.map((item) => (
-                  <tr key={item.brandId} className="h-12 border-b border-cb-line last:border-0">
-                    <td className="px-4">
-                      <Link href={`/app/brands/${item.brandId}`} className="text-cb-accent">
-                        {item.brandName}
-                      </Link>
-                    </td>
-                    <td className="px-4">
-                      <RiskPill risk={item.risk} />
-                    </td>
-                    <td className="px-4 text-cb-muted">{item.why}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </DataTable>
         </section>
       ) : null}
 
@@ -197,34 +273,41 @@ export default async function AppHomePage() {
             All opportunities
           </Link>
         </div>
-        {snapshot.opportunities.length === 0 ? (
+        {opportunityItems.length === 0 ? (
           <p className="text-sm text-cb-muted">
             No comparison gaps or visibility drops in the latest reports. Review a report to find the next piece of
             work.
           </p>
         ) : (
           <div className="grid gap-4">
-            {snapshot.opportunities.map((item) => (
+            {opportunityItems.map((item) => (
               <article key={`${item.brandId}-${item.key}`} className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium">{item.client}</p>
-                  <p className="text-xs text-cb-muted">{item.value}</p>
+                  <p className="text-sm font-medium">{item.brandName}</p>
+                  <p className="text-xs text-cb-muted">
+                    {item.impact} · {item.effort}
+                  </p>
                 </div>
                 <p className="mt-2 text-sm text-cb-text">
-                  {item.type} · {item.service}
+                  {item.title} · {item.suggestedAction}
                 </p>
-                <p className="mt-2 text-sm text-cb-muted">{item.evidence}</p>
-                <p className="mt-3 text-sm text-cb-text">{item.wording}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <p className="mt-2 text-sm text-cb-muted">{item.reason}</p>
+                {item.relatedPrompt || item.relatedEngine ? (
+                  <p className="mt-2 text-xs text-cb-muted">
+                    {item.relatedEngine ? `${item.relatedEngine} · ` : ""}
+                    {item.relatedPrompt || ""}
+                  </p>
+                ) : null}
+                <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Link href={item.href} className="text-sm text-cb-accent">
                     Open report
                   </Link>
-                  <CopyRecommendation text={item.wording} />
-                  <MarkPlanned
+                  <CopyRecommendation text={`${item.title}: ${item.suggestedAction}. ${item.reason}`} />
+                  <OpportunityStatusControl
                     brandId={item.brandId}
                     reportId={item.reportId}
                     opportunityKey={item.key}
-                    planned={item.planned}
+                    status={item.status}
                   />
                 </div>
               </article>
@@ -249,48 +332,63 @@ export default async function AppHomePage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-medium">This week</h2>
-        <div className="overflow-x-auto rounded-cb-card border border-cb-line bg-cb-surface">
-          <table className="w-full text-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium">This week</h2>
+          <Link href="/app/brands" className="text-xs text-cb-accent">
+            Brand scorecards
+          </Link>
+        </div>
+        {dash.rows.length === 0 ? (
+          <p className="text-sm text-cb-muted">No clients in this saved view.</p>
+        ) : (
+          <DataTable minWidth="900px">
             <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
               <tr className="h-12 border-b border-cb-line">
-                <th className="px-4 font-medium">Brand</th>
-                <th className="px-4 font-medium">Owner</th>
-                <th className="px-4 font-medium">Risk</th>
-                <th className="px-4 font-medium">Named</th>
-                <th className="px-4 font-medium">Rec</th>
-                <th className="px-4 font-medium">Change</th>
-                <th className="px-4 font-medium">Pipeline</th>
-                <th className="px-4 font-medium">Next</th>
+                <Th>Brand</Th>
+                <Th>Owner</Th>
+                <Th>Risk</Th>
+                <Th>Named</Th>
+                <Th>Rec</Th>
+                <Th>Change</Th>
+                <Th>Competitor</Th>
+                <Th>Pipeline</Th>
+                <Th>Next</Th>
               </tr>
             </thead>
             <tbody>
-              {snapshot.rows.map((row) => (
+              {dash.rows.map((row) => (
                 <tr key={row.brand.id} className="h-12 border-b border-cb-line last:border-0">
-                  <td className="px-4">
+                  <Td>
                     <Link href={`/app/brands/${row.brand.id}`} className="font-medium text-cb-text hover:text-cb-accent">
                       {row.brand.name}
                     </Link>
-                  </td>
-                  <td className="px-4 text-cb-muted">{row.brand.clientOwner || "—"}</td>
-                  <td className="px-4">
+                  </Td>
+                  <Td truncate className="text-cb-muted">
+                    {row.brand.clientOwner || "—"}
+                  </Td>
+                  <Td>
                     <RiskPill risk={row.risk} />
-                  </td>
-                  <td className="px-4 font-mono tabular-nums">
+                  </Td>
+                  <Td className="font-mono tabular-nums">
                     {row.latestReport
                       ? `${row.latestReport.scoreMentioned ?? "-"}/${row.latestReport.scoreTotal ?? 20}`
                       : "—"}
-                  </td>
-                  <td className="px-4 font-mono tabular-nums">
+                  </Td>
+                  <Td className="font-mono tabular-nums">
                     {row.latestReport
                       ? `${row.latestReport.scoreRecommended ?? "-"}/${row.latestReport.scoreTotal ?? 20}`
                       : "—"}
-                  </td>
-                  <td className="px-4">
+                  </Td>
+                  <Td>
                     <ScoreChange delta={row.mentionedDelta} />
-                  </td>
-                  <td className="px-4 text-cb-muted">{PIPELINE_LABEL[row.pipeline]}</td>
-                  <td className="px-4">
+                  </Td>
+                  <Td truncate className="text-cb-muted">
+                    {row.competitorLeader
+                      ? `${row.competitorLeader}${row.competitorLeadCount ? ` · ${row.competitorLeadCount}` : ""}`
+                      : "—"}
+                  </Td>
+                  <Td className="text-cb-muted">{PIPELINE_LABEL[row.pipeline]}</Td>
+                  <Td>
                     {row.action ? (
                       <Link href={row.action.href} className="text-cb-accent">
                         {row.action.verb}
@@ -298,12 +396,12 @@ export default async function AppHomePage() {
                     ) : (
                       <span className="text-cb-muted">—</span>
                     )}
-                  </td>
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </DataTable>
+        )}
       </section>
     </div>
   );
@@ -311,15 +409,23 @@ export default async function AppHomePage() {
 
 function LightHome({
   rows,
+  overview,
   allowsEmailSend,
+  promptCap,
+  canAddBrand,
+  showRechecks,
 }: {
   rows: Awaited<ReturnType<typeof listHomeRows>>;
+  overview: Awaited<ReturnType<typeof buildDashboardSnapshot>>["overview"];
   allowsEmailSend: boolean;
+  promptCap: number;
+  canAddBrand: boolean;
+  showRechecks: boolean;
 }) {
   if (rows.length === 0) {
     return (
       <div>
-        <h1 className="mb-8 text-xl font-semibold tracking-tight">Home</h1>
+        <h1 className="mb-8 text-xl font-semibold tracking-tight">Overview</h1>
         <EmptyState
           title="No brands yet"
           line="Start the first Friday report."
@@ -337,39 +443,88 @@ function LightHome({
   const actions = rows
     .map((row) => weeklyAction(row, allowsEmailSend))
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const nextAction = overview.suggestedNextAction;
 
   return (
-    <div>
-      <div className="mb-8 flex items-center justify-between">
+    <div className="min-w-0">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Home</h1>
-          <p className="mt-1 text-sm text-cb-muted">This week’s runs, send status, and brands that still need a report.</p>
+          <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
+          <p className="mt-1 text-sm text-cb-muted">
+            Are we improving, who is winning, what changed, and what to do next.
+            {overview.movementLabel !== "unknown" ? ` Brand is ${overview.movementLabel}.` : ""} Agency unlocks
+            multi-client risk and opportunity rollups.
+          </p>
         </div>
-        <Button asChild>
-          <Link href="/app/onboarding?new=1">Add a brand</Link>
-        </Button>
+        {canAddBrand ? (
+          <Button asChild>
+            <Link href="/app/onboarding?new=1">Add a brand</Link>
+          </Button>
+        ) : (
+          <Button asChild variant="outline">
+            <Link href="/app/settings/billing">Upgrade to add a brand</Link>
+          </Button>
+        )}
       </div>
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-3">
-        <Stat label="Brands active" value={String(rows.length)} />
+      {nextAction ? (
+        <div className="mb-8 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
+          <p className="text-xs text-cb-muted">Suggested next action</p>
+          <p className="mt-2 text-sm font-medium">
+            {nextAction.brandName}: {nextAction.verb}
+          </p>
+          <p className="mt-1 text-sm text-cb-muted">{nextAction.reason}</p>
+          <Link href={nextAction.href} className="mt-3 inline-block text-sm text-cb-accent">
+            Open
+          </Link>
+        </div>
+      ) : null}
+
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+        <Stat label="AI visibility" value={overview.visibilityScore == null ? "—" : String(overview.visibilityScore)} />
         <Stat
-          label="Runs this week"
-          value={String(rows.filter((row) => row.latestRun && row.latestRun.status !== "failed").length)}
+          label="Movement"
+          value={
+            overview.movement == null ? "—" : overview.movement > 0 ? `+${overview.movement}` : String(overview.movement)
+          }
         />
+        <Stat label="Brands" value={String(overview.brandsMonitored)} href="/app/brands" />
+        <Stat label="Prompts tracked" value={String(overview.promptsTracked)} href="/app/prompts" />
+        <Stat label="Engines" value={String(overview.enginesMonitored)} href="/app/competitors" />
+        <Stat label="Competitor wins" value={String(overview.competitorMentions)} href="/app/competitors" />
+      </div>
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <Stat label="Opportunities" value={String(overview.openOpportunities)} href="/app/opportunities" />
         <Stat
           label={allowsEmailSend ? "Needs send" : "Reports ready"}
           value={String(allowsEmailSend ? pipeline.needs_review : reportsGenerated)}
+        />
+        <Stat label="Latest status" value={overview.latestReportStatus || "—"} />
+        <Stat
+          label="Run success"
+          value={overview.runSuccessRate == null ? "—" : `${overview.runSuccessRate}%`}
+        />
+        <Stat
+          label={showRechecks ? "Rechecks left" : "Runs this week"}
+          value={
+            showRechecks
+              ? String(overview.recheckCreditsRemaining)
+              : String(rows.filter((row) => row.latestRun && row.latestRun.status !== "failed").length)
+          }
+          href={showRechecks ? "/app/settings/billing" : undefined}
         />
       </div>
 
       {firstBrandNeedsSetup && onlyBrand ? (
         <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <p className="text-sm font-medium">Finish the first report</p>
-          <p className="mt-1 text-sm text-cb-muted">Generate twenty buyer questions, run the report, then open the PDF.</p>
+          <p className="mt-1 text-sm text-cb-muted">
+            Generate {promptCap} buyer questions, run the report, then open the PDF.
+          </p>
           <div className="mt-3 flex flex-wrap gap-3 text-sm">
             {onlyBrand.promptCount === 0 ? (
               <Link href={`/app/brands/${onlyBrand.brand.id}/prompts`} className="text-cb-accent">
-                Generate 20 prompts
+                Generate {promptCap} prompts
               </Link>
             ) : (
               <Link href={`/app/brands/${onlyBrand.brand.id}`} className="text-cb-accent">
@@ -386,93 +541,107 @@ function LightHome({
       {actions.length ? (
         <section className="mb-10">
           <h2 className="mb-3 text-sm font-medium">This week’s actions</h2>
-          <div className="overflow-x-auto rounded-cb-card border border-cb-line">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
-                <tr className="h-12 border-b border-cb-line">
-                  <th className="px-4 font-medium">Brand</th>
-                  <th className="px-4 font-medium">Action</th>
-                  <th className="px-4 font-medium">Why</th>
+          <DataTable minWidth="560px">
+            <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
+              <tr className="h-12 border-b border-cb-line">
+                <Th>Brand</Th>
+                <Th>Action</Th>
+                <Th>Why</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {actions.map((item) => (
+                <tr key={`${item.brandId}-${item.verb}`} className="h-12 border-b border-cb-line last:border-0">
+                  <Td>
+                    <Link href={`/app/brands/${item.brandId}`} className="text-cb-accent">
+                      {item.brandName}
+                    </Link>
+                  </Td>
+                  <Td>
+                    <Link href={item.href} className="text-cb-accent">
+                      {item.verb}
+                    </Link>
+                  </Td>
+                  <Td truncate className="text-cb-muted">
+                    {item.reason}
+                  </Td>
                 </tr>
-              </thead>
-              <tbody>
-                {actions.map((item) => (
-                  <tr key={`${item.brandId}-${item.verb}`} className="h-12 border-b border-cb-line last:border-0">
-                    <td className="px-4">
-                      <Link href={`/app/brands/${item.brandId}`} className="text-cb-accent">
-                        {item.brandName}
-                      </Link>
-                    </td>
-                    <td className="px-4">
-                      <Link href={item.href} className="text-cb-accent">
-                        {item.verb}
-                      </Link>
-                    </td>
-                    <td className="px-4 text-cb-muted">{item.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </DataTable>
         </section>
       ) : null}
 
       <section>
-        <h2 className="mb-3 text-sm font-medium">This week</h2>
-        <div className="overflow-x-auto rounded-cb-card border border-cb-line bg-cb-surface">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
-              <tr className="h-12 border-b border-cb-line">
-                <th className="px-4 font-medium">Brand</th>
-                <th className="px-4 font-medium">Owner</th>
-                <th className="px-4 font-medium">Named</th>
-                <th className="px-4 font-medium">Rec</th>
-                <th className="px-4 font-medium">Change</th>
-                <th className="px-4 font-medium">Pipeline</th>
-                <th className="px-4 font-medium">Next</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const stage = pipelineStage(row);
-                const action = weeklyAction(row, allowsEmailSend);
-                return (
-                  <tr key={row.brand.id} className="h-12 border-b border-cb-line last:border-0">
-                    <td className="px-4">
-                      <Link href={`/app/brands/${row.brand.id}`} className="font-medium text-cb-text hover:text-cb-accent">
-                        {row.brand.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 text-cb-muted">{row.brand.clientOwner || row.brand.buyer || "—"}</td>
-                    <td className="px-4 font-mono tabular-nums">
-                      {row.latestReport
-                        ? `${row.latestReport.scoreMentioned ?? "-"}/${row.latestReport.scoreTotal ?? 20}`
-                        : "—"}
-                    </td>
-                    <td className="px-4 font-mono tabular-nums">
-                      {row.latestReport
-                        ? `${row.latestReport.scoreRecommended ?? "-"}/${row.latestReport.scoreTotal ?? 20}`
-                        : "—"}
-                    </td>
-                    <td className="px-4">
-                      <ScoreChange delta={row.mentionedDelta} />
-                    </td>
-                    <td className="px-4 text-cb-muted">{PIPELINE_LABEL[stage]}</td>
-                    <td className="px-4">
-                      {action ? (
-                        <Link href={action.href} className="text-cb-accent">
-                          {action.verb}
-                        </Link>
-                      ) : (
-                        <span className="text-cb-muted">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-medium">This week</h2>
+          <div className="flex gap-3 text-xs">
+            <Link href="/app/prompts" className="text-cb-accent">
+              Prompt performance
+            </Link>
+            <Link href="/app/competitors" className="text-cb-accent">
+              Competitors
+            </Link>
+          </div>
         </div>
+        <DataTable minWidth="760px">
+          <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
+            <tr className="h-12 border-b border-cb-line">
+              <Th>Brand</Th>
+              <Th>Owner</Th>
+              <Th>Named</Th>
+              <Th>Rec</Th>
+              <Th>Change</Th>
+              <Th>Competitor</Th>
+              <Th>Pipeline</Th>
+              <Th>Next</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const stage = pipelineStage(row);
+              const action = weeklyAction(row, allowsEmailSend);
+              return (
+                <tr key={row.brand.id} className="h-12 border-b border-cb-line last:border-0">
+                  <Td>
+                    <Link href={`/app/brands/${row.brand.id}`} className="font-medium text-cb-text hover:text-cb-accent">
+                      {row.brand.name}
+                    </Link>
+                  </Td>
+                  <Td truncate className="text-cb-muted">
+                    {row.brand.clientOwner || row.brand.buyer || "—"}
+                  </Td>
+                  <Td className="font-mono tabular-nums">
+                    {row.latestReport
+                      ? `${row.latestReport.scoreMentioned ?? "-"}/${row.latestReport.scoreTotal ?? 20}`
+                      : "—"}
+                  </Td>
+                  <Td className="font-mono tabular-nums">
+                    {row.latestReport
+                      ? `${row.latestReport.scoreRecommended ?? "-"}/${row.latestReport.scoreTotal ?? 20}`
+                      : "—"}
+                  </Td>
+                  <Td>
+                    <ScoreChange delta={row.mentionedDelta} />
+                  </Td>
+                  <Td truncate className="text-cb-muted">
+                    {row.competitorLeader || "—"}
+                  </Td>
+                  <Td className="text-cb-muted">{PIPELINE_LABEL[stage]}</Td>
+                  <Td>
+                    {action ? (
+                      <Link href={action.href} className="text-cb-accent">
+                        {action.verb}
+                      </Link>
+                    ) : (
+                      <span className="text-cb-muted">—</span>
+                    )}
+                  </Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </DataTable>
       </section>
     </div>
   );

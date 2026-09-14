@@ -17,7 +17,7 @@ import {
   resolveSelectedPlan,
   SEAT_OVERAGE_USD,
 } from "./billing";
-import { UPGRADE_COPY } from "./upgrade-copy";
+import { UPGRADE_COPY, brandCapUpgradeFromError, extraRunUpgradeFromError } from "./upgrade-copy";
 import {
   commandCenterDenial,
   isPaidActive,
@@ -51,6 +51,7 @@ const trial = {
 };
 assert.equal(isTrialing(trial), true);
 assert.equal(isPaidActive(trial), false);
+assert.equal(workspaceEntitlements(trial).promptCap, 5);
 assert.equal(workspaceEntitlements(trial).brandLimit, 1);
 assert.equal(workspaceEntitlements(trial).trialRunCap, 1);
 assert.equal(workspaceEntitlements(trial).seatCap, 1);
@@ -73,6 +74,7 @@ const paidAgency = {
   extraBrands: 2,
   extraSeats: 1,
 };
+assert.equal(workspaceEntitlements(paidAgency).promptCap, 20);
 assert.equal(workspaceEntitlements(paidAgency).brandLimit, 12);
 assert.equal(workspaceEntitlements(paidAgency).seatCap, 4);
 assert.equal(workspaceEntitlements(paidAgency).extraBrandUsd, 29);
@@ -92,6 +94,7 @@ const paidStarter = {
   trialEndsAt: null,
   currentPeriodEnd: new Date(Date.now() + 20 * 86400000),
 };
+assert.equal(workspaceEntitlements(paidStarter).promptCap, 20);
 assert.equal(workspaceEntitlements(paidStarter).brandLimit, 2);
 assert.equal(workspaceEntitlements(paidStarter).allowsHistory, false);
 assert.equal(workspaceEntitlements(paidStarter).allowsMembers, false);
@@ -110,6 +113,15 @@ assert.equal(
   }).allowsEmailSend,
   true,
 );
+assert.equal(
+  workspaceEntitlements({
+    plan: "studio",
+    status: "active",
+    trialEndsAt: null,
+    currentPeriodEnd: new Date(Date.now() + 20 * 86400000),
+  }).promptCap,
+  30,
+);
 
 const unpaid = {
   plan: "agency",
@@ -117,6 +129,7 @@ const unpaid = {
   trialEndsAt: null,
   currentPeriodEnd: null,
 };
+assert.equal(workspaceEntitlements(unpaid).promptCap, 5);
 assert.equal(workspaceEntitlements(unpaid).brandLimit, 1);
 assert.equal(workspaceEntitlements(unpaid).allowsEmailSend, false);
 assert.equal(workspaceEntitlements(null).allowsSlack, false);
@@ -206,6 +219,13 @@ assert.equal(PUBLIC_PLAN_IDS.includes("enterprise" as (typeof PUBLIC_PLAN_IDS)[n
 assert.ok(UPGRADE_COPY.weeklyStarter.title);
 assert.ok(UPGRADE_COPY.commandCenter.title);
 assert.ok(UPGRADE_COPY.sendStarter.title);
+assert.ok(UPGRADE_COPY.trialBrand.title);
+assert.ok(UPGRADE_COPY.extraRunTrial.title);
+assert.match(UPGRADE_COPY.extraRun.body, /\$9/);
+assert.doesNotMatch(UPGRADE_COPY.extraRun.body, /2 manual/);
+assert.match(UPGRADE_COPY.extraBrandAgency.body, /not available on trial or Starter/);
+assert.match(brandCapUpgradeFromError("Trial allows 1 brand").title, /Trial/);
+assert.match(extraRunUpgradeFromError("Trial allows 1 full run").title, /Trial/);
 
 const trialStarterCards = (["starter", "agency", "studio"] as const).map((id) =>
   planCardState({
@@ -377,6 +397,7 @@ assert.equal(paidEnterprise.allowsStudioEngines, true);
 assert.equal(paidEnterprise.allowsCustomSender, true);
 assert.equal(paidEnterprise.allowsApproval, true);
 assert.equal(paidEnterprise.allowsCommandCenter, true);
+assert.equal(paidEnterprise.promptCap, 30);
 assert.equal(paidEnterprise.allowsPortfolioExport, true);
 
 const agencyWithPack = workspaceEntitlements({

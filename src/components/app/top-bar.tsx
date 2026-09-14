@@ -5,8 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Menu } from "lucide-react";
 import { UserMenu } from "@/components/app/user-menu";
-import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
-import { UPGRADE_COPY } from "@/lib/upgrade-copy";
+import { UpgradeDialog } from "@/components/billing/upgrade-prompt";
+import { upgradeCopyForCapCode } from "@/lib/upgrade-copy";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 
@@ -16,20 +16,25 @@ export function AppTopBar({
   brands,
   signedIn = true,
   onOpenNav,
+  recheckHint,
 }: {
   userLabel: string;
   roleLabel?: string | null;
   brands: Array<{ id: string; name: string }>;
   signedIn?: boolean;
   onOpenNav?: () => void;
+  /** Optional “2 rechecks left” style hint for paid plans. */
+  recheckHint?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [showRunUpgrade, setShowRunUpgrade] = useState(false);
   const current = brands.find((brand) => pathname.startsWith(`/app/brands/${brand.id}`)) ?? brands[0];
   const hasBrand = Boolean(current);
+  const runUpgrade = upgradeCopyForCapCode(code, error);
 
   async function runNow() {
     if (!current) {
@@ -37,13 +42,20 @@ export function AppTopBar({
       return;
     }
     setError(null);
+    setCode(null);
     setShowRunUpgrade(false);
     setPending(true);
     try {
       const response = await fetch(`/api/brands/${current.id}/runs`, { method: "POST" });
-      const data = (await response.json()) as { runId?: string; error?: string; extraRun?: boolean };
+      const data = (await response.json()) as {
+        runId?: string;
+        error?: string;
+        extraRun?: boolean;
+        code?: string;
+      };
       if (!response.ok || !data.runId) {
         setError(data.error ?? "Could not queue the run.");
+        setCode(data.code ?? null);
         if (response.status === 402) setShowRunUpgrade(true);
         return;
       }
@@ -82,7 +94,12 @@ export function AppTopBar({
             </NativeSelect>
           </label>
         ) : null}
-        {error ? <span className="truncate text-xs text-cb-danger">{error}</span> : null}
+        {recheckHint ? (
+          <Link href="/app/settings/billing" className="hidden truncate text-xs text-cb-muted hover:text-cb-accent md:inline">
+            {recheckHint}
+          </Link>
+        ) : null}
+        {error && !showRunUpgrade ? <span className="truncate text-xs text-cb-danger">{error}</span> : null}
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         {hasBrand ? (
@@ -98,16 +115,13 @@ export function AppTopBar({
           </Link>
         )}
       </div>
-      {showRunUpgrade ? (
-        <div className="absolute left-1/2 top-16 z-30 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2">
-          <UpgradePrompt
-            title={UPGRADE_COPY.extraRun.title}
-            body={UPGRADE_COPY.extraRun.body}
-            cta={UPGRADE_COPY.extraRun.cta}
-            onDismiss={() => setShowRunUpgrade(false)}
-          />
-        </div>
-      ) : null}
+      <UpgradeDialog
+        open={showRunUpgrade}
+        onOpenChange={setShowRunUpgrade}
+        title={runUpgrade.title}
+        body={error ?? runUpgrade.body}
+        cta={runUpgrade.cta}
+      />
     </header>
   );
 }

@@ -1,6 +1,6 @@
 # CiteBrief
 
-AI-search visibility reports for agencies. Every Friday: a white-label PDF that shows whether the client was named in ChatGPT, Perplexity, Gemini, and Google AI Overviews.
+AI-search visibility reports for agencies. Every Friday: a white-label PDF that shows whether the client was named in ChatGPT, Gemini, Grok, and Google AI Overviews.
 
 **Canonical domain:** [getcitebrief.com](https://getcitebrief.com). Optional redirect: `citebrief.xyz`.
 
@@ -14,7 +14,7 @@ See [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Design tokens use t
 
 **Phase 2:** Brands CRUD, 20-prompt editor with 4+4+4+4+4 mix and vanity rejection, onboarding (6 fields to generated 20), run enqueue + poll UI, brand home.
 
-**Phase 3:** Engine fan-out (stub + live adapters), run_rows, soft-fail ≥3/4, HTML+PDF to R2, in-app report viewer.
+**Phase 3:** Engine fan-out (stub + live adapters), run_rows, soft-fail ≥4/5, HTML+PDF to R2, in-app report viewer.
 
 **Phase 4:** Dodo checkout/webhooks (official Hono where live keys exist), billing UI, brand kit, client link `/r/[token]`, run/brand caps, report email send.
 
@@ -22,7 +22,7 @@ See [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Design tokens use t
 
 **Later follow-ups:** Live engine APIs through Cloudflare AI Gateway, Queue consumer Worker for `citebrief-runs`, `@dodopayments/hono` Checkout/Webhooks mounts, Friday 06:00 per workspace timezone, CC-client Dialog.
 
-**PRD §18 remaining gaps:** Members invite accept, Slack incoming webhook (Agency+), 24h engine cache, Studio Claude/Grok engines, billing depth (extra brand/run, trial caps, dunning, cancel-at-period-end, Dodo portal), internal admin (impersonate, COGS, webhook replay).
+**PRD §18 remaining gaps:** Members invite accept, Slack incoming webhook (Agency+), 24h engine cache, billing depth (extra brand/run, trial caps, dunning, cancel-at-period-end, Dodo portal), internal admin (impersonate, COGS, webhook replay).
 
 ### App routes (summary)
 
@@ -67,6 +67,22 @@ npx wrangler d1 create citebrief
 npm run db:migrate:local
 ```
 
+Dashboard feature migrations (required after pull):
+
+- `migrations/0013_dashboard_features.sql` — `opportunity_plans` status / owner / effort / impact / suggested fields / timestamps
+- `migrations/0014_client_notes.sql` — `brands.client_notes` for client reporting notes
+
+```bash
+# local
+npm run db:migrate:local
+
+# production
+npm run db:migrate:remote
+
+# staging (preview env)
+npm run db:migrate:staging
+```
+
 Local KV / R2 / Queue IDs can stay as placeholders for `next dev`. Wrangler still needs a real D1 `database_id` once you create the database.
 
 Without a Queue consumer (local Node), runs still process when the run poll hits `GET /api/runs/[id]`, or you can `POST /api/internal/process-run` with `{ "runId": "..." }` and Bearer `INTERNAL_PROCESS_SECRET`.
@@ -89,22 +105,18 @@ Wrangler triggers an **hourly** cron (`0 * * * *`). The scheduled handler (and `
 
 This is not a single fixed UTC “Friday stub”; each tenant’s Friday morning is respected.
 
-## Studio engines (Claude / Grok)
-
-Optional add-on engines on **Studio**. Soft-fail still requires ≥3 of 4 **core** engines. List `claude` / `grok` in workspace default engines and route them through Cloudflare AI Gateway provider-native routes.
-
 ## Live engines
 
-Adapters live in `src/lib/engine-adapters.ts`. Product soft-fail cache is D1 `engine_cache` (wins for repeated prompt×engine). Gateway edge cache is additive via `cache_policy`. Soft-fail ≥3/4 is unchanged in `processRun`. Production adapters should call Cloudflare AI Gateway, not provider APIs directly.
+Adapters live in `src/lib/engine-adapters.ts`. Product soft-fail cache is D1 `engine_cache` (wins for repeated prompt×engine). Gateway edge cache is additive via `cache_policy`. Soft-fail ≥4/5 is unchanged in `processRun`. Production adapters should call Cloudflare AI Gateway, not provider APIs directly.
 
 | Engine | Gateway path / binding | Behavior when unset |
 |---|---|---|
 | ChatGPT | AI Gateway OpenAI provider-native route | Deterministic stub |
-| Perplexity | AI Gateway Perplexity provider-native route | Deterministic stub |
 | Gemini | AI Gateway Google AI Studio / Vertex provider-native route | Deterministic stub |
+| Grok | AI Gateway xAI / Grok provider-native route | Deterministic stub |
 | AI Overviews | `BROWSER` binding and/or Browser Rendering API | Deterministic stub |
 
-The app should keep provider credentials in Cloudflare AI Gateway stored keys or unified billing where available. Do not make individual provider keys first-class Worker secrets.
+The app should keep provider credentials in Cloudflare AI Gateway stored keys or unified billing where available. Do not make individual provider keys first-class Worker secrets. Perplexity is not part of the default engine set because it is not available in the current Cloudflare AI Gateway provider-native/unified-billing setup used by CiteBrief.
 
 Live calls that error fall back to the stub for that prompt so a single flaky provider does not blank the run.
 
@@ -244,7 +256,7 @@ Auth is created inside the request from `env.DB`. Do not cache a global D1 bindi
 | `npm run preview` | OpenNext build + local Workers runtime |
 | `npm run deploy` | OpenNext build + deploy to production Workers |
 | `npm run deploy:staging` | OpenNext build + deploy `--env preview` (staging) |
-| `npm run db:migrate:local` | Apply D1 migrations locally |
+| `npm run db:migrate:local` | Apply D1 migrations locally (includes `0013` opportunity statuses + `0014` client notes) |
 | `npm run db:migrate:remote` | Apply production D1 migrations remotely |
 | `npm run db:migrate:staging` | Apply `citebrief-staging` migrations (`--env preview`) |
 | `npm run cf-typegen` | Regenerate `cloudflare-env.d.ts` |

@@ -116,12 +116,14 @@ Not 24px pills everywhere.
 - **Footer:** thin; legal + status
 
 ### App shell
-- **Sidebar:** 240px, persistent. Logo, Home, Brands, Settings. Bottom: workspace + avatar
-- **Top bar:** brand switcher, "Run now", user
+- **Sidebar:** 240px, persistent. Logo, Overview, Brands, Prompts, Competitors, Opportunities, Risks, Reports, Activity, Settings. Bottom: workspace + avatar
+- **Top bar:** brand switcher, recheck credit hint, "Run now", user
 - **Primary action:** top right always
-- **Tables:** row height 48px, sticky header, mono scores
+- **Tables:** DataTable wrapper — row height 48px, sticky header, mono scores, overflow-x, truncated cells
+- **Upgrade locks:** Dialog for Extra run / brand cap (never expand table rows)
 - **Status pills:** Named / Missing / Running / Failed - color + word, not icon-only
 - **Empty states:** one line + CTA ("Add a brand", "Generate 20 prompts")
+- **Locked modules:** LockedModule for Agency-gated pages on trial/Starter
 - **Toasts:** bottom, 3s, no stack of 6
 - **Command palette:** later (`⌘K` jump to brand)
 
@@ -213,7 +215,7 @@ Other app areas (brands, prompts, runs, history, settings, billing, members, bra
 - Mobile landing works
 - App can be **desktop-first (1280+)**
 - PDF readable printed **B&W**
-- Every screen has: Default · Loading (skeleton, not spinner wall) · Empty · Error · Partial (3/4 engines) · Success (§20.7)
+- Every screen has: Default · Loading (skeleton, not spinner wall) · Empty · Error · Partial (4/5 sources) · Success (§20.7)
 
 ---
 

@@ -1,15 +1,18 @@
 import { ReportsQueue } from "@/components/app/bulk-report-actions";
+import { ClientReportingCenter } from "@/components/app/client-reporting-center";
 import { EmptyState } from "@/components/app/empty-state";
+import { LockedModule } from "@/components/app/locked-module";
 import { PipelineStrip } from "@/components/app/pipeline-strip";
 import { PortfolioExport } from "@/components/app/portfolio-export";
 import { PortfolioFilters } from "@/components/app/portfolio-filters";
-import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { pageFilters, pipelineCounts } from "@/lib/command-center";
+import { dashboardModulesForPlan } from "@/lib/dashboard-metrics";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { buildCommandCenterSnapshot, loadCommandRows } from "@/server/command-center-data";
+import { buildClientReportingCenter } from "@/server/dashboard-data";
 
 export default async function ReportsPipelinePage({
   searchParams,
@@ -33,24 +36,26 @@ export default async function ReportsPipelinePage({
   const ent = workspaceEntitlements(sub);
   if (!ent.allowsWeeklySendQueue) {
     return (
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
-        <p className="mt-3 text-sm text-cb-muted">Pipeline and Friday send queue are on Agency.</p>
-        <div className="mt-6">
-          <UpgradePrompt
-            title={UPGRADE_COPY.commandCenter.title}
-            body={UPGRADE_COPY.commandCenter.body}
-            cta={UPGRADE_COPY.commandCenter.cta}
-          />
-        </div>
-      </div>
+      <LockedModule
+        title="Reports"
+        line={
+          ent.trialing
+            ? "Trial includes one report on the brand page. Agency unlocks the Friday send queue and pipeline."
+            : "Pipeline and Friday send queue are on Agency."
+        }
+        upgradeTitle={UPGRADE_COPY.commandCenter.title}
+        upgradeBody={UPGRADE_COPY.commandCenter.body}
+        upgradeCta={UPGRADE_COPY.commandCenter.cta}
+      />
     );
   }
 
   const filters = pageFilters(params);
-  const [{ rows: allRows }, snapshot] = await Promise.all([
+  const modules = dashboardModulesForPlan(ent);
+  const [{ rows: allRows }, snapshot, reportingRows] = await Promise.all([
     loadCommandRows(ctx, ent.allowsWeeklyCadence),
     buildCommandCenterSnapshot(ctx, ent, filters),
+    modules.clientReportingCenter ? buildClientReportingCenter(ctx, ent) : Promise.resolve([]),
   ]);
   if (allRows.length === 0) {
     return (
@@ -70,7 +75,9 @@ export default async function ReportsPipelinePage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
-          <p className="mt-1 text-sm text-cb-muted">Pipeline and send queue for this workspace.</p>
+          <p className="mt-1 text-sm text-cb-muted">
+            Pipeline, send queue, and client reporting center for this workspace.
+          </p>
         </div>
         {ent.allowsPortfolioExport ? <PortfolioExport /> : null}
       </div>
@@ -98,6 +105,16 @@ export default async function ReportsPipelinePage({
           }))}
         />
       </div>
+
+      {modules.clientReportingCenter ? (
+        <section className="mt-12">
+          <h2 className="mb-3 text-sm font-medium">Client reporting center</h2>
+          <p className="mb-4 text-sm text-cb-muted">
+            Monthly summary, before/after movement, notes, and completed actions for client calls.
+          </p>
+          <ClientReportingCenter rows={reportingRows} />
+        </section>
+      ) : null}
     </div>
   );
 }

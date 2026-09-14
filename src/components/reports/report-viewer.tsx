@@ -327,7 +327,7 @@ export function ReportViewer({
             {period ? ` · Week of ${period}` : ""}
           </p>
           <p className="font-mono text-xs tabular-nums text-cb-accent">
-            {scoreMentioned == null ? "-/20" : `${scoreMentioned}/${scoreTotal}`}
+            {scoreMentioned == null ? `-/${scoreTotal}` : `${scoreMentioned}/${scoreTotal}`}
             {scoreRecommended != null ? ` · rec ${scoreRecommended}/${scoreTotal}` : ""}
             {allowSend
               ? sent
@@ -521,7 +521,7 @@ export function ReportViewer({
           ) : (
             <div className="p-8">
               <p className="font-mono text-[28px] tabular-nums text-cb-accent">
-                {scoreMentioned == null ? "-/20" : `${scoreMentioned}/${scoreTotal}`}
+                {scoreMentioned == null ? `-/${scoreTotal}` : `${scoreMentioned}/${scoreTotal}`}
               </p>
               <p className="mt-3 text-sm text-cb-text">
                 {summary || "Named in buyer questions this week."}

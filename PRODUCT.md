@@ -17,7 +17,7 @@ This document is the product source of truth. Code in `src/lib/billing.ts`, `src
 ---
 
 ## 1. One-liner
-Agencies enter a client brand and 20 buying questions. CiteBrief checks ChatGPT, Perplexity, Gemini, and Google AI Overviews, then sends a polished white-label Friday report that proves whether AI search is sending buyers to the client or to competitors.
+Agencies enter a client brand and 20 buying questions. CiteBrief checks ChatGPT, Gemini, Grok, and Google AI Overviews, then sends a polished white-label Friday report that proves whether AI search is sending buyers to the client or to competitors.
 
 The weekly artifact is the PDF. The business is the agency workflow around it: brand setup, prompt strategy, weekly history, client links, white-label sending, team roles, billing controls, and upgrade paths tied to more client accounts.
 
@@ -218,9 +218,9 @@ CiteBrief uses **Cloudflare AI Gateway as the AI control plane**. Do not wire pr
 
 What goes through AI Gateway:
 - OpenAI / ChatGPT-style answer generation.
-- Perplexity answer generation.
 - Gemini answer generation.
-- Premium engine calls (Claude, Grok) when Studio / Enterprise / premium pack.
+- Claude answer generation (adapter kept; paused on all plans for now).
+- Grok answer generation.
 - Extractor and writer **Later** if they move off the deterministic path onto Workers AI.
 
 What does not go through AI Gateway:
@@ -231,7 +231,7 @@ Configuration:
 - Required app secrets: `CF_ACCOUNT_ID`, `AI_GATEWAY_ID`, `CF_AI_GATEWAY_TOKEN`.
 - Prefer AI Gateway stored provider keys or unified billing where available.
 - Local development may use deterministic stubs when AI Gateway config is missing or stub.
-- **Shipped fail-closed:** a live-configured engine that errors must fail that engine (3/4 soft-fail). It must not return a successful-looking stub answer.
+- **Shipped fail-closed:** a live-configured engine that errors must fail that engine (4/5 soft-fail). It must not return a successful-looking stub answer.
 
 Gateway responsibilities (product policy):
 - Analytics by workspace, brand, engine, run, and plan.
@@ -244,6 +244,7 @@ Gateway responsibilities (product policy):
 Implementation rule:
 - All model adapters call a single internal `aiGatewayRequest()` helper.
 - No app code should import or read `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, or `XAI_API_KEY`.
+- Perplexity is not in the launch engine set because it is not available in the current Cloudflare AI Gateway provider-native / unified-billing setup CiteBrief relies on. If Cloudflare adds it later, treat it as a separate future engine, not a launch dependency.
 
 ---
 
@@ -253,47 +254,48 @@ The rich dashboard is not the cost problem. The cost problem is report generatio
 
 **Fixed baseline (estimate):** Workers Paid, domain, and email/domain tooling start low, roughly **$7–$30/mo** before volume.
 
-**Agency included usage:** 10 brands × 20 prompts × 4 core engines × weekly cadence ≈ **3,400–3,500 engine calls/month** at full use.
+**Agency included usage (Gateway insights, Claude off the default set):** Claude Sonnet 5 web search was **~$0.19/request** and ~96% of a $3.80 invoice (1.56M tokens / 19 calls). GPT-5.4-mini ~$0.008, Gemini 3.6 Flash ~$0.006, Grok 4.3 ~$0.001. Agency Friday default is ChatGPT + Gemini + Grok + AIO (no Claude) → **~$0.77/run**, **10 × 4.3 × ~$0.77 ≈ $33 AI/mo** before Gateway fee. Extra re-checks $9.
 
-**Per full Agency account at included usage (estimate)**
+**Per full Agency account at included Friday-only usage**
 | Cost item | Estimate |
 |---|---:|
-| AI/search engine calls | $40–$75/mo |
-| Cloudflare AI Gateway unified billing fee | ~5% of AI spend |
+| AI/search engine calls | **~$33/mo** without Claude |
+| Cloudflare AI Gateway unified billing fee | ~5% (~$2) |
 | Cloudflare Workers/D1/KV/R2/Queues | <$1–$3/mo at scale |
 | PDF/report storage | cents to <$1/mo |
 | Email sending | cents/customer (Cloudflare Email Service) |
 | Dodo fee on $249 | ~$11–$12 |
-| **Total hard cost** | **~$60–$95/mo** |
+| **Total hard cost** | **~$45–$50/mo at Friday-only included use** |
 
-| Plan | List | COGS | Dodo fee | Gross |
+| Plan | List | Included COGS (this mix) | Dodo fee | Gross at full included |
 |---|---|---|---|---|
-| Starter | $99 | $5–$15 | ~$5 | ~$79–$89 (80%–90%) |
-| Agency | $249 | $45–$80 | ~$12 | ~$157–$192 (63%–77%) |
-| Studio | $799 | $180–$320 | ~$36 | ~$443–$583 (55%–73%) |
-| Enterprise | $1,499+ | usage-based | contract | target 65%+ |
+| Starter | $99 | ~$5–$15 (monthly, 2 brands, no Claude) | ~$5 | positive |
+| Agency | $249 | **~$45–$50** Friday-only, no Claude | ~$12 | **~$185–$190 (~74%)** |
+| Studio | $799 | **~$45–$80** Friday-only without Claude (Grok included); Claude paused | ~$36 | healthy without Claude |
+| Enterprise | $1,499+ | usage-based | contract | Claude paused with other plans |
 
-100 Agency customers at $249: **$24.9k MRR**. Expected gross margin: **~63%–77%** depending on full usage and caching.
+100 Agency customers at $249: **$24.9k MRR**. Keep Claude off Agency default — one 20-prompt Claude pass is ~$3.80 by itself.
 
 Free-trial / unpaid cost:
-- Caps: 1 brand, 20 prompts, 1 full report, 4 engines.
-- Expected hard cost: **~$1.50–$4.00 per trial user**.
-- Must not include unlimited reruns, recurring weekly reports, Studio engines, or bulk sending.
+- Caps: 1 brand, 5 prompts, 1 full report, **2 sources (ChatGPT + Gemini)**. Claude never runs on trial.
+- Intended run: 10 cheap Flash/mini calls ≈ **$0.14** (hard cap 15). The **$3.80** invoice was Claude Sonnet 5 web-search tokens, not a uniform $0.076/call.
+- Must not include unlimited reruns, recurring weekly reports, premium capacity, or bulk sending.
 
 Expansion revenue (list):
 - Extra brand: **$29/mo** on Agency, Studio, Enterprise.
 - Extra weekly run: **$9**.
 - Additional seats: included up to plan cap, then **$15/seat/mo**.
-- Premium engine pack: **$99/mo** list for additional Claude/Grok capacity.
+- Premium engine pack: **$99/mo** list for extra Grok / engine volume.
 - White-label custom sender/domain: Studio+.
 - Done-with-you setup: **Ops** founder offer.
 - Quarterly strategy export: **Later**, $99/report, only after core retention is strong.
 
 Cost controls **Shipped** in code:
 - Agency includes 1 scheduled weekly report per brand.
-- Manual reruns: Starter 1 / Agency+ 2 per brand per week; extra-run meter or credit after the included cap.
+- Manual reruns: Starter includes **2 monthly re-check credits**. Agency includes **10 monthly re-check credits**. Studio/Enterprise include **100 monthly re-check credits** by default. Extra re-checks are **$9** after monthly credits.
 - Hard-stop at 3× included calls per brand/week (`hardStopMultiplier`).
-- Claude and Grok stay Studio / Enterprise / premium pack. Never unlimited.
+- Claude is **paused on all plans for now** (adapter kept internally, not shown in workspace settings or marketing). Agency and Studio default engines: ChatGPT, Gemini, Grok, AI Overviews. Claude web search ingested ~82k tokens/request in production.
+- Prompt generation uses **Workers AI** (`@cf/meta/llama-3.1-8b-instruct`) with `max_tokens=700`, no web search, and template fallback. Do not use OpenAI for onboarding prompt generation.
 - Dashboard/risk/opportunity views reuse stored report data. No hidden model calls on page load.
 
 **Later / Ops:** AI Overview/browser spend caps in Gateway; mandatory Gateway spend limits by plan.
@@ -333,6 +335,7 @@ Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three card
 | Extra brands $29 | No | Yes | Yes | Yes |
 | Extra seats $15 | No | Yes | Yes | Yes |
 | Extra run $9 | Yes (paid) | Yes | Yes | Yes |
+| Monthly re-check credits | 2 | 10 | 100 | 100 floor |
 | Weekly Friday send | No (monthly first Friday) | Yes | Yes | Yes |
 | Email send to clients | No | Yes | Yes | Yes |
 | Approve before send | No | Required | Required | Required |
@@ -345,16 +348,16 @@ Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three card
 | Command Center rollups | No | Yes | Yes | Yes |
 | Weekly send queue `/app/reports` | No | Yes | Yes | Yes |
 | Portfolio CSV export | No | No | Yes | Yes |
-| Claude / Grok | No | Premium pack only | Limited + pack | Yes |
+| Extra Grok / engine volume | No | Premium pack only | Included Grok + pack | Yes |
 | Premium engine pack $99 | No | Yes | Yes | Yes |
 
 ### Plan gates (copy)
 
 **Starter:** 2 brands, 1 seat, monthly cadence, CiteBrief sender, PDF download and private client link, basic recommended actions. No weekly automation, no email sending to clients, no portfolio Command Center.
 
-**Agency:** 10 brands, 3 seats, weekly Friday reports, white-label PDF (logo, color, footer), agency-branded client links with expiry and revoke, client CC, report approval before sending, suggested client email, month-over-month history, source evidence / raw output audit, recommended next actions, upsell notes, client risk flags, Command Center, report pipeline, Slack webhook, extra brands $29.
+**Agency:** 10 brands, 3 seats, weekly Friday reports, 10 monthly re-check credits, white-label PDF (logo, color, footer), agency-branded client links with expiry and revoke, client CC, report approval before sending, suggested client email, month-over-month history, source evidence / raw output audit, recommended next actions, upsell notes, client risk flags, Command Center, report pipeline, Slack webhook, extra brands $29.
 
-**Studio:** 25 brands, 30 prompts, 10 seats, everything in Agency, custom sender name/domain, bulk approve and send, advanced portfolio filters + CSV export, limited Claude/Grok, premium pack available. Public `/pricing` also lists client portal archive, priority support, and internal COGS export — those three bullets are **Later** (do not treat as Shipped). Bulk send, custom sender, and extra brands are **Shipped**. The live Studio card does not list “priority processing.”
+**Studio:** 25 brands, 30 prompts, 10 seats, everything in Agency, 100 monthly re-check credits, custom sender name/domain, bulk approve and send, advanced portfolio filters + CSV export, Grok included (with ChatGPT / Gemini / AI Overviews), premium pack available. Public `/pricing` also lists client portal archive, priority support, and internal COGS export — those three bullets are **Later** (do not treat as Shipped). Bulk send, custom sender, and extra brands are **Shipped**. The live Studio card does not list “priority processing.”
 
 **Enterprise:** starts at $1,499/mo or annual contract. Custom limits, dedicated onboarding, higher premium-engine allocation, SSO/security review **when required** (**Later** in-app SSO). No self-serve Enterprise checkout on `/pricing`.
 
@@ -590,14 +593,14 @@ Rules:
 You are a buying advisor. Use web search. Prefer current vendor pages, G2, and recent roundups. Return the shortlist and any URLs you used.
 ```
 
-**Perplexity Sonar**
-```
-Give a sourced shortlist for this purchase question. Cite URLs. Rank recommendations.
-```
-
 **Gemini + Search**
 ```
 Use Google Search grounding. Return who you would shortlist and which pages support that.
+```
+
+**Grok**
+```
+You are a buying advisor. Return a ranked shortlist of products with brief reasons and URLs when known.
 ```
 
 **AIO (browser):** paste the prompt in the search box only. No system prompt. Store the overview text + listed links. This path uses Browser Rendering, not AI Gateway.
@@ -657,7 +660,7 @@ Brand: {brand}
 Period: {period}
 Competitors: {comps}
 
-Here is extracted data for 20 prompts across 4 engines:
+Here is extracted data for 20 prompts across 5 core sources:
 {json_rows}
 
 Write:
@@ -763,7 +766,7 @@ Launch goal: prove agencies will forward the report to clients and pay for recur
 
 Marketing message hierarchy:
 1. The Friday AI-search report your client actually reads.
-2. Track buyer questions across ChatGPT, Perplexity, Gemini, and AI Overviews.
+2. Track buyer questions across ChatGPT, Gemini, Grok, and AI Overviews.
 3. Send a white-label PDF with who won, where you were missing, and what to do next.
 4. Built for agencies managing multiple clients.
 
@@ -893,10 +896,12 @@ Dashboard load does not trigger new model calls.
 
 ### 18.3 Engine + report engine
 **Shipped**
-- 4 core engines routed through Cloudflare AI Gateway where API-based; AIO via Browser Rendering
-- Claude/Grok on Studio, Enterprise, or premium pack
+- Plan-selectable sources: ChatGPT, Gemini, Grok (Gateway); AIO via Browser Rendering. Claude adapter kept but not plan-selectable
+- **Agency / Studio default run:** ChatGPT + Gemini + Grok + AIO. Soft-fail **3/4**.
+- Trial first report: **ChatGPT + Gemini only** (2/2 to ship), **5 prompts**
+- Claude paused on all plans for now. Claude `max_tokens` 800 + `max_uses` 1 remain in adapter code
+- Extra Grok / engine volume on Studio, Enterprise, or premium pack
 - 24h D1 `engine_cache` on identical prompt+engine
-- Soft-fail: 3 of 4 **core** engines still ship the PDF
 - HTML report + PDF on R2
 - Email to agency and optional client CC (Agency+)
 - Slack incoming webhook (Agency+)
@@ -911,7 +916,7 @@ Dashboard load does not trigger new model calls.
 
 **In-app billing UI (Shipped):** `/app/settings/billing` highlights **one** plan (badge Current plan / After trial / Selected — never two green cards). Add-on purchase is hidden until paid `active`. Public `/pricing` stays three cards + Enterprise note; the in-app plan grid includes Enterprise at the $1,499 floor.
 
-Revenue moments (still the intended prompts): 3rd Starter brand → Agency; weekly on Starter → Agency; custom sender → Studio; 11th Agency brand → extra brand or Studio; 4th Agency seat → extra seat or Studio; more Claude/Grok → pack or Enterprise; custom/SSO/SLA → Enterprise; frequent reruns → extra run meter.
+Revenue moments (still the intended prompts): 3rd Starter brand → Agency; weekly on Starter → Agency; custom sender → Studio; 11th Agency brand → extra brand or Studio; 4th Agency seat → extra seat or Studio; more Grok / engine volume → pack or Enterprise; custom/SSO/SLA → Enterprise; frequent reruns → extra run meter.
 
 ### 18.5 Admin (internal)
 **Shipped** at `/app/admin` + `/api/internal/admin/*` (Bearer `INTERNAL_ADMIN_SECRET`; production never accepts stub/`dev-admin`):
@@ -1058,7 +1063,7 @@ No purple. No gradient mesh. Accent comes from the agency kit on PDFs and client
 - Fonts: `next/font` (Geist + Newsreader)
 
 ### 20.7 States every screen must have
-Default · Loading (skeleton, not spinner wall) · Empty · Error · Partial (3/4 engines) · Success.
+Default · Loading (skeleton, not spinner wall) · Empty · Error · Partial (4/5 sources) · Success.
 
 ### 20.8 Copy voice
 Specific. No “unlock AI search”.  
@@ -1150,21 +1155,21 @@ CiteBrief is only ready for a premium public launch when these are true.
 - The report can be sent to a real client without a disclaimer that the product is early.
 - Agency Home feels worth $249: portfolio health, client risk, report pipeline, weekly actions, upsell opportunities, and hours saved without opening every brand.
 - Every report has inspectable evidence: engine, timestamp, source URLs, raw answer drawer, and AI Gateway request id when available.
-- Partial failure still feels professional: 3/4 engines ship with a clear note.
+- Partial failure still feels professional: 4/5 core sources ship with a clear note.
 
 ### 23.2 Commercial proof (Ops)
 - At least 10 agencies have received a generated report.
 - At least 5 agencies forwarded it to a client or asked to white-label it.
 - At least 3 agencies gave pricing feedback on $249 Agency.
 - At least 1 agency pays or verbally commits before broad launch.
-- Free trial stays capped to 1 brand, 20 prompts, 1 full report, no recurring weekly send until paid.
-- Free trial COGS stays under $4/trial on average.
+- Free trial stays capped to 1 brand, 5 prompts, 1 full report, ChatGPT + Gemini only, no recurring weekly send until paid.
+- Free trial COGS stays under $4/trial on average (intended ChatGPT+Gemini 10 calls ≈ $0.14; do not run Claude on trial).
 
 ### 23.3 Technical proof (Ops)
 - `npm test`, `npm run lint`, and `npm run build` pass before every deploy.
 - Migrations through **0012** applied on production D1.
 - OpenNext preview runs with D1, KV, R2, Queue, Browser Rendering, and EMAIL bindings configured.
-- AI Gateway live calls verified for ChatGPT, Perplexity, Gemini, extractor, and writer.
+- AI Gateway live calls verified for ChatGPT, Gemini, Grok, extractor, and writer.
 - Dodo live checkout, webhook idempotency, portal, cancellation, and failed-payment handling verified.
 - Friday cron verified across at least 3 tenant timezones.
 - Run COGS and engine failures visible in internal admin.

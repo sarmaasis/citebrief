@@ -1,5 +1,5 @@
 import { getAppContext } from "@/lib/session";
-import { assertBrandCap } from "@/lib/usage";
+import { assertBrandCap, capDenialFromError } from "@/lib/usage";
 import { splitNames } from "@/lib/split";
 import { jsonError, jsonOk } from "@/server/json";
 import { listWorkspaceBrands } from "@/server/workspace-data";
@@ -32,7 +32,10 @@ export async function POST(request: Request) {
   try {
     await assertBrandCap(ctx.db, ctx.workspace.id);
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Brand cap reached.", 402);
+    const denial = capDenialFromError(error);
+    return jsonError(error instanceof Error ? error.message : "Brand cap reached.", 402, {
+      code: denial?.code ?? "brand_cap",
+    });
   }
 
   const now = new Date();
@@ -50,6 +53,7 @@ export async function POST(request: Request) {
     incumbent: body.incumbent?.trim() || null,
     constraintNote: body.constraintNote?.trim() || null,
     clientOwner: body.clientOwner?.trim() || null,
+    clientNotes: body.clientNotes?.trim() || null,
     createdAt: now,
     updatedAt: now,
   });

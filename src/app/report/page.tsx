@@ -6,7 +6,7 @@ import { MarketingHeader } from "@/components/marketing/header";
 import { MarketingPrimaryCta } from "@/components/marketing/primary-cta";
 import { SampleReportDoc } from "@/components/marketing/sample-report-doc";
 import { JsonLd } from "@/components/seo/json-ld";
-import { PLANS, TRIAL_BRAND_CAP, TRIAL_DAYS, TRIAL_RUN_CAP } from "@/lib/billing";
+import { PLANS, TRIAL_BRAND_CAP, TRIAL_DAYS, TRIAL_PROMPT_CAP, TRIAL_RUN_CAP } from "@/lib/billing";
 import { metadataPages, reportJsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -44,9 +44,10 @@ export default function SampleReportPage() {
         </div>
         <div className="mt-10 flex flex-col items-start justify-between gap-4 border-t border-cb-line pt-10 sm:flex-row sm:items-center">
           <p className="max-w-xl text-sm text-cb-muted">
-            {TRIAL_DAYS}-day trial. {TRIAL_BRAND_CAP} brand. {TRIAL_RUN_CAP} full report. Then Agency
-            at ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands, weekly Friday sending,
-            and the command-center dashboard.
+            {TRIAL_DAYS}-day trial. {TRIAL_BRAND_CAP} brand. {TRIAL_PROMPT_CAP} buyer questions.{" "}
+            {TRIAL_RUN_CAP} full report on ChatGPT + Gemini. Then Agency at $
+            {PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands, weekly Friday sending, and
+            the command-center dashboard.
           </p>
           <div className="flex flex-wrap gap-3">
             <MarketingPrimaryCta signedOutLabel="Send a Friday report" />

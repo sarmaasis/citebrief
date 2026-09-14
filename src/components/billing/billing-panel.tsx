@@ -21,6 +21,7 @@ const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
   starter: [
     `${PLANS.starter.brands} client brands`,
     "Monthly cadence",
+    "Lighter Home (no command center)",
     "CiteBrief sender",
     "PDF + client link",
     `${PLANS.starter.seats} seat`,
@@ -30,7 +31,8 @@ const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
     "Weekly Friday reports",
     "White-label logo, color, footer",
     "Client CC",
-    "History and score trend",
+    "Command center: scorecards, risks, opportunities, pipeline",
+    "History and week-over-week movement",
     `${PLANS.agency.seats} seats`,
     "Slack webhook",
   ],
@@ -38,9 +40,9 @@ const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
     `${PLANS.studio.brands} client brands`,
     `${PLANS.studio.prompts} prompts per brand`,
     "Custom sender name and domain",
-    "Claude / Grok add-on",
+    "Bulk send and portfolio CSV export",
+    "ChatGPT, Gemini, Grok, and AI Overviews",
     `${PLANS.studio.seats} seats`,
-    "Priority support",
   ],
 };
 
@@ -62,6 +64,9 @@ export type BillingUsage = {
   runsUsed: number;
   extraRuns: number;
   extraRunCredits: number;
+  monthlyRecheckCredits: number;
+  monthlyRechecksUsed?: number;
+  monthlyRechecksRemaining?: number;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
@@ -313,7 +318,10 @@ export function BillingPanel({
                 ? `Trial includes ${TRIAL_RUN_CAP} full report. Extra runs start on a paid plan.`
                 : usage.extraRuns
                   ? `${Math.max(0, usage.runsUsed - usage.extraRuns)} included · ${usage.extraRuns} extra at $${EXTRA_RUN_USD[selectedPlan]}`
-                  : "Included weekly runs do not invoice extra."}
+                  : `Includes ${usage.monthlyRecheckCredits} monthly re-check credit${usage.monthlyRecheckCredits === 1 ? "" : "s"} before paid extras.`}
+              {isPaid && usage.monthlyRecheckCredits
+                ? ` · ${usage.monthlyRechecksRemaining ?? usage.monthlyRecheckCredits}/${usage.monthlyRecheckCredits} rechecks left this month`
+                : ""}
               {isPaid && usage.extraRunCredits
                 ? ` · ${usage.extraRunCredits} extra-run credit${usage.extraRunCredits === 1 ? "" : "s"}`
                 : ""}
@@ -353,8 +361,9 @@ export function BillingPanel({
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <p className="text-sm font-medium">Add-ons</p>
           <p className="mt-1 text-sm text-cb-muted">
-            Extra brand ${extraBrandPrice}/mo on Agency and Studio. Extra seat ${SEAT_OVERAGE_USD}/mo after the seat
-            cap. Extra run ${EXTRA_RUN_USD[selectedPlan]} when you pass included re-runs.
+            Extra brand ${extraBrandPrice}/mo on Agency and Studio only (not Starter). Extra seat $
+            {SEAT_OVERAGE_USD}/mo after the seat cap. Extra run ${EXTRA_RUN_USD[selectedPlan]} after
+            monthly re-check credits.
           </p>
           {canManage ? (
             <div className="mt-4 flex flex-wrap gap-2">

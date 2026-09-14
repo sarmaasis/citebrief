@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getAppContext } from "@/lib/session";
-import { type PromptDraft, validatePromptSet } from "@/lib/prompts";
+import { normalizePromptDrafts, type PromptDraft, validatePromptSet } from "@/lib/prompts";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { jsonError, jsonOk } from "@/server/json";
 import { getWorkspaceBrand } from "@/server/workspace-data";
@@ -37,7 +37,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   const body = (await request.json()) as { prompts?: PromptDraft[] };
-  const drafts = body.prompts ?? [];
+  const drafts = normalizePromptDrafts(body.prompts ?? []);
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   const check = validatePromptSet(drafts, brand.name, { maxCount: ent.promptCap });
@@ -46,18 +46,22 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   const now = new Date();
-  await ctx.db.delete(prompts).where(eq(prompts.brandId, id));
-  await ctx.db.insert(prompts).values(
-    drafts.map((draft) => ({
-      id: crypto.randomUUID(),
-      brandId: id,
-      text: draft.text.trim(),
-      mix: draft.mix,
-      sortOrder: draft.sortOrder,
-      createdAt: now,
-      updatedAt: now,
-    })),
-  );
+  try {
+    await ctx.db.delete(prompts).where(eq(prompts.brandId, id));
+    for (const draft of drafts) {
+      await ctx.db.insert(prompts).values({
+        id: crypto.randomUUID(),
+        brandId: id,
+        text: draft.text.trim(),
+        mix: draft.mix,
+        sortOrder: draft.sortOrder,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : "Could not save prompts.", 500);
+  }
 
   return jsonOk({ saved: drafts.length });
 }

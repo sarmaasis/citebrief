@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { generatePromptPack, type PromptDraft } from "@/lib/prompts";
+import { generatePromptPack, promptSetHint, type PromptDraft } from "@/lib/prompts";
 
 const PACKS = [
   {
@@ -52,14 +52,18 @@ const PACKS = [
 
 export function IndustryPacks({
   brandName,
+  promptCap,
   onApply,
 }: {
   brandName: string;
+  promptCap: number;
   onApply: (prompts: PromptDraft[]) => void;
 }) {
   return (
     <div>
-      <p className="text-xs text-cb-muted">Industry packs. Same 4+4+4+4+4 mix. Edit names after you apply.</p>
+      <p className="text-xs text-cb-muted">
+        Industry packs. {promptSetHint(promptCap)} Edit names after you apply.
+      </p>
       <div className="mt-2 flex flex-wrap gap-2">
         {PACKS.map((pack) => (
           <Button
@@ -69,16 +73,19 @@ export function IndustryPacks({
             variant="outline"
             onClick={() =>
               onApply(
-                generatePromptPack({
-                  brand: brandName || "the brand",
-                  category: pack.category,
-                  buyer: pack.buyer,
-                  vertical: pack.vertical,
-                  job: pack.job,
-                  incumbent: pack.incumbent,
-                  competitors: [...pack.competitors],
-                  constraint: pack.constraint,
-                }),
+                generatePromptPack(
+                  {
+                    brand: brandName || "the brand",
+                    category: pack.category,
+                    buyer: pack.buyer,
+                    vertical: pack.vertical,
+                    job: pack.job,
+                    incumbent: pack.incumbent,
+                    competitors: [...pack.competitors],
+                    constraint: pack.constraint,
+                  },
+                  { count: promptCap },
+                ),
               )
             }
           >

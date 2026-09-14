@@ -56,6 +56,9 @@
   "browser": {
     "binding": "BROWSER"
   },
+  "ai": {
+    "binding": "AI"
+  },
   // Cloudflare Email Service outbound binding. Onboard getcitebrief.com in the Email dashboard.
   // Do not set destination_address — invites, auth, and Friday sends go to arbitrary inboxes.
   // Local `next dev` has no binding and stubs. Wrangler/Workers runtime uses EMAIL.send().

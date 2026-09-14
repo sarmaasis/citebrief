@@ -1,5 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { generatePromptPackMaybeLlm } from "@/lib/prompts";
+import { workspaceEntitlements } from "@/lib/entitlements";
+import { generatePromptPackMaybeLlm, normalizePromptDrafts } from "@/lib/prompts";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { jsonError, jsonOk } from "@/server/json";
@@ -22,6 +23,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
   const { env } = await getCloudflareContext({ async: true });
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+  const ent = workspaceEntitlements(sub);
 
   const generated = await generatePromptPackMaybeLlm(
     {
@@ -39,8 +41,9 @@ export async function POST(_request: Request, context: RouteContext) {
       workspace_id: ctx.workspace.id,
       brand_id: bundle.brand.id,
       plan: sub?.plan || "agency",
+      count: ent.promptCap,
     },
   );
 
-  return jsonOk(generated);
+  return jsonOk({ ...generated, prompts: normalizePromptDrafts(generated.prompts), promptCap: ent.promptCap });
 }

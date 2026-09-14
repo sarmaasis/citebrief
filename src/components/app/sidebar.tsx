@@ -2,14 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, Home, ListChecks, Settings, Tag, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle,
+  ClipboardList,
+  Home,
+  ListChecks,
+  MessageSquareText,
+  Settings,
+  Swords,
+  Tag,
+  TrendingUp,
+} from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/app", label: "Home", icon: Home, match: (path: string) => path === "/app" },
+  { href: "/app", label: "Overview", icon: Home, match: (path: string) => path === "/app" },
   { href: "/app/brands", label: "Brands", icon: Tag, match: (path: string) => path.startsWith("/app/brands") },
-  { href: "/app/reports", label: "Reports", icon: ListChecks, match: (path: string) => path === "/app/reports" },
+  {
+    href: "/app/prompts",
+    label: "Prompts",
+    icon: MessageSquareText,
+    match: (path: string) => path.startsWith("/app/prompts"),
+  },
+  {
+    href: "/app/competitors",
+    label: "Competitors",
+    icon: Swords,
+    match: (path: string) => path.startsWith("/app/competitors"),
+  },
   {
     href: "/app/opportunities",
     label: "Opportunities",
@@ -17,6 +38,18 @@ const nav = [
     match: (path: string) => path.startsWith("/app/opportunities"),
   },
   { href: "/app/risks", label: "Risks", icon: AlertTriangle, match: (path: string) => path.startsWith("/app/risks") },
+  {
+    href: "/app/reports",
+    label: "Reports",
+    icon: ListChecks,
+    match: (path: string) => path === "/app/reports" || path.startsWith("/app/reports"),
+  },
+  {
+    href: "/app/activity",
+    label: "Activity",
+    icon: ClipboardList,
+    match: (path: string) => path.startsWith("/app/activity"),
+  },
   {
     href: "/app/settings",
     label: "Settings",
@@ -43,7 +76,7 @@ export function AppSidebar({
       <div className="flex h-14 items-center px-5">
         <Logo href="/app" />
       </div>
-      <nav aria-label="Workspace" className="flex flex-1 flex-col gap-1 px-3 py-2">
+      <nav aria-label="Workspace" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2">
         {nav.map((item) => {
           const Icon = item.icon;
           const active = item.match(pathname);

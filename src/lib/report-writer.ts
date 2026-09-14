@@ -130,7 +130,7 @@ export function writeReport(args: {
     : "";
 
   const partialBanner = args.partial
-    ? `<p class="banner">3 of 4 engines returned. Numbers reflect available engines.</p>`
+    ? `<p class="banner">Partial engine set returned. Numbers reflect available engines.</p>`
     : "";
 
   const promptBlocks = sorted

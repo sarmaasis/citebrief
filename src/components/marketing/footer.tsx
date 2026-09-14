@@ -40,7 +40,8 @@ export function MarketingFooter() {
           <div>
             <Logo muted />
             <p className="mt-3 max-w-xs text-sm leading-6 text-cb-muted">
-              The Friday AI-search report agencies send to clients.
+              The Friday AI-search report agencies send to clients. Agency adds the command center
+              that explains movement, competitors, and next actions.
             </p>
           </div>
           <FooterColumn title="Product" items={product} />

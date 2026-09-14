@@ -111,7 +111,7 @@ export default async function ReportPage({
   ].slice(0, 3);
   const opportunity = opportunityFromRow({
     brand: { id, name: row.brand.name },
-    promptCount: 20,
+    promptCount: row.report.scoreTotal ?? ent.promptCap,
     mentionedDelta: null,
     latestRun: { status: row.run.status },
     latestReport: {

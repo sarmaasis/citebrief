@@ -20,7 +20,8 @@ export const PLANS = {
     seats: 3,
     cadence: "weekly" as const,
     includedRunsPerBrandPerWeek: 1,
-    manualRerunsPerBrandPerWeek: 2,
+    /** Friday slot per brand. Monthly re-check credits cover manual checks before $9 extras. */
+    manualRerunsPerBrandPerWeek: 0,
     hardStopMultiplier: 3,
   },
   studio: {
@@ -77,9 +78,19 @@ export const SEAT_OVERAGE_USD = 15;
 /** PRODUCT §10 range $99–$199. Listed at the low end until a Dodo product exists. */
 export const PREMIUM_ENGINE_PACK_USD = 99;
 
+/** Included manual re-check credits per workspace per month. */
+export const MONTHLY_RECHECK_CREDITS: Record<PlanId, number> = {
+  starter: 2,
+  agency: 10,
+  studio: 100,
+  enterprise: 100,
+};
+
 export const TRIAL_DAYS = 14;
 export const TRIAL_BRAND_CAP = 1;
 export const TRIAL_RUN_CAP = 1;
+/** Unpaid / trial 1-report pack. 20 is too expensive for the free run. */
+export const TRIAL_PROMPT_CAP = 5;
 
 export function parsePlanId(value: string | null | undefined): PlanId | null {
   if (!value) return null;
@@ -135,7 +146,7 @@ export function billingPageIntro(args: { trialing: boolean; paid: boolean; plan:
     return `${name} plan, included usage, and expansion. Invoices and cards live in the billing portal.`;
   }
   if (args.trialing) {
-    return `You are on a ${TRIAL_DAYS}-day trial — 1 brand, 1 seat, 1 report. After trial you continue as ${name} if you subscribe.`;
+    return `You are on a ${TRIAL_DAYS}-day trial — 1 brand, ${TRIAL_PROMPT_CAP} questions, 1 seat, 1 report. After trial you continue as ${name} if you subscribe.`;
   }
   return `${name} is selected. Subscribe to unlock it. Invoices and cards live in the billing portal.`;
 }
@@ -181,10 +192,20 @@ export function planManualRerunCap(plan: PlanId | string | null | undefined): nu
   return PLANS[id].manualRerunsPerBrandPerWeek;
 }
 
+export function planMonthlyRecheckCredits(plan: PlanId | string | null | undefined): number {
+  const id = parsePlanId(plan ?? "starter") ?? "starter";
+  return MONTHLY_RECHECK_CREDITS[id];
+}
+
+/** Included weekly budget: scheduled slot + free manuals (Agency manuals are 0). */
+export function planIncludedRunCap(plan: PlanId | string | null | undefined): number {
+  const id = parsePlanId(plan ?? "agency") ?? "agency";
+  return PLANS[id].includedRunsPerBrandPerWeek + PLANS[id].manualRerunsPerBrandPerWeek;
+}
+
 export function planHardStop(plan: PlanId | string | null | undefined): number {
   const id = parsePlanId(plan ?? "agency") ?? "agency";
-  const base = 1 + PLANS[id].manualRerunsPerBrandPerWeek;
-  return base * PLANS[id].hardStopMultiplier;
+  return planIncludedRunCap(id) * PLANS[id].hardStopMultiplier;
 }
 
 export function isStubSecret(value: string | undefined) {

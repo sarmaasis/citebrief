@@ -14,9 +14,10 @@ import { queryEngine } from "@/lib/engine-adapters";
 import { readEngineCache, writeEngineCache } from "@/lib/engine-cache";
 import {
   CORE_ENGINES,
-  SOFT_FAIL_MIN_CORE,
-  emptyEngineStatus,
+  TRIAL_MAX_GATEWAY_REQUESTS,
   parseEngineStatus,
+  scheduledEngineStatus,
+  softFailMinCore,
   type EngineId,
   type EngineStatusMap,
 } from "@/lib/engines";
@@ -29,6 +30,7 @@ import { resolveRunEngines } from "@/lib/plan-engines";
 import { postSlackIncomingWebhook } from "@/lib/slack";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getWorkspaceSubscription, settleBillableExtraRun, shouldSettleBillableExtra } from "@/lib/usage";
+import { resetGatewayRunBudget } from "@/lib/ai-gateway";
 
 export type ProcessRunResult = {
   runId: string;
@@ -88,6 +90,56 @@ export async function processRun(
     };
   }
 
+  if (bundle.run.status === "failed") {
+    return {
+      runId,
+      status: "failed",
+      engines: parseEngineStatus(bundle.run.engineStates),
+      reportId: null,
+      scoreMentioned: null,
+    };
+  }
+
+  if (bundle.run.status === "running") {
+    return {
+      runId,
+      status: "running",
+      engines: parseEngineStatus(bundle.run.engineStates),
+      reportId: null,
+      scoreMentioned: null,
+    };
+  }
+
+  const claimed = await db
+    .update(runs)
+    .set({ status: "running" })
+    .where(and(eq(runs.id, runId), eq(runs.status, "queued")))
+    .returning({ id: runs.id });
+  if (claimed.length === 0) {
+    const [again] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
+    const snapshot = parseEngineStatus(again?.engineStates);
+    const status = (again?.status || "running") as ProcessRunResult["status"];
+    if (status === "complete" || status === "partial") {
+      const [existing] = await db.select().from(reports).where(eq(reports.runId, runId)).limit(1);
+      return {
+        runId,
+        status,
+        engines: snapshot,
+        reportId: existing?.id ?? null,
+        scoreMentioned: existing?.scoreMentioned ?? null,
+      };
+    }
+    return {
+      runId,
+      status: status === "failed" ? "failed" : "running",
+      engines: snapshot,
+      reportId: null,
+      scoreMentioned: null,
+    };
+  }
+
+  resetGatewayRunBudget(runId);
+
   const resolved = await resolveRunEngines({
     db,
     workspaceId: bundle.workspace.id,
@@ -96,11 +148,14 @@ export async function processRun(
   });
   const runEngines = resolved.engines;
   const sub = await getWorkspaceSubscription(db, bundle.workspace.id);
+  const ent = workspaceEntitlements(sub);
   const planId = sub?.plan || "agency";
-  const engines = emptyEngineStatus(resolved.includeStudio);
-  for (const engine of runEngines) {
-    engines[engine.id] = "queued";
-  }
+  const promptCap = ent.promptCap;
+  const promptRows = bundle.promptRows.slice(0, promptCap);
+  const maxGatewayRequests = ent.paid
+    ? Math.max(20, promptRows.length * runEngines.length * 2)
+    : TRIAL_MAX_GATEWAY_REQUESTS;
+  const engines = scheduledEngineStatus(runEngines.map((engine) => engine.id));
 
   await db
     .update(runs)
@@ -119,7 +174,7 @@ export async function processRun(
 
   const competitorNames = bundle.competitorRows.map((row) => row.name);
   const aggs = new Map<string, PromptAgg>();
-  for (const prompt of bundle.promptRows) {
+  for (const prompt of promptRows) {
     aggs.set(prompt.id, {
       promptId: prompt.id,
       promptText: prompt.text,
@@ -136,7 +191,7 @@ export async function processRun(
       .where(eq(runs.id, runId));
 
     try {
-      for (const prompt of bundle.promptRows) {
+      for (const prompt of promptRows) {
         const cached = await readEngineCache(db, engine.id, prompt.text);
         let rawAnswer: string;
         let extracted = cached?.extracted ?? null;
@@ -159,6 +214,7 @@ export async function processRun(
               run_id: runId,
               plan: planId,
               cache_policy: "fresh",
+              max_gateway_requests: maxGatewayRequests,
             },
           });
           rawAnswer = result.rawAnswer;
@@ -230,7 +286,7 @@ export async function processRun(
     } catch (error) {
       console.error(`[run-processor] engine ${engine.id} failed`, error);
       engines[engine.id] = "failed";
-      for (const prompt of bundle.promptRows) {
+      for (const prompt of promptRows) {
         await db.insert(runRows).values({
           id: crypto.randomUUID(),
           runId,
@@ -260,10 +316,13 @@ export async function processRun(
       .where(eq(runs.id, runId));
   }
 
-  const successCount = CORE_ENGINES.filter((engine) => engines[engine.id] === "complete").length;
+  const scheduledIds = CORE_ENGINES.filter(
+    (engine) => engines[engine.id] && engines[engine.id] !== "skipped",
+  ).map((engine) => engine.id);
+  const successCount = scheduledIds.filter((id) => engines[id] === "complete").length;
   const failedEngines = runEngines.filter((engine) => engines[engine.id] === "failed").map((e) => e.label);
 
-  if (successCount < SOFT_FAIL_MIN_CORE) {
+  if (successCount < softFailMinCore(scheduledIds.length)) {
     await db
       .update(runs)
       .set({
@@ -356,8 +415,6 @@ export async function processRun(
     await settleBillableExtraRun({ db, env, workspaceId: bundle.workspace.id, runId });
   }
 
-  const ent = workspaceEntitlements(sub);
-
   if (options?.notifyEmail && ent.allowsEmailSend) {
     try {
       const origin = (env.BETTER_AUTH_URL || "").replace(/\/$/, "");
@@ -408,7 +465,7 @@ export function shouldForceEngineFailure(engine: EngineId, forceFailEngine?: str
 
 /**
  * Retry a single failed engine without counting a new run or extra-run meter.
- * Re-writes the PDF when 3+ core engines then succeed.
+ * Re-writes the PDF when enough scheduled engines then succeed. Does not meter a new run.
  */
 export async function retryFailedEngine(
   db: Database,
@@ -434,10 +491,13 @@ export async function retryFailedEngine(
 
   const sub = await getWorkspaceSubscription(db, bundle.workspace.id);
   const planId = sub?.plan || "agency";
+  const promptRows = bundle.promptRows.slice(0, workspaceEntitlements(sub).promptCap);
   const competitorNames = bundle.competitorRows.map((row) => row.name);
+  resetGatewayRunBudget(`${runId}:retry:${engineId}`);
+  const retryCap = Math.max(2, promptRows.length * 2);
 
   try {
-    for (const prompt of bundle.promptRows) {
+    for (const prompt of promptRows) {
       const cached = await readEngineCache(db, engineId, prompt.text);
       let rawAnswer: string;
       let extracted = cached?.extracted ?? null;
@@ -457,9 +517,10 @@ export async function retryFailedEngine(
           metadata: {
             workspace_id: bundle.workspace.id,
             brand_id: bundle.brand.id,
-            run_id: runId,
+            run_id: `${runId}:retry:${engineId}`,
             plan: planId,
             cache_policy: "fresh",
+            max_gateway_requests: retryCap,
           },
         });
         rawAnswer = result.rawAnswer;
@@ -520,7 +581,7 @@ export async function retryFailedEngine(
   } catch (error) {
     console.error(`[run-processor] retry ${engineId} failed`, error);
     engines[engineId] = "failed";
-    for (const prompt of bundle.promptRows) {
+    for (const prompt of promptRows) {
       await db.insert(runRows).values({
         id: crypto.randomUUID(),
         runId,
@@ -536,7 +597,7 @@ export async function retryFailedEngine(
 
   const allRows = await db.select().from(runRows).where(eq(runRows.runId, runId));
   const aggs = new Map<string, PromptAgg>();
-  for (const prompt of bundle.promptRows) {
+  for (const prompt of promptRows) {
     aggs.set(prompt.id, {
       promptId: prompt.id,
       promptText: prompt.text,
@@ -566,7 +627,10 @@ export async function retryFailedEngine(
     };
   }
 
-  const successCount = CORE_ENGINES.filter((engine) => engines[engine.id] === "complete").length;
+  const scheduledIds = CORE_ENGINES.filter(
+    (engine) => engines[engine.id] && engines[engine.id] !== "skipped",
+  ).map((engine) => engine.id);
+  const successCount = scheduledIds.filter((id) => engines[id] === "complete").length;
   const [kit] = await db
     .select()
     .from(brandKits)
@@ -577,7 +641,7 @@ export async function retryFailedEngine(
     .filter(([, state]) => state === "failed")
     .map(([id]) => id);
 
-  if (successCount < SOFT_FAIL_MIN_CORE) {
+  if (successCount < softFailMinCore(scheduledIds.length)) {
     await db
       .update(runs)
       .set({

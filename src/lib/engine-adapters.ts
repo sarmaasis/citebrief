@@ -21,6 +21,7 @@ export type EngineQueryInput = {
     run_id?: string;
     plan?: string;
     cache_policy?: AiGatewayCachePolicy;
+    max_gateway_requests?: number;
   };
 };
 
@@ -33,12 +34,11 @@ export type EngineQueryResult = {
 };
 
 const SYSTEM_HINTS: Record<EngineId, string> = {
-  chatgpt: "OpenAI Responses + web",
-  perplexity: "Perplexity Sonar",
+  chatgpt: "OpenAI Responses + web search",
   gemini: "Gemini + Search grounding",
-  aio: "Google AI Overviews browser",
-  claude: "Anthropic Claude",
+  claude: "Anthropic Claude + web search",
   grok: "xAI Grok",
+  aio: "Google AI Overviews browser",
 };
 
 const USER_WRAPPER = (buyer: string, prompt: string) =>
@@ -57,10 +57,10 @@ const USER_WRAPPER = (buyer: string, prompt: string) =>
 const ENGINE_SYSTEM: Record<Exclude<EngineId, "aio">, string> = {
   chatgpt:
     "You are a buying advisor. Use web search. Prefer current vendor pages, G2, and recent roundups. Return the shortlist and any URLs you used.",
-  perplexity: "Give a sourced shortlist for this purchase question. Cite URLs. Rank recommendations.",
-  gemini: "Use Google Search grounding. Return who you would shortlist and which pages support that.",
+  gemini:
+    "Use Google Search. Return a short ranked shortlist of at most five products and the source URLs. Under 120 words. No long plan.",
   claude:
-    "You are a buying advisor with web-aware knowledge. Return a ranked shortlist of products and any source URLs you can cite.",
+    "You are a buying advisor. Use web search once. Return a ranked shortlist of at most five products and the source URLs. Under 180 words. No long quotes from pages.",
   grok: "You are a buying advisor. Return a ranked shortlist of products with brief reasons and URLs when known.",
 };
 
@@ -91,7 +91,6 @@ function aioConfigured(env?: CloudflareEnv) {
 export function isEngineApiConfigured(engine: EngineId, env?: CloudflareEnv): boolean {
   switch (engine) {
     case "chatgpt":
-    case "perplexity":
     case "gemini":
     case "claude":
     case "grok":
@@ -112,6 +111,7 @@ function buildMetadata(input: EngineQueryInput): AiGatewayMetadata {
     plan: input.metadata?.plan,
     prompt_hash: promptHash(input.prompt),
     cache_policy: input.metadata?.cache_policy || "fresh",
+    max_gateway_requests: input.metadata?.max_gateway_requests,
   };
 }
 
@@ -152,20 +152,113 @@ async function stubAnswer(input: EngineQueryInput): Promise<EngineQueryResult> {
   };
 }
 
+export const ENGINE_MODELS = {
+  chatgpt: "gpt-5.4-mini",
+  gemini: "gemini-3.6-flash",
+  claude: "claude-sonnet-5",
+  /** Chat-completions + live search. Newer Responses model IDs returned 0 tokens on this Gateway. */
+  grok: "grok-4.3",
+} as const;
+
+export const CLAUDE_MAX_TOKENS = 800;
+export const SHORTLIST_MAX_OUTPUT_TOKENS = 700;
+/** Gemini 3 thinking counts against maxOutputTokens; 700 truncates the shortlist. */
+export const GEMINI_MAX_OUTPUT_TOKENS = 4096;
+
+export type EngineSearchRequest = {
+  provider: "openai" | "google" | "anthropic" | "xai";
+  path: string;
+  body: Record<string, unknown>;
+  headers?: Record<string, string>;
+};
+
+/**
+ * Provider request each core LLM engine sends through AI Gateway.
+ * Every body includes the provider's native web-search / grounding tool.
+ */
+export function buildEngineSearchRequest(
+  engine: Exclude<EngineId, "aio">,
+  buyer: string,
+  prompt: string,
+): EngineSearchRequest {
+  const user = USER_WRAPPER(buyer, prompt);
+  switch (engine) {
+    case "chatgpt":
+      return {
+        provider: "openai",
+        path: "/responses",
+        body: {
+          model: ENGINE_MODELS.chatgpt,
+          tools: [{ type: "web_search" }],
+          tool_choice: "required",
+          max_tool_calls: 1,
+          max_output_tokens: SHORTLIST_MAX_OUTPUT_TOKENS,
+          store: false,
+          input: [
+            { role: "developer", content: ENGINE_SYSTEM.chatgpt },
+            { role: "user", content: user },
+          ],
+        },
+      };
+    case "gemini":
+      return {
+        provider: "google",
+        path: `/v1beta/models/${ENGINE_MODELS.gemini}:generateContent`,
+        body: {
+          system_instruction: { parts: [{ text: ENGINE_SYSTEM.gemini }] },
+          contents: [{ role: "user", parts: [{ text: user }] }],
+          tools: [{ google_search: {} }],
+          generationConfig: {
+            maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+            thinkingConfig: { thinkingLevel: "minimal" },
+          },
+        },
+      };
+    case "claude":
+      return {
+        provider: "anthropic",
+        path: "/v1/messages",
+        body: {
+          model: ENGINE_MODELS.claude,
+          max_tokens: CLAUDE_MAX_TOKENS,
+          system: ENGINE_SYSTEM.claude,
+          messages: [{ role: "user", content: user }],
+          tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
+        },
+        headers: { "anthropic-version": "2023-06-01" },
+      };
+    case "grok":
+      return {
+        provider: "xai",
+        path: "/v1/chat/completions",
+        body: {
+          model: ENGINE_MODELS.grok,
+          max_tokens: SHORTLIST_MAX_OUTPUT_TOKENS,
+          reasoning_effort: "none",
+          messages: [
+            { role: "system", content: ENGINE_SYSTEM.grok },
+            { role: "user", content: user },
+          ],
+        },
+      };
+    default:
+      throw new Error(`Unknown LLM engine ${engine as string}`);
+  }
+}
+
 async function queryViaGateway(
   input: EngineQueryInput,
-  provider: "openai" | "perplexity" | "google" | "anthropic" | "xai",
-  path: string,
-  body: unknown,
-  extraHeaders?: Record<string, string>,
+  request: EngineSearchRequest,
+  opts: { requireWebSearch?: boolean } = { requireWebSearch: true },
 ): Promise<{ text: string; gatewayRequestId: string | null }> {
   const result = await aiGatewayRequest({
     env: input.env,
-    provider,
-    path,
-    body,
-    headers: extraHeaders,
+    provider: request.provider,
+    path: request.path,
+    body: request.body,
+    headers: request.headers,
     metadata: buildMetadata(input),
+    requireWebSearch: opts.requireWebSearch ?? true,
   });
   if (result.stub) {
     throw new Error(result.reason);
@@ -174,66 +267,20 @@ async function queryViaGateway(
 }
 
 async function queryChatGPT(input: EngineQueryInput) {
-  const buyer = input.buyer || "a buyer";
-  return queryViaGateway(input, "openai", "/responses", {
-    model: "gpt-4.1-mini",
-    tools: [{ type: "web_search_preview" }],
-    input: [
-      { role: "developer", content: ENGINE_SYSTEM.chatgpt },
-      { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
-    ],
-  });
-}
-
-async function queryPerplexity(input: EngineQueryInput) {
-  const buyer = input.buyer || "a buyer";
-  return queryViaGateway(input, "perplexity", "/chat/completions", {
-    model: "sonar",
-    messages: [
-      { role: "system", content: ENGINE_SYSTEM.perplexity },
-      { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
-    ],
-  });
+  return queryViaGateway(input, buildEngineSearchRequest("chatgpt", input.buyer || "a buyer", input.prompt));
 }
 
 async function queryGemini(input: EngineQueryInput) {
-  const buyer = input.buyer || "a buyer";
-  return queryViaGateway(
-    input,
-    "google",
-    "/v1beta/models/gemini-2.0-flash:generateContent",
-    {
-      system_instruction: { parts: [{ text: ENGINE_SYSTEM.gemini }] },
-      contents: [{ role: "user", parts: [{ text: USER_WRAPPER(buyer, input.prompt) }] }],
-      tools: [{ google_search: {} }],
-    },
-  );
+  return queryViaGateway(input, buildEngineSearchRequest("gemini", input.buyer || "a buyer", input.prompt));
 }
 
 async function queryClaude(input: EngineQueryInput) {
-  const buyer = input.buyer || "a buyer";
-  return queryViaGateway(
-    input,
-    "anthropic",
-    "/v1/messages",
-    {
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
-      system: ENGINE_SYSTEM.claude,
-      messages: [{ role: "user", content: USER_WRAPPER(buyer, input.prompt) }],
-    },
-    { "anthropic-version": "2023-06-01" },
-  );
+  return queryViaGateway(input, buildEngineSearchRequest("claude", input.buyer || "a buyer", input.prompt));
 }
 
 async function queryGrok(input: EngineQueryInput) {
-  const buyer = input.buyer || "a buyer";
-  return queryViaGateway(input, "xai", "/v1/chat/completions", {
-    model: "grok-3-mini",
-    messages: [
-      { role: "system", content: ENGINE_SYSTEM.grok },
-      { role: "user", content: USER_WRAPPER(buyer, input.prompt) },
-    ],
+  return queryViaGateway(input, buildEngineSearchRequest("grok", input.buyer || "a buyer", input.prompt), {
+    requireWebSearch: false,
   });
 }
 
@@ -282,8 +329,6 @@ async function liveAnswer(
   switch (input.engine) {
     case "chatgpt":
       return queryChatGPT(input);
-    case "perplexity":
-      return queryPerplexity(input);
     case "gemini":
       return queryGemini(input);
     case "claude":

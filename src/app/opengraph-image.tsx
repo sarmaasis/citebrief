@@ -97,7 +97,7 @@ export default function OpenGraphImage() {
           </div>
         </div>
         <div style={{ display: "flex", fontSize: 20, color: "#737373" }}>
-          ChatGPT · Perplexity · Gemini · AI Overviews
+          ChatGPT · Gemini · Grok · AI Overviews
         </div>
       </div>
     ),

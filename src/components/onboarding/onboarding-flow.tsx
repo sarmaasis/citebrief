@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { CORE_ENGINES, ENGINES, type EngineState } from "@/lib/engines";
 import { onboardingStepFromResume, syncOnboardingBrandQuery, type OnboardingResume } from "@/lib/onboarding-resume";
-import { type PromptDraft, validatePromptSet } from "@/lib/prompts";
-import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
-import { UPGRADE_COPY } from "@/lib/upgrade-copy";
+import { generatePromptsCta, promptSetHint, type PromptDraft, validatePromptSet } from "@/lib/prompts";
+import { UpgradeDialog, UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY, brandCapUpgradeFromError } from "@/lib/upgrade-copy";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
@@ -64,11 +64,13 @@ export function OnboardingFlow({
   allowApproval = false,
   resume = null,
   startFresh = false,
+  promptCap,
 }: {
   allowSend?: boolean;
   allowApproval?: boolean;
   resume?: OnboardingResume | null;
   startFresh?: boolean;
+  promptCap: number;
 }) {
   const [step, setStep] = useState(1);
   const [fields, setFields] = useState<BrandFieldValues>(emptyBrandFields);
@@ -89,6 +91,8 @@ export function OnboardingFlow({
   const [approveBusy, setApproveBusy] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const [showBrandUpgrade, setShowBrandUpgrade] = useState(false);
+  const brandUpgrade = brandCapUpgradeFromError(status);
   const pollRef = useRef<(id: string) => void>(() => undefined);
   const finishedRef = useRef(false);
 
@@ -191,6 +195,7 @@ export function OnboardingFlow({
   async function saveBrand() {
     setPending(true);
     setStatus(null);
+    setShowBrandUpgrade(false);
     try {
       const response = await fetch("/api/brands", {
         method: "POST",
@@ -200,6 +205,14 @@ export function OnboardingFlow({
       const data = (await response.json()) as { id?: string; error?: string };
       if (!response.ok || !data.id) {
         setStatus(data.error ?? "Could not save the brand.");
+        if (
+          response.status === 402 ||
+          response.status === 403 ||
+          data.error?.toLowerCase().includes("cap") ||
+          data.error?.toLowerCase().includes("trial")
+        ) {
+          setShowBrandUpgrade(true);
+        }
         return;
       }
       setBrandId(data.id);
@@ -238,7 +251,7 @@ export function OnboardingFlow({
     if (!brandId) {
       return;
     }
-    const check = validatePromptSet(prompts, fields.name);
+    const check = validatePromptSet(prompts, fields.name, { maxCount: promptCap });
     if (!check.ok) {
       setStatus(check.error);
       return;
@@ -251,7 +264,7 @@ export function OnboardingFlow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompts }),
       });
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setStatus(data.error ?? "Could not save prompts.");
         return;
@@ -265,12 +278,17 @@ export function OnboardingFlow({
 
   async function startRun(id: string) {
     const response = await fetch(`/api/brands/${id}/runs`, { method: "POST" });
-    const data = (await response.json()) as { runId?: string; error?: string };
+    const data = (await response.json()) as {
+      runId?: string;
+      error?: string;
+      engines?: Record<string, EngineState>;
+    };
     if (!response.ok || !data.runId) {
       setStatus(data.error ?? "Could not queue the run.");
       return;
     }
     setRunId(data.runId);
+    if (data.engines) setEngines(data.engines);
     poll(data.runId);
   }
 
@@ -429,28 +447,35 @@ export function OnboardingFlow({
 
       {step === 2 ? (
         <>
-          <h1 className="mt-6 text-2xl font-semibold tracking-tight">Confirm twenty buyer questions</h1>
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight">Confirm {promptCap} buyer questions</h1>
           <p className="mt-2 text-sm text-cb-muted">
             {source === "llm"
               ? "Generated from the writer. Edit before you run."
-              : "Template pack from the 4+4+4+4+4 mix. Edit before you run."}
+              : `Template pack. ${promptSetHint(promptCap)} Edit before you run.`}
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(1)}>
               Back
             </Button>
             <Button type="button" variant="outline" onClick={() => void generate()} disabled={pending}>
-              {prompts.length ? "Regenerate 20 prompts" : "Generate 20 prompts"}
+              {generatePromptsCta(promptCap, prompts.length > 0)}
             </Button>
           </div>
           <div className="mt-4">
-            <IndustryPacks brandName={fields.name} onApply={setPrompts} />
+            <IndustryPacks brandName={fields.name} promptCap={promptCap} onApply={setPrompts} />
           </div>
           <div className="mt-6">
             {prompts.length === 0 ? (
-              <p className="text-sm text-cb-muted">Generate twenty buyer questions, or apply an industry pack.</p>
+              <p className="text-sm text-cb-muted">
+                Generate {promptCap} buyer questions, or apply an industry pack.
+              </p>
             ) : (
-              <PromptEditor prompts={prompts} brandName={fields.name} onChange={setPrompts} />
+              <PromptEditor
+                prompts={prompts}
+                brandName={fields.name}
+                mixTarget={promptCap < 20 ? 1 : 4}
+                onChange={setPrompts}
+              />
             )}
           </div>
           <div className="mt-8 flex justify-end">
@@ -471,14 +496,16 @@ export function OnboardingFlow({
                 : "Running this week's report"}
           </h1>
           {reportReady && scoreMentioned != null ? (
-            <p className="mt-2 font-mono text-sm tabular-nums text-cb-accent">Named in {scoreMentioned} of 20</p>
+            <p className="mt-2 font-mono text-sm tabular-nums text-cb-accent">
+              Named in {scoreMentioned} of {prompts.length || promptCap}
+            </p>
           ) : null}
           {runStatus === "partial" ? (
             <p className="mt-3 text-sm text-cb-pending">The PDF still shipped. One source did not return.</p>
           ) : null}
           <div className="mt-8 space-y-3">
-            {(engines && ENGINES.filter((e) => engines[e.id] !== undefined).length
-              ? ENGINES.filter((e) => engines![e.id] !== undefined)
+            {(engines && ENGINES.filter((e) => engines[e.id] && engines[e.id] !== "skipped").length
+              ? ENGINES.filter((e) => engines![e.id] && engines![e.id] !== "skipped")
               : CORE_ENGINES
             ).map((engine) => {
               const state = engines?.[engine.id] ?? "queued";
@@ -576,7 +603,14 @@ export function OnboardingFlow({
         </>
       ) : null}
 
-      {status ? <p className="mt-4 text-sm text-cb-danger">{status}</p> : null}
+      {status && !showBrandUpgrade ? <p className="mt-4 text-sm text-cb-danger">{status}</p> : null}
+      <UpgradeDialog
+        open={showBrandUpgrade}
+        onOpenChange={setShowBrandUpgrade}
+        title={brandUpgrade.title}
+        body={status ?? brandUpgrade.body}
+        cta={brandUpgrade.cta}
+      />
     </div>
   );
 }

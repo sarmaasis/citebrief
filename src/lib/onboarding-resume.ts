@@ -1,6 +1,6 @@
 import type { BrandFieldValues } from "@/components/brands/brand-fields";
 import { parseEngineStatus, type EngineState } from "@/lib/engines";
-import { MIXES, type PromptDraft, type PromptMix } from "@/lib/prompts";
+import { MIXES, normalizePromptDrafts, type PromptDraft, type PromptMix } from "@/lib/prompts";
 
 function asPromptMix(value: string): PromptMix {
   return (MIXES as readonly string[]).includes(value) ? (value as PromptMix) : "discovery";
@@ -70,6 +70,7 @@ export function serializeOnboardingResume(bundle: {
     incumbent: string | null;
     constraintNote: string | null;
     clientOwner: string | null;
+    clientNotes?: string | null;
   };
   competitors: Array<{ name: string }>;
   prompts: Array<{ text: string; mix: string; sortOrder: number }>;
@@ -96,12 +97,15 @@ export function serializeOnboardingResume(bundle: {
       competitors: bundle.competitors.map((row) => row.name).join(", "),
       constraintNote: brand.constraintNote ?? "",
       clientOwner: brand.clientOwner ?? "",
+      clientNotes: brand.clientNotes ?? "",
     },
-    prompts: bundle.prompts.map((row) => ({
-      text: row.text,
-      mix: asPromptMix(row.mix),
-      sortOrder: row.sortOrder,
-    })),
+    prompts: normalizePromptDrafts(
+      bundle.prompts.map((row) => ({
+        text: row.text,
+        mix: asPromptMix(row.mix),
+        sortOrder: row.sortOrder,
+      })),
+    ),
     runId: bundle.latestRun?.id ?? null,
     reportId: bundle.latestReport?.id ?? null,
     reportReady: Boolean(bundle.latestReport),

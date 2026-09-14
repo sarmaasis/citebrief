@@ -5,16 +5,18 @@ import { useState } from "react";
 import { IndustryPacks } from "@/components/prompts/industry-packs";
 import { PromptEditor } from "@/components/prompts/prompt-editor";
 import { Button } from "@/components/ui/button";
-import { type PromptDraft, validatePromptSet } from "@/lib/prompts";
+import { generatePromptsCta, promptSetHint, type PromptDraft, validatePromptSet } from "@/lib/prompts";
 
 export function PromptsPage({
   brandId,
   brandName,
   initial,
+  promptCap,
 }: {
   brandId: string;
   brandName: string;
   initial: PromptDraft[];
+  promptCap: number;
 }) {
   const router = useRouter();
   const [prompts, setPrompts] = useState<PromptDraft[]>(initial);
@@ -38,7 +40,7 @@ export function PromptsPage({
   }
 
   async function save() {
-    const check = validatePromptSet(prompts, brandName);
+    const check = validatePromptSet(prompts, brandName, { maxCount: promptCap });
     if (!check.ok) {
       setStatus(check.error);
       return;
@@ -51,12 +53,12 @@ export function PromptsPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompts }),
       });
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setStatus(data.error ?? "Could not save prompts.");
         return;
       }
-      setStatus("Saved twenty buyer questions.");
+      setStatus(`Saved ${prompts.length} buyer questions.`);
       router.refresh();
     } finally {
       setPending(false);
@@ -68,11 +70,11 @@ export function PromptsPage({
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Prompts</h1>
-          <p className="mt-1 text-sm text-cb-muted">Lock the mix at 4+4+4+4+4. Buyer questions only.</p>
+          <p className="mt-1 text-sm text-cb-muted">{promptSetHint(promptCap)}</p>
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={() => void generate()} disabled={pending}>
-            {prompts.length ? "Regenerate 20 prompts" : "Generate 20 prompts"}
+            {generatePromptsCta(promptCap, prompts.length > 0)}
           </Button>
           <Button type="button" onClick={() => void save()} disabled={pending || prompts.length === 0}>
             Save
@@ -80,19 +82,19 @@ export function PromptsPage({
         </div>
       </div>
       <div className="mb-6">
-        <IndustryPacks brandName={brandName} onApply={setPrompts} />
+        <IndustryPacks brandName={brandName} promptCap={promptCap} onApply={setPrompts} />
       </div>
       {prompts.length === 0 ? (
         <div className="rounded-cb-card border border-cb-line bg-cb-surface px-6 py-16 text-center">
-          <p className="text-sm text-cb-text">Generate twenty buyer questions for this brand.</p>
+          <p className="text-sm text-cb-text">Generate {promptCap} buyer questions for this brand.</p>
           <div className="mt-4">
             <Button type="button" onClick={() => void generate()} disabled={pending}>
-              {pending ? "Generating…" : "Generate 20 prompts"}
+              {pending ? "Generating…" : generatePromptsCta(promptCap, false)}
             </Button>
           </div>
         </div>
       ) : (
-        <PromptEditor prompts={prompts} brandName={brandName} onChange={setPrompts} />
+        <PromptEditor prompts={prompts} brandName={brandName} mixTarget={promptCap < 20 ? 1 : 4} onChange={setPrompts} />
       )}
       {status ? <p className="mt-4 text-sm text-cb-muted">{status}</p> : null}
     </div>

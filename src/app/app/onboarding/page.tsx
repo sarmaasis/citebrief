@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
-import { workspaceEntitlements } from "@/lib/entitlements";
+import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
+import { UPGRADE_COPY } from "@/lib/upgrade-copy";
+import { upgradeHintForBrandCap, workspaceEntitlements } from "@/lib/entitlements";
 import { serializeOnboardingResume, shouldResumeOnboardingBrand } from "@/lib/onboarding-resume";
 import { getAppContext } from "@/lib/session";
-import { getWorkspaceSubscription } from "@/lib/usage";
+import { countActiveBrands, getWorkspaceSubscription } from "@/lib/usage";
 import { getBrandBundle, listWorkspaceBrands } from "@/server/workspace-data";
 
 export default async function OnboardingPage({
@@ -17,6 +19,30 @@ export default async function OnboardingPage({
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   const startFresh = params.new === "1";
+
+  if (startFresh) {
+    const active = await countActiveBrands(ctx.db, ctx.workspace.id);
+    if (active >= ent.brandLimit) {
+      const upgrade = !ent.paid
+        ? UPGRADE_COPY.trialBrand
+        : ent.plan === "starter"
+          ? UPGRADE_COPY.thirdBrand
+          : ent.plan === "studio" || ent.plan === "enterprise"
+            ? UPGRADE_COPY.extraBrandStudio
+            : UPGRADE_COPY.extraBrandAgency;
+      return (
+        <div className="mx-auto max-w-lg space-y-6 px-4 py-12">
+          <h1 className="text-xl font-semibold tracking-tight">Brand limit reached</h1>
+          <UpgradePrompt title={upgrade.title} body={upgradeHintForBrandCap(ent)} cta={upgrade.cta} />
+          <p className="text-sm text-cb-muted">
+            <a href="/app/brands" className="text-cb-accent">
+              Back to brands
+            </a>
+          </p>
+        </div>
+      );
+    }
+  }
 
   let resume = null;
   if (!startFresh) {
@@ -38,6 +64,7 @@ export default async function OnboardingPage({
       allowApproval={ent.allowsApproval}
       resume={resume}
       startFresh={startFresh}
+      promptCap={ent.promptCap}
     />
   );
 }

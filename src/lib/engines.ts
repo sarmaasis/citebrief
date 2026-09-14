@@ -1,15 +1,13 @@
 export const CORE_ENGINES = [
   { id: "chatgpt", label: "ChatGPT" },
-  { id: "perplexity", label: "Perplexity" },
   { id: "gemini", label: "Gemini" },
+  { id: "claude", label: "Claude" },
+  { id: "grok", label: "Grok" },
   { id: "aio", label: "AI Overviews" },
 ] as const;
 
-/** Studio plan add-on engines (optional; soft-fail still keyed off core 4). */
-export const STUDIO_ENGINES = [
-  { id: "claude", label: "Claude" },
-  { id: "grok", label: "Grok" },
-] as const;
+/** Reserved for future premium-only engines. Claude adapter exists but is not plan-selectable for now. */
+export const STUDIO_ENGINES = [] as const;
 
 export const ENGINES = [...CORE_ENGINES, ...STUDIO_ENGINES] as const;
 
@@ -21,16 +19,14 @@ export type EngineState = "queued" | "running" | "complete" | "failed" | "skippe
 export type EngineStatusMap = Partial<Record<EngineId, EngineState>> & Record<CoreEngineId, EngineState>;
 
 export function emptyEngineStatus(includeStudio = false): EngineStatusMap {
+  void includeStudio;
   const base: EngineStatusMap = {
     chatgpt: "queued",
-    perplexity: "queued",
     gemini: "queued",
+    claude: "queued",
+    grok: "queued",
     aio: "queued",
   };
-  if (includeStudio) {
-    base.claude = "queued";
-    base.grok = "queued";
-  }
   return base;
 }
 
@@ -40,22 +36,68 @@ export function parseEngineStatus(value: string | null | undefined): EngineStatu
   }
   try {
     const parsed = JSON.parse(value) as Partial<Record<EngineId, EngineState>>;
-    return { ...emptyEngineStatus(Boolean(parsed.claude || parsed.grok)), ...parsed };
+    return { ...emptyEngineStatus(), ...parsed };
   } catch {
     return emptyEngineStatus();
   }
 }
 
 export function isStudioEngine(id: string): id is StudioEngineId {
-  return id === "claude" || id === "grok";
+  void id;
+  return false;
 }
 
 export function isCoreEngine(id: string): id is CoreEngineId {
   return CORE_ENGINES.some((engine) => engine.id === id);
 }
 
-/** Soft-fail threshold: ship PDF when at least this many *core* engines succeed. */
-export const SOFT_FAIL_MIN_CORE = 3;
+/** Cap used when 5+ engines are scheduled; for Agency’s 4 engines, softFailMinCore(4) returns 3 (3/4). */
+export const SOFT_FAIL_MIN_CORE = 4;
+
+/** Trial / free first report: ChatGPT + Gemini only. No Claude, Grok, AIO, or Perplexity. */
+export const TRIAL_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini"];
+
+/** Paid Agency default: no Claude (web-search token blowups). */
+export const AGENCY_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio"];
+
+/** Studio / Enterprise default: Agency set + Grok (already included); Claude off for now. */
+export const STUDIO_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio"];
+
+/** Claude adapter remains; plans do not select Claude for now. */
+export function isClaudeDisabled(id: string): boolean {
+  return id === "claude";
+}
+
+/** @deprecated Use isClaudeDisabled — Claude is off all plans, not Studio-gated. */
+export function claudeRequiresStudio(id: string): boolean {
+  return isClaudeDisabled(id);
+}
+
+/** 5 prompts × 2 engines + a little headroom. Prompt-writer is not billed on this counter. */
+export const TRIAL_MAX_GATEWAY_REQUESTS = 15;
+
+export function isTrialEngine(id: string): boolean {
+  return TRIAL_ENGINE_IDS.includes(id as EngineId);
+}
+
+/** Queued for engines in this run; skipped for the rest so UI/soft-fail ignore them. */
+export function scheduledEngineStatus(scheduledIds: readonly string[]): EngineStatusMap {
+  const engines = emptyEngineStatus();
+  const scheduled = new Set(scheduledIds);
+  for (const engine of CORE_ENGINES) {
+    engines[engine.id] = scheduled.has(engine.id) ? "queued" : "skipped";
+  }
+  return engines;
+}
+
+/** How many scheduled engines must succeed before a PDF ships. */
+export function softFailMinCore(scheduledCount: number): number {
+  if (scheduledCount <= 0) return 1;
+  if (scheduledCount <= 2) return scheduledCount;
+  if (scheduledCount === 3) return 2;
+  if (scheduledCount === 4) return 3;
+  return Math.min(SOFT_FAIL_MIN_CORE, scheduledCount);
+}
 
 /** @deprecated Phase 2 time-poll stub. Prefer processRun. */
 export function advanceEngineStub(createdAt: Date, now = new Date()): {

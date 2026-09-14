@@ -25,7 +25,7 @@ The key change is that CiteBrief should not only show where a client appears in 
 
 ### Stronger Revenue Position
 
-> CiteBrief turns ChatGPT, Perplexity, Gemini, and Google AI Overview checks into a white-label client report with competitor wins, source evidence, and recommended next actions.
+> CiteBrief turns ChatGPT, Gemini, Grok, and Google AI Overview checks into a white-label client report with competitor wins, source evidence, and recommended next actions.
 
 ### What The Product Really Sells
 
@@ -288,7 +288,7 @@ The trial goal is not unlimited usage. The goal is for the user to create one im
 
 ### Homepage Subheadline
 
-> CiteBrief checks ChatGPT, Perplexity, Gemini, and Google AI Overviews, then turns the results into a white-label client report with competitor wins, source evidence, and recommended next actions.
+> CiteBrief checks ChatGPT, Gemini, Grok, and Google AI Overviews, then turns the results into a white-label client report with competitor wins, source evidence, and recommended next actions.
 
 ### Primary CTA
 
@@ -340,7 +340,7 @@ Target pages should focus on agency intent:
 - GEO reporting for agencies
 - AI visibility report template
 - ChatGPT visibility report for clients
-- Perplexity visibility tracking for agencies
+- AI visibility tracking for agencies
 - AI search client reporting software
 
 ### 5. Comparison Pages
@@ -377,4 +377,3 @@ Do not sell it as access to AI visibility data. Sell it as a recurring client de
 The product should make the agency feel:
 
 > This gives us a new report, a new sales conversation, and a new reason clients keep paying us.
-

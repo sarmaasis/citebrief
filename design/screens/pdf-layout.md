@@ -27,7 +27,7 @@ Prepared by {agency} · {date}
 For each of 20 prompts (stacked with 1px rules, not cards):
 ```
 Prompt text
-Named? Y/N per engine (ChatGPT · Perplexity · Gemini · AI Overviews)
+Named? Y/N per source (ChatGPT · Gemini · Grok · AI Overviews)
 Cited URL (if any)
 Who won
 20-word sentence

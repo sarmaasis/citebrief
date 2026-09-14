@@ -31,6 +31,7 @@ export default async function EditBrandPage({ params }: { params: Promise<{ id: 
           competitors: bundle.competitors.map((row) => row.name).join(", "),
           constraintNote: bundle.brand.constraintNote ?? "",
           clientOwner: bundle.brand.clientOwner ?? "",
+          clientNotes: bundle.brand.clientNotes ?? "",
         }}
       />
     </div>

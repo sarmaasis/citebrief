@@ -9,6 +9,7 @@ import {
   planAnnualAmountUsd,
   TRIAL_BRAND_CAP,
   TRIAL_DAYS,
+  TRIAL_PROMPT_CAP,
   TRIAL_RUN_CAP,
   type PlanId,
 } from "@/lib/billing";
@@ -20,6 +21,8 @@ import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = metadataPages.signup;
+
+const trialLead = `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_PROMPT_CAP} buyer questions. ${TRIAL_RUN_CAP} full report on ChatGPT + Gemini.`;
 
 function signupCopy(
   planId: PlanId | null,
@@ -37,30 +40,30 @@ function signupCopy(
   if (interval === "annual") {
     return {
       title: "Start the first report",
-      body: `${TRIAL_DAYS}-day trial, then ${listed.name} annual at $${planAnnualAmountUsd(plan).toLocaleString("en-US")} (${ANNUAL_MONTHS_CHARGED} months prepaid). After you create the workspace you go to annual checkout.`,
+      body: `${trialLead} Then ${listed.name} annual at $${planAnnualAmountUsd(plan).toLocaleString("en-US")} (${ANNUAL_MONTHS_CHARGED} months prepaid). After you create the workspace you go to annual checkout.`,
     };
   }
   if (plan === "starter") {
     return {
       title: "Start the first report",
-      body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Starter is $${listed.amountUsd}/mo after that for monthly reports on ${listed.brands} brands. No weekly send, client email, or portfolio dashboard.`,
+      body: `${trialLead} Starter is $${listed.amountUsd}/mo after that for monthly reports on ${listed.brands} brands. No weekly send, client email, extra brands, or command center.`,
     };
   }
   if (plan === "studio") {
     return {
       title: "Start the first report",
-      body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Studio is $${listed.amountUsd}/mo for ${listed.brands} brands, a custom sender, bulk send, and weekly Friday reports.`,
+      body: `${trialLead} Studio is $${listed.amountUsd}/mo for ${listed.brands} brands, a custom sender, bulk send, portfolio CSV, and weekly Friday reports.`,
     };
   }
   if (plan === "enterprise") {
     return {
       title: "Start the first report",
-      body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. Enterprise starts at $${listed.amountUsd.toLocaleString("en-US")}/mo for custom limits, SSO, and contract support.`,
+      body: `${trialLead} Enterprise starts at $${listed.amountUsd.toLocaleString("en-US")}/mo for custom limits, SSO-ready review, and contract support.`,
     };
   }
   return {
     title: "Start the first report",
-    body: `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_RUN_CAP} full report. No weekly send until paid. Agency is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, ${PLANS.agency.seats} seats, and the command-center dashboard.`,
+    body: `${trialLead} No weekly send or command center until paid. Agency is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, ${PLANS.agency.seats} seats, and the command-center dashboard.`,
   };
 }
 
@@ -87,7 +90,10 @@ export default async function SignupPage({
       {!invite ? (
         <ol className="mt-6 space-y-2 text-sm text-cb-muted">
           <li>1. Add one client brand.</li>
-          <li>2. We generate twenty buying questions.</li>
+          <li>
+            2. We generate {TRIAL_PROMPT_CAP} buyer questions on trial ({PLANS.agency.prompts} on paid
+            plans).
+          </li>
           <li>3. Send or share the first PDF.</li>
         </ol>
       ) : null}

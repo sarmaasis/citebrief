@@ -15,11 +15,13 @@ import {
   planAllowsStudioEngines,
   planAllowsWeeklyCadence,
   planBrandLimit,
+  planMonthlyRecheckCredits,
   planPromptCap,
   planSeatCap,
   PLANS,
   TRIAL_BRAND_CAP,
   TRIAL_DAYS,
+  TRIAL_PROMPT_CAP,
   TRIAL_RUN_CAP,
   type PlanId,
 } from "@/lib/billing";
@@ -117,6 +119,7 @@ export type WorkspaceEntitlements = {
   extraBrands: number;
   extraSeats: number;
   extraRunCredits: number;
+  monthlyRecheckCredits: number;
   billingInterval: "monthly" | "annual";
   allowsMembers: boolean;
   allowsSlack: boolean;
@@ -150,6 +153,7 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
   const extraBrands = Math.max(0, sub?.extraBrands || 0);
   const extraSeats = Math.max(0, sub?.extraSeats || 0);
   const extraRunCredits = Math.max(0, sub?.extraRunCredits || 0);
+  const monthlyRecheckCredits = planMonthlyRecheckCredits(plan);
   const premiumEnginePack = Boolean(sub?.premiumEnginePack);
   const billingInterval = sub?.billingInterval === "annual" ? "annual" : "monthly";
   // Expired trial keeps status "trialing" but isTrialing is false. Stay unpaid 1/1/1 — do not treat as a cancelled paid period.
@@ -165,10 +169,11 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
       ended,
       brandLimit: TRIAL_BRAND_CAP,
       seatCap: 1,
-      promptCap: 20,
+      promptCap: TRIAL_PROMPT_CAP,
       extraBrands: 0,
       extraSeats: 0,
       extraRunCredits,
+      monthlyRecheckCredits,
       billingInterval,
       allowsMembers: false,
       allowsSlack: false,
@@ -207,6 +212,7 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
     extraBrands,
     extraSeats,
     extraRunCredits,
+    monthlyRecheckCredits,
     billingInterval,
     allowsMembers: planAllowsMembers(plan),
     allowsSlack: planAllowsSlack(plan),
@@ -236,10 +242,10 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
 
 export function upgradeHintForBrandCap(ent: WorkspaceEntitlements): string {
   if (!ent.paid) {
-    return `Trial allows ${ent.trialBrandCap} brand. Upgrade to add more.`;
+    return `Trial allows ${ent.trialBrandCap} brand (${TRIAL_PROMPT_CAP} buyer questions, ChatGPT + Gemini). Extra brands are Agency+ only after you subscribe.`;
   }
   if (ent.plan === "starter") {
-    return `Starter includes ${PLANS.starter.brands} brands. Upgrade to Agency for ${PLANS.agency.brands} brands and weekly Friday reports.`;
+    return `Starter includes ${PLANS.starter.brands} brands. Extra brands are not available on Starter. Upgrade to Agency for ${PLANS.agency.brands} brands, weekly Friday reports, and the command center.`;
   }
   if (ent.plan === "agency") {
     return `Agency includes ${PLANS.agency.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.agency}/mo) or upgrade to Studio.`;

@@ -30,6 +30,7 @@ export function WorkspaceForm({
   slackAllowed,
   customSenderAllowed,
   studioEnginesAllowed,
+  paid,
   showRoiMinutes,
 }: {
   initial: {
@@ -44,6 +45,7 @@ export function WorkspaceForm({
   slackAllowed: boolean;
   customSenderAllowed: boolean;
   studioEnginesAllowed: boolean;
+  paid: boolean;
   showRoiMinutes?: boolean;
 }) {
   const [name, setName] = useState(initial.name);
@@ -158,6 +160,7 @@ export function WorkspaceForm({
         <EnginePicker
           value={defaultEngines}
           onChange={setDefaultEngines}
+          paid={paid}
           studioAllowed={studioEnginesAllowed}
         />
         {showRoiMinutes ? (

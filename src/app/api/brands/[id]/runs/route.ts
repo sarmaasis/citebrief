@@ -1,9 +1,10 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { eq } from "drizzle-orm";
-import { emptyEngineStatus } from "@/lib/engines";
+import { scheduledEngineStatus } from "@/lib/engines";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { assertRunCap, bumpRunsUsed } from "@/lib/usage";
+import { assertRunCap, bumpRunsUsed, capDenialFromError, getWorkspaceSubscription } from "@/lib/usage";
 import { formatWeekOf } from "@/lib/friday";
+import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
 import { getWorkspaceBrand } from "@/server/workspace-data";
@@ -34,7 +35,9 @@ export async function POST(request: Request, context: RouteContext) {
 
   const promptRows = await ctx.db.select().from(prompts).where(eq(prompts.brandId, id));
   if (promptRows.length === 0) {
-    return jsonError("Generate twenty buyer questions before you run.");
+    const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
+    const cap = workspaceEntitlements(sub).promptCap;
+    return jsonError(`Generate ${cap} buyer questions before you run.`);
   }
 
   let extraRun = false;
@@ -47,7 +50,10 @@ export async function POST(request: Request, context: RouteContext) {
       console.info("[runs] cap warning", cap.warning);
     }
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Run cap reached.", 402);
+    const denial = capDenialFromError(error);
+    return jsonError(error instanceof Error ? error.message : "Run cap reached.", 402, {
+      code: denial?.code ?? "run_cap",
+    });
   }
 
   const now = new Date();
@@ -71,6 +77,8 @@ export async function POST(request: Request, context: RouteContext) {
     env,
   });
 
+  const engineStates = scheduledEngineStatus(resolved.engines.map((engine) => engine.id));
+
   // Insert before enqueue so the queue consumer can load the row.
   await ctx.db.insert(runs).values({
     id: runId,
@@ -78,7 +86,7 @@ export async function POST(request: Request, context: RouteContext) {
     status: "queued",
     periodStart: formatWeekOf(now),
     periodEnd: formatWeekOf(now),
-    engineStates: JSON.stringify(emptyEngineStatus(resolved.includeStudio)),
+    engineStates: JSON.stringify(engineStates),
     extraRun,
     consumeCredit,
     createdAt: now,
@@ -104,5 +112,5 @@ export async function POST(request: Request, context: RouteContext) {
     }
   }
 
-  return jsonOk({ runId, queue, payload, extraRun }, 201);
+  return jsonOk({ runId, queue, payload, extraRun, engines: engineStates }, 201);
 }

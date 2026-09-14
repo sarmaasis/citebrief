@@ -231,7 +231,7 @@ Qualification:
 
 - 5+ active clients
 - Already sells SEO, content, PR, or paid search retainers
-- Has clients asking about ChatGPT, Gemini, Perplexity, or AI Overviews
+- Has clients asking about ChatGPT, Gemini, Grok, or AI Overviews
 
 ### Pilot Goals
 

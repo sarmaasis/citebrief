@@ -64,6 +64,8 @@ export const brands = sqliteTable(
     incumbent: text("incumbent"),
     constraintNote: text("constraint_note"),
     clientOwner: text("client_owner"),
+    /** Free-form agency notes for client reporting center. */
+    clientNotes: text("client_notes"),
     archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -310,6 +312,16 @@ export const opportunityPlans = sqliteTable(
     reportId: text("report_id").references(() => reports.id, { onDelete: "set null" }),
     opportunityKey: text("opportunity_key").notNull(),
     plannedAt: integer("planned_at", { mode: "timestamp_ms" }).notNull(),
+    /** open | planned | in_progress | done | dismissed */
+    status: text("status").notNull().default("planned"),
+    owner: text("owner"),
+    effort: text("effort"),
+    impact: text("impact"),
+    suggestedAction: text("suggested_action"),
+    suggestedPage: text("suggested_page"),
+    dismissedAt: integer("dismissed_at", { mode: "timestamp_ms" }),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
   },
   (table) => [

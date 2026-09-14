@@ -17,26 +17,35 @@ import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { getBrandBundle, getBrandInsights } from "@/server/workspace-data";
 
-export default async function BrandHomePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BrandHomePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ recheck?: string }>;
+}) {
   const ctx = await getAppContext();
   if (!ctx) {
     notFound();
   }
   const { id } = await params;
+  const query = (await searchParams) ?? {};
   const bundle = await getBrandBundle(ctx, id);
   if (!bundle) {
     notFound();
   }
 
   const { brand, competitors, latestRun, latestReport, prompts } = bundle;
+  const recheckPrompt = query.recheck ? prompts.find((prompt) => prompt.id === query.recheck) : null;
   const insights = await getBrandInsights(ctx, id, brand.name);
   const friday = formatShortDate(nextFriday());
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   const allowsWeekly = ent.allowsWeeklyCadence;
   const allowsHistory = ent.allowsHistory;
+  const promptCap = ent.promptCap;
   const score = latestReport?.scoreMentioned;
-  const total = latestReport?.scoreTotal ?? 20;
+  const total = latestReport?.scoreTotal ?? promptCap;
   const recommended = latestReport?.scoreRecommended ?? insights.recommendedCount;
   const runStatus = latestRun?.status;
   const commandRow = {
@@ -63,18 +72,18 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
 
   return (
     <div>
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
           {brand.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={brand.logoUrl} alt="" className="h-10 w-10 rounded-cb-control object-contain" />
+            <img src={brand.logoUrl} alt="" className="h-10 w-10 shrink-0 rounded-cb-control object-contain" />
           ) : null}
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight">{brand.name}</h1>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-xl font-semibold tracking-tight">{brand.name}</h1>
               <RiskPill risk={risk} />
             </div>
-            <p className="text-sm text-cb-muted">
+            <p className="truncate text-sm text-cb-muted">
               {brand.siteUrl || "No site yet"}
               {brand.vertical || brand.category ? ` · ${brand.vertical || brand.category}` : ""}
               {brand.buyer ? ` · Buyer: ${brand.buyer}` : ""}
@@ -84,22 +93,40 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
         </div>
         <RunNowButton
           brandId={brand.id}
+          promptId={recheckPrompt?.id}
+          label={recheckPrompt ? "Recheck" : "Run now"}
           disabled={Boolean(brand.archivedAt) || prompts.length === 0}
           hint={
             brand.archivedAt
               ? "Restore this brand before you run."
               : prompts.length === 0
-                ? "Generate twenty buyer questions before you run."
-                : null
+                ? `Generate ${promptCap} buyer questions before you run.`
+                : recheckPrompt
+                  ? "Runs all buyer questions for this brand; focuses the selected prompt after queueing."
+                  : null
           }
         />
       </div>
+
+      {recheckPrompt ? (
+        <div className="mb-8 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
+          <p className="text-xs text-cb-muted">Recheck focus</p>
+          <p className="mt-2 text-sm font-medium">{recheckPrompt.text}</p>
+          <p className="mt-1 text-sm text-cb-muted">
+            Mix: {recheckPrompt.mix || "—"}. Queuing a run refreshes every prompt for this brand and opens the run with
+            this question highlighted.
+          </p>
+          <Link href={`/app/brands/${brand.id}/prompts`} className="mt-3 inline-block text-sm text-cb-accent">
+            Edit prompts
+          </Link>
+        </div>
+      ) : null}
 
       <div className="mb-8 grid gap-4 md:grid-cols-3">
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <p className="text-xs text-cb-muted">Named</p>
           <p className="mt-2 font-mono text-[28px] tabular-nums text-cb-accent">
-            {score == null ? "-/20" : `${score}/${total}`}
+            {score == null ? `-/${promptCap}` : `${score}/${total}`}
           </p>
           <p className="mt-2 text-sm text-cb-muted">
             {score == null ? "No report for this period yet." : `Named in ${score} of ${total} buyer questions.`}
@@ -111,7 +138,7 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <p className="text-xs text-cb-muted">Recommended</p>
           <p className="mt-2 font-mono text-[28px] tabular-nums text-cb-accent">
-            {recommended == null ? "-/20" : `${recommended}/${insights.recommendedTotal}`}
+            {recommended == null ? `-/${promptCap}` : `${recommended}/${insights.recommendedTotal}`}
           </p>
           <p className="mt-2 text-sm text-cb-muted">
             {recommended == null
@@ -149,7 +176,7 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
               </Link>
             ) : prompts.length === 0 ? (
               <Link href={`/app/brands/${brand.id}/prompts`} className="text-cb-accent">
-                Generate 20 prompts
+                Generate {promptCap} prompts
               </Link>
             ) : null}
             {latestRun ? (
@@ -208,7 +235,7 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
           <Item label="Competitors" value={competitors.map((row) => row.name).join(", ") || "None yet"} />
           <Item label="Incumbent" value={brand.incumbent || "None yet"} />
           <Item label="Buyer" value={brand.buyer || "None yet"} />
-          <Item label="Prompts" value={`${prompts.length} / 20`} />
+          <Item label="Prompts" value={`${prompts.length} / ${promptCap}`} />
           <Item label="Client owner" value={brand.clientOwner || "None yet"} />
         </dl>
       </div>
@@ -216,8 +243,14 @@ export default async function BrandHomePage({ params }: { params: Promise<{ id: 
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="outline">
           <Link href={`/app/brands/${brand.id}/prompts`}>
-            {prompts.length ? "Edit prompts" : "Generate 20 prompts"}
+            {prompts.length ? "Edit prompts" : `Generate ${promptCap} prompts`}
           </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={`/app/prompts?brandId=${brand.id}`}>Prompt performance</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/app/competitors">Competitors</Link>
         </Button>
         <Button asChild variant="outline">
           <Link href={`/app/brands/${brand.id}/history`}>History</Link>

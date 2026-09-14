@@ -45,11 +45,12 @@ Section padding: 64–96px. Panel radius 16px. Hairline borders on `#FAFAF8`.
 
 ## Copy examples (no em dashes)
 
-- H1: **The Friday PDF your client actually reads.**
-- Sub: Agencies track twenty buyer questions across ChatGPT, Perplexity, Gemini, and AI Overviews. Every Friday, CiteBrief emails a white-label report.
-- Primary CTA: **Start the first report**
-- Secondary CTA: **View a sample**
+- H1: **The Friday AI-search report your client actually reads.**
+- Sub: Track buyer questions across ChatGPT, Gemini, Grok, and AI Overviews. Send a white-label PDF. On Agency, the command center shows whether you are improving, who is beating you, what changed, and what to do this week.
+- Primary CTA: **Send a Friday report**
+- Secondary CTA: **View sample report**
 - Nav CTA: **Send a Friday report**
+- Trial line: **14-day trial. 1 brand. 5 buyer questions. 1 full report on ChatGPT + Gemini.**
 - Bento Named: **Named in 12 of 20**
 - Bento Who won: **ClickUp won "Asana alternatives for agencies"**
 - Bento Next action: **Write a comparison page for Asana vs Northstar**

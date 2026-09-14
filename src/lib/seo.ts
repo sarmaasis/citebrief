@@ -13,8 +13,13 @@ export const SITE_NAME = "CiteBrief";
 
 export const HOME_HEADLINE = "The Friday PDF your client actually reads.";
 export const HOME_TITLE = `${SITE_NAME} · ${HOME_HEADLINE.replace(/\.$/, "")}`;
+
+/** Paid public surfaces: Claude is paused and must not appear as available. */
+export const PUBLIC_ENGINE_LABELS = ["ChatGPT", "Gemini", "Grok", "AI Overviews"] as const;
+export const PUBLIC_ENGINES_PHRASE = "ChatGPT, Gemini, Grok, and AI Overviews";
+
 export const HOME_DESCRIPTION =
-  "Track twenty buyer questions across ChatGPT, Perplexity, Gemini, and AI Overviews, then send a white-label Friday PDF with who won, where you were missing, and what to do next.";
+  `Track twenty buyer questions across ${PUBLIC_ENGINES_PHRASE}, then send a white-label Friday PDF with who won, where you were missing, and what to do next.`;
 
 /**
  * Public marketing IA: core product pages plus launch-audit commercial, compare, and legal URLs.
@@ -252,10 +257,11 @@ function softwareApplicationNode() {
     description: HOME_DESCRIPTION,
     featureList: [
       "White-label Friday PDF reports",
-      "Buyer questions across ChatGPT, Perplexity, Gemini, and Google AI Overviews",
+      `Buyer questions across ${PUBLIC_ENGINES_PHRASE}`,
       `Weekly reports for ${SEO_PLAN_OFFERS[1].brands} Agency client brands`,
       "Private client links",
       "Recommended next actions on each report",
+      "Agency command center with competitor intelligence and opportunity queue",
     ],
     offers: SEO_PLAN_OFFERS.map((plan) => ({
       "@type": "Offer",

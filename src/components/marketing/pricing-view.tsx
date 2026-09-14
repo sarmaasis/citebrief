@@ -7,11 +7,13 @@ import {
   ANNUAL_MONTHS_CHARGED,
   EXTRA_BRAND_USD,
   EXTRA_RUN_USD,
+  MONTHLY_RECHECK_CREDITS,
   PLANS,
   PREMIUM_ENGINE_PACK_USD,
   SEAT_OVERAGE_USD,
   TRIAL_BRAND_CAP,
   TRIAL_DAYS,
+  TRIAL_PROMPT_CAP,
   TRIAL_RUN_CAP,
   planAnnualAmountUsd,
   type PublicPlanId,
@@ -26,7 +28,7 @@ const plans = [
     name: "Starter",
     monthly: PLANS.starter.amountUsd,
     recommended: false,
-    pitch: "For freelancers and solo consultants testing the workflow.",
+    pitch: "For freelancers and solo consultants proving the Friday report on a lighter Home.",
     monthlyCta: "Start trial",
     annualCta: "Start annual",
     bullets: [
@@ -35,9 +37,11 @@ const plans = [
       "Monthly report cadence",
       "CiteBrief sender",
       "PDF download and private client link",
-      "Basic recommended actions",
+      `${MONTHLY_RECHECK_CREDITS.starter} manual re-check credits/mo`,
+      "Basic recommended actions and prompt performance",
+      "ChatGPT, Gemini, Grok, and AI Overviews",
       `${PLANS.starter.seats} seat`,
-      "No weekly send, client email, or portfolio dashboard",
+      "No weekly send, client email, extra brands, or command center",
     ],
   },
   {
@@ -45,7 +49,7 @@ const plans = [
     name: "Agency",
     monthly: PLANS.agency.amountUsd,
     recommended: true,
-    pitch: "The weekly reporting system: Friday PDF plus a command-center dashboard.",
+    pitch: "The $249 weekly system: Friday PDF plus a multi-client command center.",
     monthlyCta: "Start Agency trial",
     annualCta: "Start Agency annual",
     bullets: [
@@ -53,11 +57,13 @@ const plans = [
       `${PLANS.agency.prompts} buyer questions per brand`,
       `${PLANS.agency.seats} seats`,
       "Weekly Friday reports",
+      `${MONTHLY_RECHECK_CREDITS.agency} manual re-check credits/mo`,
       "White-label PDF, logo, color, footer",
       "Client CC and private client links",
-      "Command-center dashboard: risk, pipeline, next actions",
-      "History and score trend",
+      "Command center: scorecards, competitors, opportunities, risks, pipeline",
+      "History and week-over-week movement",
       "Recommended next actions and upsell notes",
+      "ChatGPT, Gemini, Grok, and AI Overviews",
       "Slack webhook",
       `Extra brands at $${EXTRA_BRAND_USD.agency}/mo`,
     ],
@@ -67,20 +73,23 @@ const plans = [
     name: "Studio",
     monthly: PLANS.studio.amountUsd,
     recommended: false,
-    pitch: "For agencies already reselling AI-search reporting across a client book.",
+    pitch: "Agency growth plan: more brands, custom sender, bulk send, and deeper portfolio ops.",
     monthlyCta: "Start Studio trial",
     annualCta: "Start Studio annual",
     bullets: [
       `${PLANS.studio.brands} brands`,
       `${PLANS.studio.prompts} buyer questions per brand`,
+      "Everything in Agency",
       "Weekly Friday reports",
+      `${MONTHLY_RECHECK_CREDITS.studio} manual re-check credits/mo`,
       "Custom sender name and domain",
-      "Client portal archive",
       "Bulk approve and send",
-      "Limited Claude and Grok capacity",
+      "Portfolio filters and CSV export",
+      "ChatGPT, Gemini, Grok, and AI Overviews",
       `${PLANS.studio.seats} seats`,
-      "Priority support",
-      "Internal COGS and usage export",
+      "Client portal archive (coming)",
+      "Priority support (coming)",
+      "Internal COGS and usage export (coming)",
       `Extra brands at $${EXTRA_BRAND_USD.studio}/mo`,
     ],
   },
@@ -112,7 +121,8 @@ export function PricingView({
       <p className="mt-4 max-w-2xl text-lg text-cb-muted">
         Agency at ${PLANS.agency.amountUsd}/mo is the plan to buy: {PLANS.agency.brands} brands ($
         {(PLANS.agency.amountUsd / PLANS.agency.brands).toFixed(2)}/client), weekly Friday reports,
-        white-label, and {PLANS.agency.seats} seats. Not a $29 vanity score.
+        white-label, {PLANS.agency.seats} seats, and a command center that shows who is winning,
+        what changed, and what to do next. Not a $29 vanity score.
       </p>
 
       <div className="mt-8 inline-flex max-w-full flex-wrap rounded-cb-control border border-cb-line bg-cb-surface p-1">
@@ -193,16 +203,17 @@ export function PricingView({
       </div>
 
       <p className="mt-6 text-sm leading-6 text-cb-muted">
-        Add-ons: extra brand ${EXTRA_BRAND_USD.agency}/mo on Agency and ${EXTRA_BRAND_USD.studio}/mo on
-        Studio. Extra run ${EXTRA_RUN_USD.agency}. Extra seats ${SEAT_OVERAGE_USD}/seat/mo after the
-        plan cap. Premium engine pack ${PREMIUM_ENGINE_PACK_USD}/mo for extra Claude/Grok capacity.
-        Extra brands are Agency and Studio only. Tax handled by Dodo. Trial: {TRIAL_DAYS} days,{" "}
-        {TRIAL_BRAND_CAP} brand, {TRIAL_RUN_CAP} full run. No free forever plan.
+        Add-ons: extra brand ${EXTRA_BRAND_USD.agency}/mo on Agency and Studio only (not trial or
+        Starter). Extra run ${EXTRA_RUN_USD.agency} after monthly re-check credits on paid plans.
+        Extra seats ${SEAT_OVERAGE_USD}/seat/mo after the plan cap. Premium engine pack $
+        {PREMIUM_ENGINE_PACK_USD}/mo for extra Grok / engine volume. Tax handled by Dodo. Trial:{" "}
+        {TRIAL_DAYS} days, {TRIAL_BRAND_CAP} brand, {TRIAL_PROMPT_CAP} buyer questions,{" "}
+        {TRIAL_RUN_CAP} full run on ChatGPT + Gemini only. No free forever plan.
       </p>
       <p className="mt-3 text-sm leading-6 text-cb-muted">
         Enterprise starts at ${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual
-        contract for custom limits, dedicated onboarding, SSO, and SLA. Ask during onboarding — there
-        is no self-serve Enterprise checkout.
+        contract for custom limits, dedicated onboarding, SSO-ready review, and priority support.
+        Ask during onboarding — there is no self-serve Enterprise checkout.
       </p>
       <p className="mt-3 text-sm leading-6 text-cb-muted">
         Launch: first 25 agencies can lock Agency annual at $

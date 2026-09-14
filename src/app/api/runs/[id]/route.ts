@@ -38,7 +38,7 @@ export async function GET(_request: Request, context: RouteContext) {
   let scoreRecommended: number | null = null;
   let approvalState: string | null = null;
 
-  if (status === "queued" || status === "running") {
+  if (status === "queued") {
     try {
       const { env } = await getCloudflareContext({ async: true });
       const result = await processRun(ctx.db, env, id, { notifyEmail: ctx.user.email });

@@ -36,6 +36,7 @@ export async function GET() {
       minutesSavedPerReport: clampMinutesSaved(workspace.minutesSavedPerReport),
     },
     entitlements: {
+      paid: ent.paid,
       allowsSlack: ent.allowsSlack,
       allowsCustomSender: ent.allowsCustomSender,
       allowsStudioEngines: ent.allowsStudioEngines,
@@ -92,7 +93,10 @@ export async function PUT(request: Request) {
     return jsonError("Use a Slack incoming webhook URL (https://hooks.slack.com/...).");
   }
 
-  const engines = validateDefaultEngines(body.defaultEngines, ent.allowsStudioEngines);
+  const engines = validateDefaultEngines(body.defaultEngines, {
+    paid: ent.paid,
+    allowsStudioEngines: ent.allowsStudioEngines,
+  });
   if (!engines.ok) return jsonError(engines.error);
 
   await ctx.db

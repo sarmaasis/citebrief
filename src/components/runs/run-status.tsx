@@ -4,18 +4,20 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
-import { CORE_ENGINES, ENGINES, SOFT_FAIL_MIN_CORE, type EngineState } from "@/lib/engines";
+import { CORE_ENGINES, ENGINES, softFailMinCore, type EngineState } from "@/lib/engines";
 
 export function RunStatus({
   brandId,
   runId,
   initialStatus,
   initialEngines,
+  focusPromptText = null,
 }: {
   brandId: string;
   runId: string;
   initialStatus: string;
   initialEngines: Record<string, EngineState>;
+  focusPromptText?: string | null;
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [engines, setEngines] = useState(initialEngines);
@@ -96,11 +98,16 @@ export function RunStatus({
   }
 
   const done = status === "complete" || status === "partial";
-  const visible = ENGINES.filter((engine) => engines[engine.id] !== undefined);
+  const visible = ENGINES.filter((engine) => {
+    const state = engines[engine.id];
+    return state && state !== "skipped";
+  });
   const list = visible.length > 0 ? visible : [...CORE_ENGINES];
-  const coreComplete = CORE_ENGINES.filter((engine) => engines[engine.id] === "complete").length;
+  const scheduled = list.length;
+  const coreComplete = list.filter((engine) => engines[engine.id] === "complete").length;
   const failedEngines = list.filter((engine) => engines[engine.id] === "failed");
-  const canShip = done || coreComplete >= SOFT_FAIL_MIN_CORE;
+  const minShip = softFailMinCore(scheduled);
+  const canShip = done || coreComplete >= minShip;
 
   return (
     <div className="max-w-xl">
@@ -111,17 +118,23 @@ export function RunStatus({
             ? "This week’s report is ready."
             : "Running this week's report"}
       </h1>
+      {focusPromptText ? (
+        <div className="mt-4 rounded-cb-card border border-cb-accent bg-cb-surface px-4 py-3">
+          <p className="text-xs text-cb-muted">Recheck focus</p>
+          <p className="mt-1 text-sm text-cb-text">{focusPromptText}</p>
+        </div>
+      ) : null}
       {canShip && status !== "failed" ? (
         <p className="mt-3 text-sm text-cb-text">
           {status === "partial" || coreComplete === 3
             ? "The PDF still ships. One source did not return."
             : scoreMentioned != null
-              ? `Named in ${scoreMentioned} of 20 buyer questions.`
+              ? `Named in ${scoreMentioned} buyer questions.`
               : "The PDF can ship from the sources that returned."}
         </p>
       ) : null}
       <p className="mt-2 text-xs text-cb-muted">
-        Retrying a failed source does not use another weekly run. Extra full re-runs after the weekly cap are $9.
+        Retrying a failed source does not use another weekly run. The Friday report is included; extra full re-runs this week are $9.
       </p>
       <div className="mt-6 space-y-3" aria-live="polite">
         {list.map((engine) => {
@@ -174,7 +187,8 @@ export function RunStatus({
       {status === "failed" ? (
         <div className="mt-8 space-y-3">
           <p className="text-sm text-cb-danger">
-            Fewer than three sources returned, so this PDF did not ship. Retry a failed source, or run again when ready.
+            Fewer than {minShip} source{minShip === 1 ? "" : "s"} returned, so this PDF did not ship. Retry a
+            failed source, or run again when ready.
           </p>
           {failedEngines.length ? (
             <p className="text-xs text-cb-muted">

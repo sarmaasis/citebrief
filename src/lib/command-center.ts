@@ -183,7 +183,7 @@ export function riskWhy(row: CommandRow): string {
   if (named != null && rec != null && named > 0 && rec < named * 0.5) {
     return "Named but rarely recommended.";
   }
-  if (row.promptCount === 0) return "No 20-question set yet.";
+  if (row.promptCount === 0) return "No question set yet.";
   if (!row.latestReport) return "No report this period.";
   return "Needs attention.";
 }
@@ -199,7 +199,7 @@ export function weeklyAction(
       brandId,
       brandName,
       verb: "Generate prompts",
-      reason: "No 20-question set yet",
+      reason: "No question set yet",
       href: `/app/brands/${brandId}/prompts`,
     };
   }

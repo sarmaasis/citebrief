@@ -57,6 +57,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.incumbent !== undefined) next.incumbent = body.incumbent.trim() || null;
   if (body.constraintNote !== undefined) next.constraintNote = body.constraintNote.trim() || null;
   if (body.clientOwner !== undefined) next.clientOwner = body.clientOwner.trim() || null;
+  if (body.clientNotes !== undefined) next.clientNotes = body.clientNotes.trim() || null;
   if (body.archived === "0") {
     if (brand.archivedAt) {
       try {

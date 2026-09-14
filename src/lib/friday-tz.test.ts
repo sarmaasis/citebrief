@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isLocalFridaySix, isSendOverdue, lastLocalFridaySix, localWeekdayAndHour } from "./friday-tz";
+import { isLocalFridaySix, isSendOverdue, lastLocalFridaySix, localWeekdayAndHour, nextScheduledRunAt } from "./friday-tz";
 
 // Fixed UTC instant: Friday 2026-09-11 10:30 UTC = 06:30 America/New_York (EDT, UTC-4)
 const friMorningEt = new Date("2026-09-11T10:30:00.000Z");
@@ -37,6 +37,14 @@ assert.equal(
     now: friMorningEt,
   }),
   false,
+);
+
+assert.ok(
+  nextScheduledRunAt({
+    timezone: "America/New_York",
+    weekly: true,
+    now: new Date("2026-09-14T12:00:00.000Z"),
+  }),
 );
 
 console.log("friday-tz.test.ts: ok");
