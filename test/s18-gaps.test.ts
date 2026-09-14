@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { buildCacheKey } from "./engine-cache";
-import { estimateRunCogs, COGS_PER_PROMPT_USD, COGS_WRITER_USD, COGS_PDF_USD } from "./cogs";
-import { planBrandLimit, planAllowsStudioEngines, TRIAL_BRAND_CAP, TRIAL_PROMPT_CAP, TRIAL_RUN_CAP } from "./billing";
+import { buildCacheKey } from "@/lib/engine-cache";
+import { estimateRunCogs, COGS_PER_PROMPT_USD, COGS_WRITER_USD, COGS_PDF_USD } from "@/lib/cogs";
+import { planBrandLimit, planAllowsStudioEngines, TRIAL_BRAND_CAP, TRIAL_PROMPT_CAP, TRIAL_RUN_CAP } from "@/lib/billing";
 
 assert.equal(buildCacheKey("chatgpt", " Best CRM "), "chatgpt:best crm");
 assert.equal(planBrandLimit("agency"), 10);

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { brandSiteLabel, extractFromAnswer } from "./extractor";
+import { brandSiteLabel, extractFromAnswer } from "@/lib/extractor";
 
 assert.equal(brandSiteLabel("https://canwechat.dev", "CanWeChat"), "canwechat.dev");
 assert.equal(brandSiteLabel("canwechat.dev/pricing", "CanWeChat"), "canwechat.dev");

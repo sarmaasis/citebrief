@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { isVerifiedAuthUser } from "./auth-access";
+import { isVerifiedAuthUser } from "@/lib/auth-access";
 
 assert.equal(isVerifiedAuthUser({ emailVerified: true }), true);
 assert.equal(isVerifiedAuthUser({ emailVerified: false }), false);

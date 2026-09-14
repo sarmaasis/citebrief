@@ -4,7 +4,7 @@ import {
   incrementCounterSnapshot,
   isKvLike,
   parseIncrementValue,
-} from "./auth-secondary-storage";
+} from "@/lib/auth-secondary-storage";
 
 assert.equal(isKvLike(undefined), false);
 assert.equal(isKvLike({}), false);

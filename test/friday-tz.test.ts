@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isLocalFridaySix, isSendOverdue, lastLocalFridaySix, localWeekdayAndHour, nextScheduledRunAt } from "./friday-tz";
+import { isLocalFridaySix, isSendOverdue, lastLocalFridaySix, localWeekdayAndHour, nextScheduledRunAt } from "@/lib/friday-tz";
 
 // Fixed UTC instant: Friday 2026-09-11 10:30 UTC = 06:30 America/New_York (EDT, UTC-4)
 const friMorningEt = new Date("2026-09-11T10:30:00.000Z");

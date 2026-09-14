@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isAiGatewayConfigured, promptHash } from "./ai-gateway";
+import { isAiGatewayConfigured, promptHash } from "@/lib/ai-gateway";
 import {
   EXTRA_BRAND_USD,
   EXTRA_RUN_USD,
@@ -16,8 +16,8 @@ import {
   planManualRerunCap,
   planMonthlyRecheckCredits,
   planSeatCap,
-} from "./billing";
-import { isEngineApiConfigured, usesDeterministicStub } from "./engine-adapters";
+} from "@/lib/billing";
+import { isEngineApiConfigured, usesDeterministicStub } from "@/lib/engine-adapters";
 
 assert.equal(PLANS.starter.amountUsd, 99);
 assert.equal(PLANS.agency.amountUsd, 249);

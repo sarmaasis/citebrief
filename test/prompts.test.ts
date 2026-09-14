@@ -10,7 +10,7 @@ import {
   stripMixLabelPrefix,
   topUpPromptDrafts,
   validatePromptSet,
-} from "./prompts";
+} from "@/lib/prompts";
 
 const pack = generatePromptPack({
   brand: "Northstar",

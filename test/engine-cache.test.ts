@@ -5,7 +5,7 @@ import {
   ENGINE_CACHE_READ_POLICY,
   buildCacheKey,
   mayReadEngineCache,
-} from "./engine-cache";
+} from "@/lib/engine-cache";
 
 assert.equal(buildCacheKey("chatgpt", " Best CRM "), "chatgpt:best crm");
 

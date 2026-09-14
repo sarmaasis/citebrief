@@ -16,8 +16,8 @@ import {
   PUBLIC_PLAN_IDS,
   resolveSelectedPlan,
   SEAT_OVERAGE_USD,
-} from "./billing";
-import { UPGRADE_COPY, brandCapUpgradeFromError, extraRunUpgradeFromError } from "./upgrade-copy";
+} from "@/lib/billing";
+import { UPGRADE_COPY, brandCapUpgradeFromError, extraRunUpgradeFromError } from "@/lib/upgrade-copy";
 import {
   commandCenterDenial,
   isPaidActive,
@@ -27,11 +27,11 @@ import {
   reportSendDenial,
   subscriptionEndedAt,
   workspaceEntitlements,
-} from "./entitlements";
-import { suggestedClientEmail } from "./report-writer";
-import { shouldSettleBillableExtra } from "./usage";
-import { isLocalFirstFridaySix } from "./friday-tz";
-import { generatePromptPack, validatePromptSet } from "./prompts";
+} from "@/lib/entitlements";
+import { suggestedClientEmail } from "@/lib/report-writer";
+import { shouldSettleBillableExtra } from "@/lib/usage";
+import { isLocalFirstFridaySix } from "@/lib/friday-tz";
+import { generatePromptPack, validatePromptSet } from "@/lib/prompts";
 
 assert.equal(planAllowsExtraBrands("starter"), false);
 assert.equal(planAllowsExtraBrands("agency"), true);

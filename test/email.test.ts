@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { fridayReportEmail, highRiskDigestEmail, inviteEmail, magicLinkEmail, verifyEmail } from "../emails";
+import { fridayReportEmail, highRiskDigestEmail, inviteEmail, magicLinkEmail, verifyEmail } from "@/emails";
 import {
   DEFAULT_FROM,
   emailSendDecision,
@@ -7,7 +7,7 @@ import {
   parseFromAddress,
   resolveFromAddress,
   sendTransactionalEmail,
-} from "./email";
+} from "@/lib/email";
 
 assert.equal(isEmailBindingReady({}), false);
 assert.equal(isEmailBindingReady({ EMAIL: { send: async () => ({}) } }), true);

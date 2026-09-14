@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "npx tsx src/lib/prompts.test.ts && npx tsx src/lib/prompt-persist.test.ts && npx tsx src/lib/extractor.test.ts && npx tsx src/lib/friday-tz.test.ts && npx tsx src/lib/s18-gaps.test.ts && npx tsx src/lib/prd-v22.test.ts && npx tsx src/lib/seo.test.ts && npx tsx src/lib/entitlements.test.ts && npx tsx src/lib/dodo-period.test.ts && npx tsx src/lib/launch-audit.test.ts && npx tsx src/lib/marketing-cta.test.ts && npx tsx src/lib/command-center.test.ts && npx tsx src/lib/email.test.ts && npx tsx src/lib/sender-domain.test.ts && npx tsx src/lib/auth-secondary-storage.test.ts && npx tsx src/lib/auth-access.test.ts && npx tsx src/lib/auth-otp.test.ts && npx tsx src/lib/engine-search.test.ts && npx tsx src/lib/trial-run.test.ts && npx tsx src/lib/dashboard-metrics.test.ts && npx tsx src/lib/engine-cache.test.ts && npx tsx src/lib/usage.test.ts",
+    "test": "for f in test/*.test.ts; do npx tsx \"$f\" || exit 1; done",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "deploy:staging": "opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --env preview",

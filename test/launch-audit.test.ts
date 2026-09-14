@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ENTERPRISE_CONTACT_SALES_MESSAGE, shouldWriteStubPaidSubscription } from "./billing";
+import { ENTERPRISE_CONTACT_SALES_MESSAGE, shouldWriteStubPaidSubscription } from "@/lib/billing";
 import {
   createDodoAddonCheckout,
   createDodoCheckout,
@@ -9,14 +9,14 @@ import {
   dodoAllowsStub,
   dodoAnnualProductId,
   verifyDodoWebhookSignature,
-} from "./dodo";
+} from "@/lib/dodo";
 import {
   consumeRateLimit,
   consumeRouteRateLimit,
   RATE_LIMITS,
   rateLimitDecision,
   rateLimitKey,
-} from "./rate-limit";
+} from "@/lib/rate-limit";
 import {
   isForbiddenProductionSecret,
   isHealthPath,
@@ -25,15 +25,15 @@ import {
   productionSecretProblems,
   productionTrafficBlocked,
   canonicalRedirectLocation,
-} from "./runtime-env";
+} from "@/lib/runtime-env";
 import {
   applySecurityHeaders,
   contentSecurityPolicy,
   isInsecureLocalUrl,
   securityHeaderList,
   securityHeaders,
-} from "./security-headers";
-import { shareAccessState } from "./share";
+} from "@/lib/security-headers";
+import { shareAccessState } from "@/lib/share";
 
 const prodHeaders = securityHeaders({ NEXTJS_ENV: "production" });
 const devHeaders = securityHeaders({ NEXTJS_ENV: "development" });

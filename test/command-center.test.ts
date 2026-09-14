@@ -14,7 +14,7 @@ import {
   riskWhy,
   suggestedClientEmail,
   weeklyAction,
-} from "./command-center";
+} from "@/lib/command-center";
 
 const brand = { id: "b1", name: "Northstar" };
 

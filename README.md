@@ -252,7 +252,7 @@ Auth is created inside the request from `env.DB`. Do not cache a global D1 bindi
 |---|---|
 | `npm run dev` | Next.js local server |
 | `npm run build` | Next.js production build |
-| `npm test` | Prompt, extractor, and Friday-TZ unit checks |
+| `npm test` | Unit checks in `test/*.test.ts` |
 | `npm run preview` | OpenNext build + local Workers runtime |
 | `npm run deploy` | OpenNext build + deploy to production Workers |
 | `npm run deploy:staging` | OpenNext build + deploy `--env preview` (staging) |

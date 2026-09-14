@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { marketingHeaderAuthLink, marketingPrimaryCta, planCtaHref } from "./marketing-cta";
+import { marketingHeaderAuthLink, marketingPrimaryCta, planCtaHref } from "@/lib/marketing-cta";
 
 assert.deepEqual(marketingHeaderAuthLink(false), { href: "/login", label: "Sign in" });
 assert.deepEqual(marketingHeaderAuthLink(true), { href: "/app", label: "Open app" });

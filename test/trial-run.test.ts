@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { AiGatewayError, assertGatewayRunBudget, gatewayRunCallCount, resetGatewayRunBudget } from "./ai-gateway";
+import { AiGatewayError, assertGatewayRunBudget, gatewayRunCallCount, resetGatewayRunBudget } from "@/lib/ai-gateway";
 import {
   DEFAULT_ENGINE_STRING,
   TRIAL_DEFAULT_ENGINE_STRING,
@@ -8,7 +8,7 @@ import {
   parseRequestedEngines,
   selectableEngineIds,
   validateDefaultEngines,
-} from "./plan-engines";
+} from "@/lib/plan-engines";
 import {
   AGENCY_ENGINE_IDS,
   SOFT_FAIL_MIN_CORE,
@@ -17,7 +17,7 @@ import {
   TRIAL_MAX_GATEWAY_REQUESTS,
   scheduledEngineStatus,
   softFailMinCore,
-} from "./engines";
+} from "@/lib/engines";
 
 assert.deepEqual(TRIAL_ENGINE_IDS, ["chatgpt", "gemini"]);
 assert.deepEqual(AGENCY_ENGINE_IDS, ["chatgpt", "gemini", "grok", "aio"]);

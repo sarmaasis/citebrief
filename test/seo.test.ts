@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { PLANS, TRIAL_PROMPT_CAP } from "./billing";
-import { LEGAL_ARTICLES } from "./legal-articles";
-import { PUBLIC_ARTICLES } from "./public-articles";
+import { PLANS, TRIAL_PROMPT_CAP } from "@/lib/billing";
+import { LEGAL_ARTICLES } from "@/lib/legal-articles";
+import { PUBLIC_ARTICLES } from "@/lib/public-articles";
 import {
   CANONICAL_ORIGIN,
   HOME_DESCRIPTION,
@@ -19,7 +19,7 @@ import {
   pricingJsonLd,
   publicMetadata,
   sitemapEntries,
-} from "./seo";
+} from "@/lib/seo";
 
 assert.equal(CANONICAL_ORIGIN, "https://getcitebrief.com");
 assert.equal(canonicalPath("/"), CANONICAL_ORIGIN);

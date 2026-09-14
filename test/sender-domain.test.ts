@@ -11,8 +11,8 @@ import {
   isCustomSenderDomainVerified,
   normalizeSenderDomain,
   previewSenderFrom,
-} from "./sender-domain";
-import { resolveFromAddress } from "./email";
+} from "@/lib/sender-domain";
+import { resolveFromAddress } from "@/lib/email";
 
 assert.equal(SYSTEM_SENDER_DOMAIN, "getcitebrief.com");
 assert.equal(SYSTEM_FROM_ADDRESS, "CiteBrief <auth@getcitebrief.com>");

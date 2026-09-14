@@ -18,10 +18,10 @@ import {
   commandRowMatchesSavedView,
   visibilityScoreFromMention,
   whyCompetitorWinning,
-} from "./dashboard-metrics";
-import { upgradeCopyForCapCode, UPGRADE_COPY } from "./upgrade-copy";
-import type { WorkspaceEntitlements } from "./entitlements";
-import type { CommandRow } from "./command-center";
+} from "@/lib/dashboard-metrics";
+import { upgradeCopyForCapCode, UPGRADE_COPY } from "@/lib/upgrade-copy";
+import type { WorkspaceEntitlements } from "@/lib/entitlements";
+import type { CommandRow } from "@/lib/command-center";
 
 const baseRow: CommandRow & { brand: { id: string; name: string; clientOwner?: string | null } } = {
   brand: { id: "b1", name: "Acme", clientOwner: "Sam" },

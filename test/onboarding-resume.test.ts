@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { onboardingStepFromResume, onboardingUrlWithBrand, shouldResumeOnboardingBrand } from "./onboarding-resume";
+import { onboardingStepFromResume, onboardingUrlWithBrand, shouldResumeOnboardingBrand } from "@/lib/onboarding-resume";
 
 assert.equal(
   shouldResumeOnboardingBrand({
@@ -71,3 +71,5 @@ assert.equal(
   2,
 );
 assert.equal(onboardingStepFromResume({ reportId: null, runId: null, prompts: [] }), 1);
+
+console.log("onboarding-resume.test.ts ok");

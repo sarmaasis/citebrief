@@ -8,14 +8,14 @@ import {
   googleSearchRequested,
   isUsableShortlistText,
   responseUsedWebSearch,
-} from "./ai-gateway";
+} from "@/lib/ai-gateway";
 import {
   CLAUDE_MAX_TOKENS,
   ENGINE_MODELS,
   GEMINI_MAX_OUTPUT_TOKENS,
   SHORTLIST_MAX_OUTPUT_TOKENS,
   buildEngineSearchRequest,
-} from "./engine-adapters";
+} from "@/lib/engine-adapters";
 
 const chatgpt = buildEngineSearchRequest("chatgpt", "agencies", "best crm for agencies");
 assert.equal(chatgpt.provider, "openai");

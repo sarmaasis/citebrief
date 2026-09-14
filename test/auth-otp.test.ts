@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { formatDevEmailOtpLine, formatDevMagicLinkLine, logDevEmailOtp, shouldLogDevEmailOtp } from "./auth-otp";
+import { formatDevEmailOtpLine, formatDevMagicLinkLine, logDevEmailOtp, shouldLogDevEmailOtp } from "@/lib/auth-otp";
 
 assert.equal(formatDevEmailOtpLine("you@agency.com", "123456"), "[citebrief] Email OTP for you@agency.com: 123456");
 assert.equal(

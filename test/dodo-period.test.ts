@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { dodoCurrentPeriodEnd, parseDodoTimestamp } from "./dodo";
+import { dodoCurrentPeriodEnd, parseDodoTimestamp } from "@/lib/dodo";
 
 const iso = "2026-10-15T12:00:00.000Z";
 const fromString = parseDodoTimestamp(iso);

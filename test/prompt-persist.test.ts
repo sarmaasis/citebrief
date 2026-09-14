@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { planPromptSave, normalizePromptKey } from "./prompt-persist";
-import type { PromptDraft } from "./prompts";
+import { planPromptSave, normalizePromptKey } from "@/lib/prompt-persist";
+import type { PromptDraft } from "@/lib/prompts";
 
 assert.equal(normalizePromptKey("  Hello   World  "), "hello world");
 

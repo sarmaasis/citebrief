@@ -6,8 +6,8 @@ import {
   planIncludedRunCap,
   planManualRerunCap,
   planMonthlyRecheckCredits,
-} from "./billing";
-import { formatPaidRunsUsageHint } from "./usage-format";
+} from "@/lib/billing";
+import { formatPaidRunsUsageHint } from "@/lib/usage-format";
 import {
   countRechecksFromBrandWeekBuckets,
   decidePaidRunCap,
@@ -17,7 +17,7 @@ import {
   planChangeMeteringPatch,
   runCountsTowardCap,
   wonBilledAtClaim,
-} from "./usage";
+} from "@/lib/usage";
 
 assert.equal(planIncludedRunCap("starter"), 2);
 assert.equal(planMonthlyRecheckCredits("starter"), 2);
