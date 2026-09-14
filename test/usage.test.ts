@@ -607,7 +607,7 @@ assert.equal(shouldBumpRunsUsedAfterEnqueue("failed"), false);
 
 {
   // Failed enqueue → mark run failed → soft-cap still free; runsUsed not bumped.
-  const enqueueOutcome: "failed" = "failed";
+  const enqueueOutcome = "failed" as const;
   const runStatus = enqueueOutcome === "failed" ? "failed" : "queued";
   assert.equal(runCountsTowardCap(runStatus), false);
   assert.equal(shouldBumpRunsUsedAfterEnqueue(enqueueOutcome), false);
