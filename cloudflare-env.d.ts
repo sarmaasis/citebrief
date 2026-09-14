@@ -27,7 +27,7 @@ interface CloudflareEnv {
   BETTER_AUTH_URL: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
-  /** Default From for CiteBrief sender. Not a secret. Studio custom sender still uses workspace domain. */
+  /** Default From for CiteBrief sender on getcitebrief.com. Not a secret. Studio custom sender uses workspace domain only when DNS checklist is verified. */
   CF_EMAIL_FROM?: string;
   DODO_PAYMENTS_API_KEY: string;
   DODO_PAYMENTS_WEBHOOK_KEY: string;

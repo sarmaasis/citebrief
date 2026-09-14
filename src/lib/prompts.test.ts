@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import {
   generatePromptPack,
+  generatePromptsCta,
+  inferMixFromText,
   isVanityPrompt,
   mixIsLocked,
   normalizePromptDraft,
+  REPLACE_PROMPTS_CONFIRM,
   stripMixLabelPrefix,
+  topUpPromptDrafts,
   validatePromptSet,
 } from "./prompts";
 
@@ -100,6 +104,45 @@ assert.equal(
   true,
 );
 
+const packInput = {
+  brand: "Northstar",
+  category: "project management",
+  buyer: "agencies",
+  job: "client work",
+  incumbent: "Asana",
+  competitors: ["ClickUp", "Monday.com"],
+  constraint: "no 3-month setup",
+};
+
+const toppedFromTrial = topUpPromptDrafts(trialPack, 20, packInput);
+assert.equal(toppedFromTrial.length, 20);
+assert.equal(toppedFromTrial.slice(0, 5).map((row) => row.text).join("|"), trialPack.map((row) => row.text).join("|"));
+assert.equal(mixIsLocked(toppedFromTrial), true);
+assert.equal(validatePromptSet(toppedFromTrial, "Northstar", { maxCount: 20 }).ok, true);
+
+const editedTrial = trialPack.map((row, index) =>
+  index === 0 ? { ...row, text: "Custom discovery question for agencies in 2026?" } : row,
+);
+const toppedEdited = topUpPromptDrafts(editedTrial, 20, packInput);
+assert.equal(toppedEdited.length, 20);
+assert.equal(toppedEdited[0]?.text, "Custom discovery question for agencies in 2026?");
+assert.equal(validatePromptSet(toppedEdited, "Northstar", { maxCount: 20 }).ok, true);
+
+assert.equal(topUpPromptDrafts(toppedFromTrial, 20, packInput).length, 20);
+assert.equal(topUpPromptDrafts([], 20, packInput).length, 0);
+
+const toppedToStudio = topUpPromptDrafts(toppedFromTrial, 30, packInput);
+assert.equal(toppedToStudio.length, 30);
+assert.equal(validatePromptSet(toppedToStudio, "Northstar", { maxCount: 30 }).ok, true);
+
+assert.equal(generatePromptsCta(20, true, 5), "Add 15 prompts");
+assert.equal(generatePromptsCta(20, true, 20), "Replace all prompts");
+assert.equal(generatePromptsCta(5, false), "Generate 5 prompts");
+assert.equal(
+  REPLACE_PROMPTS_CONFIRM.includes("archives current prompts"),
+  true,
+);
+
 assert.equal(
   stripMixLabelPrefix("**Discovery:** What is the best customer support chat tool"),
   "What is the best customer support chat tool",
@@ -114,5 +157,28 @@ assert.equal(
   }).mix,
   "incumbent",
 );
+
+assert.equal(inferMixFromText("Northstar vs ClickUp for agencies"), "comparison");
+assert.equal(inferMixFromText("when should agencies switch from Asana"), "switch");
+assert.equal(inferMixFromText("who is better than Asana for agencies"), "incumbent");
+assert.equal(inferMixFromText("which project management tool can help agencies client work"), "job");
+assert.equal(inferMixFromText("best project management platforms for agencies in 2026"), "discovery");
+assert.equal(inferMixFromText("Comparison: Zendesk vs Freshdesk for agencies"), "comparison");
+
+{
+  const vanityTrial = validatePromptSet(
+    [
+      { text: "does ChatGPT mention Northstar", mix: "discovery", sortOrder: 1 },
+      { text: "Zendesk vs Freshdesk for agencies", mix: "comparison", sortOrder: 2 },
+      { text: "helpdesk with Slack for agencies", mix: "job", sortOrder: 3 },
+      { text: "when to switch from Zendesk", mix: "switch", sortOrder: 4 },
+      { text: "Zendesk alternatives for support teams", mix: "incumbent", sortOrder: 5 },
+    ],
+    "Northstar",
+    { maxCount: 5 },
+  );
+  assert.equal(vanityTrial.ok, false);
+  if (!vanityTrial.ok) assert.match(vanityTrial.error, /SEO|buyer/i);
+}
 
 console.log("prompts.test.ts ok");

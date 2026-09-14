@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "@/db";
 import {
   brandKits,
@@ -11,7 +11,7 @@ import {
   workspaces,
 } from "@/db/schema";
 import { queryEngine } from "@/lib/engine-adapters";
-import { readEngineCache, writeEngineCache } from "@/lib/engine-cache";
+import { readEngineCache, writeEngineCache, mayReadEngineCache } from "@/lib/engine-cache";
 import {
   CORE_ENGINES,
   TRIAL_MAX_GATEWAY_REQUESTS,
@@ -58,7 +58,11 @@ async function loadRunBundle(db: Database, runId: string) {
   }
 
   const [promptRows, competitorRows] = await Promise.all([
-    db.select().from(prompts).where(eq(prompts.brandId, row.brand.id)).orderBy(prompts.sortOrder),
+    db
+      .select()
+      .from(prompts)
+      .where(and(eq(prompts.brandId, row.brand.id), isNull(prompts.archivedAt)))
+      .orderBy(prompts.sortOrder),
     db.select().from(competitors).where(eq(competitors.brandId, row.brand.id)),
   ]);
 
@@ -192,62 +196,44 @@ export async function processRun(
 
     try {
       for (const prompt of promptRows) {
-        const cached = await readEngineCache(db, engine.id, prompt.text);
-        let rawAnswer: string;
-        let extracted = cached?.extracted ?? null;
-        let gatewayRequestId: string | null = null;
-        let confidence: string | null = cached ? "medium" : null;
-
-        if (cached) {
-          rawAnswer = cached.rawAnswer;
-        } else {
-          const result = await queryEngine({
-            engine: engine.id,
-            prompt: prompt.text,
-            brand: bundle.brand.name,
-            competitors: competitorNames,
-            buyer: bundle.brand.buyer,
-            env,
-            metadata: {
-              workspace_id: bundle.workspace.id,
-              brand_id: bundle.brand.id,
-              run_id: runId,
-              plan: planId,
-              cache_policy: "fresh",
-              max_gateway_requests: maxGatewayRequests,
-            },
-          });
-          rawAnswer = result.rawAnswer;
-          gatewayRequestId = result.gatewayRequestId ?? null;
-          confidence = result.confidence ?? (result.stubbed ? "low" : "medium");
-          extracted = extractFromAnswer({
-            brand: bundle.brand.name,
-            competitors: competitorNames,
-            prompt: prompt.text,
-            engine: engine.id,
-            rawAnswer,
-            incumbent: bundle.brand.incumbent,
-            category: bundle.brand.category || bundle.brand.vertical,
-          });
-          await writeEngineCache(db, {
-            engine: engine.id,
-            promptText: prompt.text,
-            rawAnswer,
-            extracted,
-          });
-        }
-
-        if (!extracted) {
-          extracted = extractFromAnswer({
-            brand: bundle.brand.name,
-            competitors: competitorNames,
-            prompt: prompt.text,
-            engine: engine.id,
-            rawAnswer,
-            incumbent: bundle.brand.incumbent,
-            category: bundle.brand.category || bundle.brand.vertical,
-          });
-        }
+        // Metered full runs (Run now / Friday / recheck / extra) must not read D1
+        // engine_cache: soft-fail re-runs were debiting credits while serving cache hits.
+        // Still write on success so free Retry can reuse a good answer if useful.
+        const result = await queryEngine({
+          engine: engine.id,
+          prompt: prompt.text,
+          brand: bundle.brand.name,
+          competitors: competitorNames,
+          buyer: bundle.brand.buyer,
+          env,
+          metadata: {
+            workspace_id: bundle.workspace.id,
+            brand_id: bundle.brand.id,
+            run_id: runId,
+            plan: planId,
+            cache_policy: "fresh",
+            max_gateway_requests: maxGatewayRequests,
+          },
+        });
+        const rawAnswer = result.rawAnswer;
+        const gatewayRequestId = result.gatewayRequestId ?? null;
+        const confidence = result.confidence ?? (result.stubbed ? "low" : "medium");
+        const extracted = extractFromAnswer({
+          brand: bundle.brand.name,
+          competitors: competitorNames,
+          prompt: prompt.text,
+          engine: engine.id,
+          rawAnswer,
+          incumbent: bundle.brand.incumbent,
+          category: bundle.brand.category || bundle.brand.vertical,
+          siteUrl: bundle.brand.siteUrl,
+        });
+        await writeEngineCache(db, {
+          engine: engine.id,
+          promptText: prompt.text,
+          rawAnswer,
+          extracted,
+        });
 
         await db.insert(runRows).values({
           id: crypto.randomUUID(),
@@ -498,7 +484,11 @@ export async function retryFailedEngine(
 
   try {
     for (const prompt of promptRows) {
-      const cached = await readEngineCache(db, engineId, prompt.text);
+      // Free Retry may still read D1 cache (not metered). Prefer a live query when
+      // there is no hit so the failed engine is actually re-checked.
+      const cached = mayReadEngineCache("retryFailedEngine")
+        ? await readEngineCache(db, engineId, prompt.text)
+        : null;
       let rawAnswer: string;
       let extracted = cached?.extracted ?? null;
       let gatewayRequestId: string | null = null;
@@ -534,6 +524,7 @@ export async function retryFailedEngine(
           rawAnswer,
           incumbent: bundle.brand.incumbent,
           category: bundle.brand.category || bundle.brand.vertical,
+          siteUrl: bundle.brand.siteUrl,
         });
         await writeEngineCache(db, {
           engine: engineId,
@@ -552,6 +543,7 @@ export async function retryFailedEngine(
           rawAnswer,
           incumbent: bundle.brand.incumbent,
           category: bundle.brand.category || bundle.brand.vertical,
+          siteUrl: bundle.brand.siteUrl,
         });
       }
 

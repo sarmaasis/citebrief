@@ -29,13 +29,31 @@ function clipSentence(text: string, maxWords = 20): string {
   return `${words.slice(0, maxWords).join(" ")}.`;
 }
 
+/** Hostname for customer-facing copy; never invents `.example` placeholders. */
+export function brandSiteLabel(siteUrl: string | null | undefined, brand: string): string {
+  const raw = siteUrl?.trim();
+  if (raw) {
+    try {
+      const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+      const host = new URL(withProtocol).hostname.replace(/^www\./i, "");
+      if (host) {
+        return host;
+      }
+    } catch {
+      // Invalid URL — fall through to brand wording.
+    }
+  }
+  return `the ${brand} site`;
+}
+
 const NEXT_ACTIONS = [
   (brand: string, incumbent: string) => `Write a comparison page for ${incumbent} vs ${brand}`,
   (brand: string, _incumbent: string, category: string) =>
     `Publish a "best ${category} for agencies" page with pricing table`,
   (_brand: string, _incumbent: string, _category: string, domain: string) =>
     `Earn a mention on ${domain}`,
-  (brand: string) => `Fix the pricing / integrations section on ${brand.toLowerCase()}.example`,
+  (_brand: string, _incumbent: string, _category: string, _domain: string, siteLabel: string) =>
+    `Fix the pricing / integrations section on ${siteLabel}`,
   (_brand: string, _incumbent: string, category: string) => `Get listed on G2 ${category} category`,
 ] as const;
 
@@ -50,11 +68,16 @@ export function extractFromAnswer(args: {
   rawAnswer: string;
   incumbent?: string | null;
   category?: string | null;
+  siteUrl?: string | null;
 }): ExtractedRow {
   const brandRe = new RegExp(`\\b${escapeRegExp(args.brand)}\\b`, "i");
   const mentioned = brandRe.test(args.rawAnswer);
   const urls = findUrls(args.rawAnswer);
-  const citedBrandUrl = urls.some((url) => url.toLowerCase().includes(args.brand.toLowerCase().replace(/\s+/g, "-")));
+  const siteLabel = brandSiteLabel(args.siteUrl, args.brand);
+  const brandHostHint = siteLabel.includes(" ")
+    ? args.brand.toLowerCase().replace(/\s+/g, "-")
+    : siteLabel.toLowerCase();
+  const citedBrandUrl = urls.some((url) => url.toLowerCase().includes(brandHostHint));
 
   const namedOthers = args.competitors.filter((name) =>
     new RegExp(`\\b${escapeRegExp(name)}\\b`, "i").test(args.rawAnswer),
@@ -88,8 +111,8 @@ export function extractFromAnswer(args: {
   const domain = urls[0]?.replace(/^https?:\/\//, "").split("/")[0] || "g2.com";
   const actionFn = NEXT_ACTIONS[Math.abs(args.prompt.length + args.engine.length) % NEXT_ACTIONS.length]!;
   const nextAction = mentioned
-    ? `Fix the pricing / integrations section on ${args.brand.toLowerCase().replace(/\s+/g, "")}.example`
-    : actionFn(args.brand, incumbent, category, domain);
+    ? `Fix the pricing / integrations section on ${siteLabel}`
+    : actionFn(args.brand, incumbent, category, domain, siteLabel);
 
   return {
     mentioned,

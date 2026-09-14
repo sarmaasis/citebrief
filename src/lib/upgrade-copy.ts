@@ -79,8 +79,8 @@ export const UPGRADE_COPY = {
   },
   extraRun: {
     title: "This run is outside the included cap",
-    body: `Paid plans include scheduled reports plus monthly re-check credits (${MONTHLY_RECHECK_CREDITS.starter} on Starter, ${MONTHLY_RECHECK_CREDITS.agency} on Agency, ${MONTHLY_RECHECK_CREDITS.studio} on Studio). Extra re-checks are $${EXTRA_RUN_USD.agency} after credits. Extra brands stay Agency+ only.`,
-    cta: "See usage",
+    body: `Paid plans include scheduled reports plus monthly re-check credits (${MONTHLY_RECHECK_CREDITS.starter} on Starter, ${MONTHLY_RECHECK_CREDITS.agency} on Agency, ${MONTHLY_RECHECK_CREDITS.studio} on Studio). Extra re-checks are $${EXTRA_RUN_USD.agency} after credits — buy one before running again. Extra brands stay Agency+ only.`,
+    cta: `Buy extra run · $${EXTRA_RUN_USD.agency}`,
   },
   extraRunTrial: {
     title: "Trial includes one full report",

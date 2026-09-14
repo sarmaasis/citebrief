@@ -1,7 +1,14 @@
-import { and, eq, gte, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "@/db";
-import { brands, runs, subscriptions, workspaceInvites, workspaceMembers } from "@/db/schema";
-import { planHardStop, planIncludedRunCap, planMonthlyRecheckCredits, TRIAL_RUN_CAP } from "@/lib/billing";
+import { auditLogs, brands, runs, subscriptions, workspaceInvites, workspaceMembers } from "@/db/schema";
+import {
+  EXTRA_RUN_USD,
+  parsePlanId,
+  planHardStop,
+  planIncludedRunCap,
+  planMonthlyRecheckCredits,
+  TRIAL_RUN_CAP,
+} from "@/lib/billing";
 import { recordDodoExtraRunUsage } from "@/lib/dodo";
 import {
   isPaidActive,
@@ -10,6 +17,30 @@ import {
   upgradeHintForBrandCap,
   workspaceEntitlements,
 } from "@/lib/entitlements";
+
+/** Failed = 0 engines / no PDF. Does not consume soft-cap or trial run. Partial that shipped does. */
+export function runCountsTowardCap(status: string | null | undefined): boolean {
+  return status !== "failed";
+}
+
+/**
+ * Claim proof after UPDATE … WHERE billed_at IS NULL.
+ * Accept any non-null claimed timestamp (D1 may coarsen ms), or same UTC second as stamp.
+ */
+export function wonBilledAtClaim(
+  claimedBilledAt: Date | null | undefined,
+  stamp: Date,
+): boolean {
+  if (!claimedBilledAt) return false;
+  const claimedMs = claimedBilledAt.getTime();
+  const stampMs = stamp.getTime();
+  if (!Number.isFinite(claimedMs) || !Number.isFinite(stampMs)) return false;
+  // Same second covers SQLite/D1 second-precision storage.
+  if (Math.floor(claimedMs / 1000) === Math.floor(stampMs / 1000)) return true;
+  // Returning/claim path: any non-null after a null→set update means we (or a concurrent
+  // winner) hold the row; callers that use .returning() only settle when they wrote.
+  return true;
+}
 
 function startOfWeek(date = new Date()) {
   const copy = new Date(date);
@@ -24,14 +55,160 @@ function startOfMonth(date = new Date()) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+/**
+ * Monthly recheck + billable-extra meters use max(month start, planMeteringSince).
+ * Plan changes mid-period start a fresh window so prior-plan runs are not re-bucketed
+ * under the new softCap (e.g. Starter softCap 2 → Agency softCap 1).
+ */
+export function meteringWindowStart(
+  planMeteringSince: Date | null | undefined,
+  now = new Date(),
+): Date {
+  const monthStart = startOfMonth(now);
+  if (!planMeteringSince) return monthStart;
+  const since = planMeteringSince instanceof Date ? planMeteringSince : new Date(planMeteringSince);
+  if (Number.isNaN(since.getTime())) return monthStart;
+  return since.getTime() > monthStart.getTime() ? since : monthStart;
+}
+
+/**
+ * When the paid plan id changes, reset the metering window and clear the period
+ * extraRuns counter so UI does not show stale “extra at $9” from the prior plan.
+ */
+export function planChangeMeteringPatch(args: {
+  previousPlan: string | null | undefined;
+  nextPlan: string | null | undefined;
+  now?: Date;
+}): { planMeteringSince: Date; extraRuns: 0 } | null {
+  const prev = parsePlanId(args.previousPlan);
+  const next = parsePlanId(args.nextPlan);
+  if (!next || prev === next) return null;
+  return { planMeteringSince: args.now ?? new Date(), extraRuns: 0 };
+}
+
+/**
+ * Infer metering-since from checkout audit history (any mid-period plan change).
+ * Returns the createdAt of the checkout that moved onto `currentPlan`.
+ */
+export function inferPlanMeteringSinceFromCheckouts(
+  checkouts: Array<{ plan: string | null | undefined; createdAt: Date }>,
+  currentPlan: string | null | undefined,
+): Date | null {
+  const current = parsePlanId(currentPlan);
+  if (!current) return null;
+  const sorted = [...checkouts].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  let prev: string | null = null;
+  let since: Date | null = null;
+  for (const row of sorted) {
+    const plan = parsePlanId(row.plan);
+    if (!plan) continue;
+    if (prev !== null && prev !== plan && plan === current) {
+      since = row.createdAt;
+    }
+    prev = plan;
+  }
+  return since;
+}
+
+/** Excess runs past softCap, summed across brand×week buckets in the month. */
+export function countRechecksFromBrandWeekBuckets(
+  rows: Array<{ brandId: string; createdAt: Date }>,
+  softCap: number,
+): number {
+  const byBrandWeek = new Map<string, number>();
+  for (const row of rows) {
+    const week = startOfWeek(row.createdAt).toISOString();
+    const key = `${row.brandId}:${week}`;
+    byBrandWeek.set(key, (byBrandWeek.get(key) || 0) + 1);
+  }
+  let used = 0;
+  for (const weeklyCount of byBrandWeek.values()) {
+    used += Math.max(0, weeklyCount - softCap);
+  }
+  return used;
+}
+
+export type PaidRunCapDecision =
+  | { allowed: true; warning: string | null; extraRun: false; consumeCredit: boolean }
+  | { allowed: false; code: "run_cap"; message: string };
+
+export type UnpaidRunCapDecision =
+  | { allowed: true; warning: null; extraRun: false; consumeCredit: false }
+  | { allowed: false; code: "trial_run_cap"; message: string };
+
+/** Trial / unpaid: hard stop at TRIAL_RUN_CAP workspace runs. No extras, no unlimited. */
+export function decideUnpaidRunCap(trialRuns: number): UnpaidRunCapDecision {
+  if (trialRuns >= TRIAL_RUN_CAP) {
+    return {
+      allowed: false,
+      code: "trial_run_cap",
+      message: `Trial allows ${TRIAL_RUN_CAP} full run. Upgrade to keep running.`,
+    };
+  }
+  return { allowed: true, warning: null, extraRun: false, consumeCredit: false };
+}
+
+/**
+ * Pure gate for paid plans after weekly softCap is hit.
+ * Monthly re-check credits first, then prepaid extra-run credits; otherwise block
+ * until the user buys a $9 extra run (no silent auto-meter for any plan).
+ */
+export function decidePaidRunCap(args: {
+  plan: string | null | undefined;
+  brandWeekRunCount: number;
+  monthlyRechecksUsed: number;
+  extraRunCredits: number;
+}): PaidRunCapDecision {
+  const softCap = planIncludedRunCap(args.plan);
+  const hardCap = planHardStop(args.plan);
+  const monthlyAllowance = planMonthlyRecheckCredits(args.plan);
+  const planId = parsePlanId(args.plan) ?? "agency";
+  const extraUsd = EXTRA_RUN_USD[planId];
+
+  if (args.brandWeekRunCount >= hardCap) {
+    return {
+      allowed: false,
+      code: "run_cap",
+      message: `Hard stop: ${hardCap} runs this week for this brand. Try again next week.`,
+    };
+  }
+  if (args.brandWeekRunCount < softCap) {
+    return { allowed: true, warning: null, extraRun: false, consumeCredit: false };
+  }
+  if (monthlyAllowance > 0 && args.monthlyRechecksUsed < monthlyAllowance) {
+    return {
+      allowed: true,
+      warning: `Using included monthly re-check ${args.monthlyRechecksUsed + 1}/${monthlyAllowance}.`,
+      extraRun: false,
+      consumeCredit: false,
+    };
+  }
+  if (args.extraRunCredits > 0) {
+    return {
+      allowed: true,
+      warning: "Using a prepaid extra-run credit.",
+      extraRun: false,
+      consumeCredit: true,
+    };
+  }
+  return {
+    allowed: false,
+    code: "run_cap",
+    message: `Past included runs and monthly re-check credits. Buy an extra run ($${extraUsd}) to continue.`,
+  };
+}
+
 export async function getWorkspaceSubscription(db: Database, workspaceId: string) {
   const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1);
   return sub ?? null;
 }
 
 export async function countActiveBrands(db: Database, workspaceId: string) {
-  const active = await db.select().from(brands).where(eq(brands.workspaceId, workspaceId));
-  return active.filter((row) => !row.archivedAt).length;
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(brands)
+    .where(and(eq(brands.workspaceId, workspaceId), isNull(brands.archivedAt)));
+  return Number(row?.count ?? 0);
 }
 
 export async function countOccupiedSeats(db: Database, workspaceId: string) {
@@ -105,17 +282,24 @@ export async function assertRunCap(db: Database, workspaceId: string, brandId: s
     const ids = workspaceBrands.map((row) => row.id);
     let trialRuns = 0;
     if (ids.length > 0) {
-      const rows = await db.select({ id: runs.id }).from(runs).where(inArray(runs.brandId, ids));
+      const rows = await db
+        .select({ id: runs.id })
+        .from(runs)
+        .where(and(inArray(runs.brandId, ids), ne(runs.status, "failed")));
       trialRuns = rows.length;
     }
-    if (trialRuns >= TRIAL_RUN_CAP) {
-      const err = new Error(`Trial allows ${TRIAL_RUN_CAP} full run. Upgrade to keep running.`) as Error & {
-        code: CapDenial["code"];
-      };
-      err.code = "trial_run_cap";
+    const trialDecision = decideUnpaidRunCap(trialRuns);
+    if (!trialDecision.allowed) {
+      const err = new Error(trialDecision.message) as Error & { code: CapDenial["code"] };
+      err.code = trialDecision.code;
       throw err;
     }
-    return { allowed: true as const, warning: null, extraRun: false, consumeCredit: false };
+    return {
+      allowed: true as const,
+      warning: trialDecision.warning,
+      extraRun: trialDecision.extraRun,
+      consumeCredit: trialDecision.consumeCredit,
+    };
   }
 
   if (sub?.cancelAtPeriodEnd && sub.currentPeriodEnd && sub.currentPeriodEnd.getTime() < Date.now()) {
@@ -128,67 +312,30 @@ export async function assertRunCap(db: Database, workspaceId: string, brandId: s
 
   const weekStart = startOfWeek();
   const rows = await db
-    .select()
+    .select({ id: runs.id, status: runs.status })
     .from(runs)
-    .where(and(eq(runs.brandId, brandId), gte(runs.createdAt, weekStart)));
+    .where(and(eq(runs.brandId, brandId), gte(runs.createdAt, weekStart), ne(runs.status, "failed")));
 
-  const count = rows.length;
-  const softCap = planIncludedRunCap(sub?.plan);
-  const hardCap = planHardStop(sub?.plan);
+  const planMeteringSince = sub ? await resolvePlanMeteringSince(db, workspaceId, sub) : null;
+  const monthlyRechecksUsed = await countMonthlyRechecksUsed(db, workspaceId, sub?.plan, planMeteringSince);
+  const decision = decidePaidRunCap({
+    plan: sub?.plan,
+    brandWeekRunCount: rows.length,
+    monthlyRechecksUsed,
+    extraRunCredits: sub?.extraRunCredits || 0,
+  });
 
-  if (count >= hardCap) {
-    const err = new Error(`Hard stop: ${hardCap} runs this week for this brand. Try again next week.`) as Error & {
-      code: CapDenial["code"];
-    };
-    err.code = "run_cap";
+  if (!decision.allowed) {
+    const err = new Error(decision.message) as Error & { code: CapDenial["code"] };
+    err.code = decision.code;
     throw err;
   }
-  if (count >= softCap) {
-    const monthlyAllowance = planMonthlyRecheckCredits(sub?.plan);
-    if (monthlyAllowance > 0) {
-      const workspaceBrands = await db.select({ id: brands.id }).from(brands).where(eq(brands.workspaceId, workspaceId));
-      const ids = workspaceBrands.map((row) => row.id);
-      let includedMonthlyRechecks = 0;
-      if (ids.length > 0) {
-        const monthRows = await db
-          .select({ brandId: runs.brandId, createdAt: runs.createdAt })
-          .from(runs)
-          .where(and(inArray(runs.brandId, ids), gte(runs.createdAt, startOfMonth())));
-        const byBrandWeek = new Map<string, number>();
-        for (const row of monthRows) {
-          const week = startOfWeek(row.createdAt).toISOString();
-          const key = `${row.brandId}:${week}`;
-          byBrandWeek.set(key, (byBrandWeek.get(key) || 0) + 1);
-        }
-        for (const weeklyCount of byBrandWeek.values()) {
-          includedMonthlyRechecks += Math.max(0, weeklyCount - softCap);
-        }
-      }
-      if (includedMonthlyRechecks < monthlyAllowance) {
-        return {
-          allowed: true as const,
-          warning: `Using included monthly re-check ${includedMonthlyRechecks + 1}/${monthlyAllowance}.`,
-          extraRun: false,
-          consumeCredit: false,
-        };
-      }
-    }
-    if ((sub?.extraRunCredits || 0) > 0) {
-      return {
-        allowed: true as const,
-        warning: "Using a prepaid extra-run credit.",
-        extraRun: false,
-        consumeCredit: true,
-      };
-    }
-    return {
-      allowed: true as const,
-      warning: `Past included ${softCap} run${softCap === 1 ? "" : "s"} this week. Extra run will be metered.`,
-      extraRun: true,
-      consumeCredit: false,
-    };
-  }
-  return { allowed: true as const, warning: null, extraRun: false, consumeCredit: false };
+  return {
+    allowed: true as const,
+    warning: decision.warning,
+    extraRun: decision.extraRun,
+    consumeCredit: decision.consumeCredit,
+  };
 }
 
 /** Attempt counter. Do not pass extraRun=true here — extras settle after a report. */
@@ -245,12 +392,14 @@ export async function settleBillableExtraRun(args: {
   }
 
   const stamp = new Date();
-  await args.db
+  // Atomic claim: only the writer that flips null→non-null settles. .returning()
+  // is the claim proof (avoids fragile 5 ms equality when D1 coarsens timestamps).
+  const claimed = await args.db
     .update(runs)
     .set({ billedAt: stamp })
-    .where(and(eq(runs.id, args.runId), isNull(runs.billedAt)));
-  const [claimed] = await args.db.select().from(runs).where(eq(runs.id, args.runId)).limit(1);
-  if (!claimed?.billedAt || Math.abs(claimed.billedAt.getTime() - stamp.getTime()) > 5) {
+    .where(and(eq(runs.id, args.runId), isNull(runs.billedAt)))
+    .returning({ billedAt: runs.billedAt });
+  if (claimed.length === 0 || !wonBilledAtClaim(claimed[0]?.billedAt, stamp)) {
     return { settled: false, skipped: true };
   }
 
@@ -331,26 +480,88 @@ export async function bumpExtraRunCredits(db: Database, workspaceId: string, del
     .where(eq(subscriptions.id, sub.id));
 }
 
-export async function countMonthlyRechecksUsed(db: Database, workspaceId: string, plan: string | null | undefined) {
+/**
+ * Resolve the metering window start for a subscription. Persists inferred
+ * planMeteringSince from checkout audits when a mid-period plan change is found
+ * and the column is still null (repairs upgrades that predate the column).
+ */
+export async function resolvePlanMeteringSince(
+  db: Database,
+  workspaceId: string,
+  sub: {
+    id: string;
+    plan: string;
+    planMeteringSince?: Date | null;
+    extraRuns?: number | null;
+  },
+): Promise<Date | null> {
+  if (sub.planMeteringSince) return sub.planMeteringSince;
+
+  const checkouts = await db
+    .select({
+      plan: auditLogs.targetId,
+      createdAt: auditLogs.createdAt,
+    })
+    .from(auditLogs)
+    .where(and(eq(auditLogs.workspaceId, workspaceId), eq(auditLogs.action, "billing.checkout")))
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(20);
+
+  const inferred = inferPlanMeteringSinceFromCheckouts(checkouts, sub.plan);
+  if (!inferred) return null;
+
+  await db
+    .update(subscriptions)
+    .set({
+      planMeteringSince: inferred,
+      // Drop stale lifetime extras from the prior plan / silent-extra bug era.
+      extraRuns: 0,
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptions.id, sub.id));
+  return inferred;
+}
+
+export async function countMonthlyRechecksUsed(
+  db: Database,
+  workspaceId: string,
+  plan: string | null | undefined,
+  planMeteringSince?: Date | null,
+) {
   const softCap = planIncludedRunCap(plan);
   const workspaceBrands = await db.select({ id: brands.id }).from(brands).where(eq(brands.workspaceId, workspaceId));
   const ids = workspaceBrands.map((row) => row.id);
   if (ids.length === 0) return 0;
+  const windowStart = meteringWindowStart(planMeteringSince);
   const monthRows = await db
     .select({ brandId: runs.brandId, createdAt: runs.createdAt })
     .from(runs)
-    .where(and(inArray(runs.brandId, ids), gte(runs.createdAt, startOfMonth())));
-  const byBrandWeek = new Map<string, number>();
-  for (const row of monthRows) {
-    const week = startOfWeek(row.createdAt).toISOString();
-    const key = `${row.brandId}:${week}`;
-    byBrandWeek.set(key, (byBrandWeek.get(key) || 0) + 1);
-  }
-  let used = 0;
-  for (const weeklyCount of byBrandWeek.values()) {
-    used += Math.max(0, weeklyCount - softCap);
-  }
-  return used;
+    .where(and(inArray(runs.brandId, ids), gte(runs.createdAt, windowStart), ne(runs.status, "failed")));
+  return countRechecksFromBrandWeekBuckets(monthRows, softCap);
+}
+
+/** Settled Dodo-metered extras in the current metering window (not prepaid credits). */
+export async function countSettledBillableExtras(
+  db: Database,
+  workspaceId: string,
+  planMeteringSince?: Date | null,
+) {
+  const workspaceBrands = await db.select({ id: brands.id }).from(brands).where(eq(brands.workspaceId, workspaceId));
+  const ids = workspaceBrands.map((row) => row.id);
+  if (ids.length === 0) return 0;
+  const windowStart = meteringWindowStart(planMeteringSince);
+  const rows = await db
+    .select({ id: runs.id })
+    .from(runs)
+    .where(
+      and(
+        inArray(runs.brandId, ids),
+        eq(runs.extraRun, true),
+        isNotNull(runs.billedAt),
+        gte(runs.createdAt, windowStart),
+      ),
+    );
+  return rows.length;
 }
 
 export async function getUsageSnapshot(db: Database, workspaceId: string) {
@@ -358,8 +569,16 @@ export async function getUsageSnapshot(db: Database, workspaceId: string) {
   const ent = workspaceEntitlements(sub);
   const brandsUsed = await countActiveBrands(db, workspaceId);
   const seats = await countOccupiedSeats(db, workspaceId);
-  const monthlyRechecksUsed = ent.paid ? await countMonthlyRechecksUsed(db, workspaceId, sub?.plan) : 0;
+  const planMeteringSince = sub
+    ? await resolvePlanMeteringSince(db, workspaceId, sub)
+    : null;
+  const monthlyRechecksUsed = ent.paid
+    ? await countMonthlyRechecksUsed(db, workspaceId, sub?.plan, planMeteringSince)
+    : 0;
   const monthlyRechecksRemaining = Math.max(0, ent.monthlyRecheckCredits - monthlyRechecksUsed);
+  const billableExtrasThisPeriod = ent.paid
+    ? await countSettledBillableExtras(db, workspaceId, planMeteringSince)
+    : 0;
   return {
     plan: ent.plan,
     status: sub?.status || "none",
@@ -376,11 +595,13 @@ export async function getUsageSnapshot(db: Database, workspaceId: string) {
     seatsIncluded: ent.paid ? ent.seatCap - ent.extraSeats : ent.seatCap,
     extraSeats: ent.extraSeats,
     runsUsed: sub?.runsUsed || 0,
-    extraRuns: sub?.extraRuns || 0,
+    /** Settled billable extras in the current plan metering window (UI). */
+    extraRuns: billableExtrasThisPeriod,
     extraRunCredits: ent.extraRunCredits,
     monthlyRecheckCredits: ent.monthlyRecheckCredits,
     monthlyRechecksUsed,
     monthlyRechecksRemaining,
+    planMeteringSince: planMeteringSince ?? null,
     trialEndsAt: sub?.trialEndsAt ?? null,
     currentPeriodEnd: sub?.currentPeriodEnd ?? null,
     cancelAtPeriodEnd: Boolean(sub?.cancelAtPeriodEnd),
@@ -390,6 +611,7 @@ export async function getUsageSnapshot(db: Database, workspaceId: string) {
     allowsWeeklyCadence: ent.allowsWeeklyCadence,
     allowsCustomSender: ent.allowsCustomSender,
     allowsClientCc: ent.allowsClientCc,
+    allowsTrialClientCc: ent.allowsTrialClientCc,
   };
 }
 

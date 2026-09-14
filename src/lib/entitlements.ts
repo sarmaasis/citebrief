@@ -38,6 +38,8 @@ export type SubscriptionLike = {
   extraRunCredits?: number | null;
   billingInterval?: string | null;
   premiumEnginePack?: number | boolean | null;
+  /** Trial one-shot: client CC already used on the first report. */
+  trialClientCcUsed?: number | boolean | null;
 } | null;
 
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
@@ -59,12 +61,14 @@ export function isPaidActive(sub: SubscriptionLike, now = Date.now()): boolean {
   return true;
 }
 
-export function subscriptionEndedAt(sub: SubscriptionLike): Date | null {
+export function subscriptionEndedAt(sub: SubscriptionLike, now = Date.now()): Date | null {
   if (!sub) return null;
-  if (isPaidActive(sub) || isTrialing(sub)) return null;
+  if (isPaidActive(sub, now) || isTrialing(sub, now)) return null;
   if (sub.currentPeriodEnd) return sub.currentPeriodEnd;
+  // Cancelled / past_due paid: never use trialEndsAt (stale trial date would
+  // make pdfRetentionExpired true immediately). Start the 90-day window at now.
   if (sub.status === "cancelled" || sub.status === "canceled" || sub.status === "past_due") {
-    return sub.trialEndsAt;
+    return new Date(now);
   }
   return null;
 }
@@ -75,16 +79,28 @@ export function reportSendBlockedReason(args: {
   ccClient?: string | null;
   allowsEmailSend: boolean;
   allowsClientCc: boolean;
+  allowsTrialClientCc?: boolean;
   requiresApproval?: boolean;
   approved?: boolean;
 }): string | null {
+  const trialCc = Boolean(args.allowsTrialClientCc);
+  const hasCc = Boolean(args.ccClient?.trim());
+
+  // Trial one-shot: client CC only (CiteBrief branding). No general agency email send.
+  if (trialCc && hasCc) {
+    return null;
+  }
+  if (trialCc && !hasCc && !args.allowsEmailSend) {
+    return "Trial includes one client CC. Enter a client email to send this report.";
+  }
+
   if (!args.allowsEmailSend) {
     return "Email sending requires Agency, Studio, or Enterprise.";
   }
   if (args.requiresApproval && !args.approved) {
     return "Approve this report before sending.";
   }
-  if (args.ccClient?.trim() && !args.allowsClientCc) {
+  if (hasCc && !args.allowsClientCc && !trialCc) {
     return "Client CC requires Agency, Studio, or Enterprise.";
   }
   return null;
@@ -95,6 +111,7 @@ export function reportSendDenial(args: {
   ccClient?: string | null;
   allowsEmailSend: boolean;
   allowsClientCc: boolean;
+  allowsTrialClientCc?: boolean;
   requiresApproval?: boolean;
   approved?: boolean;
 }): { status: 403; error: string } | null {
@@ -126,6 +143,8 @@ export type WorkspaceEntitlements = {
   allowsWeeklyCadence: boolean;
   allowsMonthlyCadence: boolean;
   allowsClientCc: boolean;
+  /** Trial only: one CiteBrief-branded client CC remaining on the first report. */
+  allowsTrialClientCc: boolean;
   allowsEmailSend: boolean;
   allowsCustomSender: boolean;
   allowsHistory: boolean;
@@ -160,6 +179,9 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
   const ended = Boolean(
     !paid && !trialing && sub && sub.status !== "none" && sub.status !== "trialing",
   );
+  const trialClientCcUsed = Boolean(sub?.trialClientCcUsed);
+  // Conversion: one CiteBrief-branded client CC on the first trial report (not agency white-label).
+  const allowsTrialClientCc = trialing && !trialClientCcUsed;
 
   if (!paid) {
     return {
@@ -179,7 +201,8 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
       allowsSlack: false,
       allowsWeeklyCadence: false,
       allowsMonthlyCadence: false,
-      allowsClientCc: false,
+      allowsClientCc: allowsTrialClientCc,
+      allowsTrialClientCc,
       allowsEmailSend: false,
       allowsCustomSender: false,
       allowsHistory: false,
@@ -219,6 +242,7 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
     allowsWeeklyCadence: planAllowsWeeklyCadence(plan),
     allowsMonthlyCadence: PLANS[plan].cadence === "monthly",
     allowsClientCc: planAllowsClientCc(plan),
+    allowsTrialClientCc: false,
     allowsEmailSend: planAllowsEmailSend(plan),
     allowsCustomSender: planAllowsCustomSender(plan),
     allowsHistory: planAllowsHistory(plan),

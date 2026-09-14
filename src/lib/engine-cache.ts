@@ -1,7 +1,8 @@
 /**
  * Product D1 cache for prompt×engine answers (24h).
- * Soft-fail path reads this first. Cloudflare AI Gateway edge cache is additive
- * and does not replace this table.
+ * Free Retry (`retryFailedEngine`) may read this first. Full metered `processRun`
+ * always queries live and only writes on success (avoids charging for cache hits).
+ * Cloudflare AI Gateway edge cache is additive and does not replace this table.
  */
 import { and, eq, gt } from "drizzle-orm";
 import type { Database } from "@/db";
@@ -10,6 +11,19 @@ import type { EngineId } from "@/lib/engines";
 import type { ExtractedRow } from "@/lib/extractor";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Billing policy: metered full runs must hit live engines; free Retry may reuse
+ * a D1 soft-fail cache hit for the failed engine only.
+ */
+export const ENGINE_CACHE_READ_POLICY = {
+  processRun: false,
+  retryFailedEngine: true,
+} as const;
+
+export function mayReadEngineCache(path: keyof typeof ENGINE_CACHE_READ_POLICY): boolean {
+  return ENGINE_CACHE_READ_POLICY[path];
+}
 
 export function buildCacheKey(engine: EngineId, promptText: string): string {
   return `${engine}:${promptText.trim().toLowerCase()}`;

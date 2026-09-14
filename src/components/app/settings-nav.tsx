@@ -12,6 +12,11 @@ const items = [
     match: (path: string) => path.startsWith("/app/settings/workspace"),
   },
   {
+    href: "/app/settings/domains",
+    label: "Domains",
+    match: (path: string) => path.startsWith("/app/settings/domains"),
+  },
+  {
     href: "/app/settings/brand-kit",
     label: "Brand kit",
     match: (path: string) => path.startsWith("/app/settings/brand-kit"),

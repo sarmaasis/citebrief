@@ -34,7 +34,9 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         recheckHint =
           credits > 0
             ? `${remaining}/${included} rechecks · ${credits} extra credit${credits === 1 ? "" : "s"}`
-            : `${remaining}/${included} recheck${included === 1 ? "" : "s"} left`;
+            : remaining === 0
+              ? `${remaining}/${included} rechecks left · buy extra to re-run past included`
+              : `${remaining}/${included} recheck${included === 1 ? "" : "s"} left`;
       }
     } else if (ent.trialing) {
       recheckHint = `Trial · ${ent.trialRunCap} report · ${ent.trialBrandCap} brand`;

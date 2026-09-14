@@ -1,12 +1,16 @@
 import { eq } from "drizzle-orm";
 import { workspaces } from "@/db/schema";
-import { isValidSenderDomain } from "@/lib/email";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { writeAuditLog } from "@/lib/audit";
 import { clampMinutesSaved } from "@/lib/command-center";
 import { isValidIanaTimeZone } from "@/lib/friday-tz";
 import { validateDefaultEngines } from "@/lib/plan-engines";
 import { requireSettingsAccess } from "@/lib/permissions";
+import {
+  checksFromWorkspace,
+  isAllowedCustomSenderDomain,
+  normalizeSenderDomain,
+} from "@/lib/sender-domain";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { jsonError, jsonOk } from "@/server/json";
@@ -31,6 +35,10 @@ export async function GET() {
       timezone: workspace.timezone,
       senderName: workspace.senderName,
       senderDomain: workspace.senderDomain,
+      senderDomainChecks: checksFromWorkspace(workspace),
+      senderDomainVerifiedAt: workspace.senderDomainVerifiedAt
+        ? new Date(workspace.senderDomainVerifiedAt).toISOString()
+        : null,
       defaultEngines: workspace.defaultEngines,
       slackWebhookUrl: workspace.slackWebhookUrl,
       minutesSavedPerReport: clampMinutesSaved(workspace.minutesSavedPerReport),
@@ -75,24 +83,49 @@ export async function PUT(request: Request) {
     return jsonError("Use a valid IANA timezone such as America/New_York.");
   }
 
+  const [current] = await ctx.db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, ctx.workspace.id))
+    .limit(1);
+  if (!current) return jsonError("Workspace not found.", 404);
+
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
 
   const slackWebhookUrl = body.slackWebhookUrl?.trim() || null;
-  const senderName = body.senderName?.trim() || null;
-  const senderDomain = body.senderDomain?.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "") || null;
 
-  if (senderName && senderName !== "CiteBrief" && !ent.allowsCustomSender) {
-    return jsonError("Custom sender requires Studio.", 403);
-  }
-  if (senderDomain) {
+  // Sender fields are owned by Settings → Domains; preserve unless explicitly sent.
+  const senderTouched = body.senderName !== undefined || body.senderDomain !== undefined;
+  let senderName = current.senderName;
+  let senderDomain = normalizeSenderDomain(current.senderDomain);
+  let domainReset = false;
+
+  if (senderTouched) {
     if (!ent.allowsCustomSender) {
-      return jsonError("Custom sender domain requires Studio.", 403);
-    }
-    if (!isValidSenderDomain(senderDomain)) {
-      return jsonError("Sender domain must be a hostname such as reports.agency.com.");
+      if (body.senderName?.trim() && body.senderName.trim() !== "CiteBrief") {
+        return jsonError("Custom sender requires Studio.", 403);
+      }
+      if (body.senderDomain?.trim()) {
+        return jsonError("Custom sender domain requires Studio.", 403);
+      }
+      senderName = null;
+      senderDomain = null;
+      domainReset = true;
+    } else {
+      senderName = body.senderName !== undefined ? body.senderName.trim() || null : current.senderName;
+      const nextDomain =
+        body.senderDomain !== undefined
+          ? normalizeSenderDomain(body.senderDomain)
+          : normalizeSenderDomain(current.senderDomain);
+      if (nextDomain && !isAllowedCustomSenderDomain(nextDomain)) {
+        return jsonError("Sender domain must be a hostname such as reports.agency.com.");
+      }
+      domainReset = nextDomain !== normalizeSenderDomain(current.senderDomain);
+      senderDomain = nextDomain;
     }
   }
+
   if (slackWebhookUrl && !ent.allowsSlack) {
     return jsonError("Slack webhook requires Agency, Studio, or Enterprise.", 402);
   }
@@ -114,8 +147,21 @@ export async function PUT(request: Request) {
     .set({
       name,
       timezone,
-      senderName: ent.allowsCustomSender ? senderName : null,
-      senderDomain: ent.allowsCustomSender ? senderDomain : null,
+      ...(senderTouched
+        ? {
+            senderName: ent.allowsCustomSender ? senderName : null,
+            senderDomain: ent.allowsCustomSender ? senderDomain : null,
+            ...(domainReset
+              ? {
+                  senderDomainSpfOk: false,
+                  senderDomainDkimOk: false,
+                  senderDomainDmarcOk: false,
+                  senderDomainCfOk: false,
+                  senderDomainVerifiedAt: null,
+                }
+              : {}),
+          }
+        : {}),
       defaultEngines: engines.normalized,
       slackWebhookUrl,
       minutesSavedPerReport: clampMinutesSaved(body.minutesSavedPerReport),

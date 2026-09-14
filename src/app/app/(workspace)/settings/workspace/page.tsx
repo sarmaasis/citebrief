@@ -29,7 +29,8 @@ export default async function WorkspaceSettingsPage() {
     <div>
       <h1 className="text-xl font-semibold tracking-tight">Workspace</h1>
       <p className="mt-3 text-sm text-cb-muted">
-        Timezone drives the Friday 06:00 cron. Default engines and sender name apply to weekly sends.
+        Timezone drives the Friday 06:00 cron. Default engines apply to weekly runs. Email sender and
+        domain live under Domains.
       </p>
       <div className="mt-8">
         <WorkspaceForm
@@ -42,8 +43,6 @@ export default async function WorkspaceSettingsPage() {
           initial={{
             name: workspace.name,
             timezone: workspace.timezone,
-            senderName: workspace.senderName || "",
-            senderDomain: workspace.senderDomain || "",
             defaultEngines,
             slackWebhookUrl: workspace.slackWebhookUrl || "",
             minutesSavedPerReport: workspace.minutesSavedPerReport ?? 60,

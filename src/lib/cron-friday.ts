@@ -75,7 +75,10 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
       .where(and(eq(brands.workspaceId, workspace.id), isNull(brands.archivedAt)));
 
     for (const brand of activeBrands) {
-      const promptRows = await db.select().from(prompts).where(eq(prompts.brandId, brand.id));
+      const promptRows = await db
+        .select()
+        .from(prompts)
+        .where(and(eq(prompts.brandId, brand.id), isNull(prompts.archivedAt)));
       if (promptRows.length === 0) {
         skipped.push({ workspaceId: workspace.id, reason: `brand ${brand.id} has no prompts` });
         continue;

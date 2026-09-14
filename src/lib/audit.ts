@@ -24,6 +24,7 @@ export type AuditAction =
   | "invite.revoke"
   | "member.remove"
   | "workspace.update"
+  | "workspace.domain.update"
   | "brand.archive"
   | "brand.unarchive"
   | "data.export"

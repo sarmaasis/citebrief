@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { scheduledEngineStatus } from "@/lib/engines";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { assertRunCap, bumpRunsUsed, capDenialFromError, getWorkspaceSubscription } from "@/lib/usage";
@@ -33,7 +33,10 @@ export async function POST(request: Request, context: RouteContext) {
   const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.runCreate, ctx.workspace.id);
   if (limited) return limited;
 
-  const promptRows = await ctx.db.select().from(prompts).where(eq(prompts.brandId, id));
+  const promptRows = await ctx.db
+    .select()
+    .from(prompts)
+    .where(and(eq(prompts.brandId, id), isNull(prompts.archivedAt)));
   if (promptRows.length === 0) {
     const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
     const cap = workspaceEntitlements(sub).promptCap;
@@ -112,5 +115,5 @@ export async function POST(request: Request, context: RouteContext) {
     }
   }
 
-  return jsonOk({ runId, queue, payload, extraRun, engines: engineStates }, 201);
+  return jsonOk({ runId, queue, payload, extraRun, consumeCredit, engines: engineStates }, 201);
 }

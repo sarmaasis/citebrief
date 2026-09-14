@@ -8,6 +8,7 @@ import {
   EXTRA_RUN_USD,
   PLANS,
   PUBLIC_PLAN_IDS,
+  planAnnualAmountUsd,
   planCardState,
   resolveSelectedPlan,
   SEAT_OVERAGE_USD,
@@ -15,6 +16,7 @@ import {
   TRIAL_RUN_CAP,
   type PlanId,
 } from "@/lib/billing";
+import { formatPaidRunsUsageHint } from "@/lib/usage-format";
 import { cn } from "@/lib/utils";
 
 const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
@@ -316,15 +318,14 @@ export function BillingPanel({
             <p className="mt-3 text-xs text-cb-muted">
               {!isPaid
                 ? `Trial includes ${TRIAL_RUN_CAP} full report. Extra runs start on a paid plan.`
-                : usage.extraRuns
-                  ? `${Math.max(0, usage.runsUsed - usage.extraRuns)} included · ${usage.extraRuns} extra at $${EXTRA_RUN_USD[selectedPlan]}`
-                  : `Includes ${usage.monthlyRecheckCredits} monthly re-check credit${usage.monthlyRecheckCredits === 1 ? "" : "s"} before paid extras.`}
-              {isPaid && usage.monthlyRecheckCredits
-                ? ` · ${usage.monthlyRechecksRemaining ?? usage.monthlyRecheckCredits}/${usage.monthlyRecheckCredits} rechecks left this month`
-                : ""}
-              {isPaid && usage.extraRunCredits
-                ? ` · ${usage.extraRunCredits} extra-run credit${usage.extraRunCredits === 1 ? "" : "s"}`
-                : ""}
+                : formatPaidRunsUsageHint({
+                    plan: selectedPlan,
+                    billableExtrasThisPeriod: usage.extraRuns,
+                    monthlyRecheckCredits: usage.monthlyRecheckCredits,
+                    monthlyRechecksRemaining:
+                      usage.monthlyRechecksRemaining ?? usage.monthlyRecheckCredits,
+                    extraRunCredits: usage.extraRunCredits,
+                  })}
             </p>
           </div>
         </div>
@@ -420,6 +421,30 @@ export function BillingPanel({
             </button>
           </div>
         </div>
+
+        {canManage && (!isPaid || usage.billingInterval !== "annual" || selectedPlan !== "agency") ? (
+          <div className="mb-4 rounded-cb-card border border-cb-accent bg-cb-surface px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-cb-text">Agency annual · ${planAnnualAmountUsd("agency").toLocaleString("en-US")}/year</p>
+                <p className="mt-1 text-xs text-cb-muted">
+                  10 months prepaid (2 months free). Same Agency features — weekly Friday reports, client CC, command center.
+                </p>
+              </div>
+              <Button
+                type="button"
+                disabled={busy !== null || (isPaid && selectedPlan === "agency" && usage.billingInterval === "annual")}
+                onClick={() => {
+                  setAnnual(true);
+                  void checkout("agency");
+                }}
+              >
+                {busy === "agency" && annual ? "Starting…" : `Get Agency annual · $${planAnnualAmountUsd("agency").toLocaleString("en-US")}`}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         <p className="mb-4 text-xs text-cb-muted">
           {isTrialing
             ? `Annual is 10 months prepaid. Subscribe to continue as ${selectedName} after the trial. Trial limits stay until payment succeeds.`

@@ -1,6 +1,6 @@
 # PRD: CiteBrief
 **Client-ready AI-search reporting for agencies**  
-Version 2.3 · 14 Sep 2026 · Domain: getcitebrief.com · Next.js 16 on Cloudflare Workers (OpenNext) · Better Auth · Dodo Payments · Cloudflare AI Gateway · Cloudflare Email Service
+Version 2.4 · 15 Sep 2026 · Domain: getcitebrief.com · Next.js 16 on Cloudflare Workers (OpenNext) · Better Auth · Dodo Payments · Cloudflare AI Gateway · Cloudflare Email Service
 
 This document is the product source of truth. Code in `src/lib/billing.ts`, `src/lib/entitlements.ts`, and `src/lib/command-center.ts` is canonical for plan numbers and gates. Do not invent features here.
 
@@ -295,7 +295,7 @@ Cost controls **Shipped** in code:
 - Manual reruns: Starter includes **2 monthly re-check credits**. Agency includes **10 monthly re-check credits**. Studio/Enterprise include **100 monthly re-check credits** by default. Extra re-checks are **$9** after monthly credits.
 - Hard-stop at 3× included calls per brand/week (`hardStopMultiplier`).
 - Claude is **paused on all plans for now** (adapter kept internally, not shown in workspace settings or marketing). Agency and Studio default engines: ChatGPT, Gemini, Grok, AI Overviews. Claude web search ingested ~82k tokens/request in production.
-- Prompt generation uses **Workers AI** (`@cf/meta/llama-3.1-8b-instruct`) with `max_tokens=700`, no web search, and template fallback. Do not use OpenAI for onboarding prompt generation.
+- Prompt generation uses **Workers AI** (`@cf/meta/llama-3.1-8b-instruct-fast`) with `max_tokens=700`, no web search, and template fallback. Do not use OpenAI for onboarding prompt generation.
 - Dashboard/risk/opportunity views reuse stored report data. No hidden model calls on page load.
 
 **Later / Ops:** AI Overview/browser spend caps in Gateway; mandatory Gateway spend limits by plan.
@@ -322,7 +322,8 @@ Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three card
 | Marketing / FAQ | 14 days |
 | Caps (unpaid **or** `status: trialing`) | **1 brand / 1 seat / 1 full run** |
 | Continuation plan | Stored `subscriptions.plan` may be starter/agency/studio; **entitlements stay trial-like until `status: active`** |
-| Weekly send, client CC, members, history, Slack, Command Center, email send | Off |
+| Weekly send, members, history, Slack, Command Center, email send | Off |
+| Client CC | **One CiteBrief-branded CC** on the first report (`trial_client_cc_used`); not agency white-label |
 
 **Shipped:** first verified workspace insert writes `status: "trialing"` + `trialEndsAt` (14 days). After expiry without pay, caps stay unpaid 1/1/1 until `status: active`. Invite join does not mint a new trial.
 
@@ -427,7 +428,7 @@ Week 6 Revenue hardening: extra brand/run billing, billing portal, dunning, usag
 Better Auth: users, sessions, accounts, verifications  
 
 App (D1):
-- `workspaces` (timezone, sender name/domain, default engines, Slack webhook, minutes-saved-per-report)
+- `workspaces` (timezone, sender name/domain + DNS checklist verification, default engines, Slack webhook, minutes-saved-per-report)
 - `workspace_members` (owner / admin / member)
 - `workspace_invites`
 - `brands` (client_owner, archive)
@@ -442,7 +443,7 @@ App (D1):
 
 R2: `reports/{workspace}/{brand}/{yyyy-mm-dd}.pdf` and `.html`
 
-**Migrations 0008–0012 (apply in every environment that runs the app)**
+**Migrations 0008+ (apply in every environment that runs the app)**
 
 | Id | What |
 |---|---|
@@ -451,6 +452,9 @@ R2: `reports/{workspace}/{brand}/{yyyy-mm-dd}.pdf` and `.html`
 | 0010 | Share revoke, `audit_logs` |
 | 0011 | Premium engine pack, report approval + suggested email |
 | 0012 | `minutes_saved_per_report`, `opportunity_plans` |
+| 0017 | `subscriptions.plan_metering_since` — mid-period plan-change metering window |
+| 0018 | `subscriptions.trial_client_cc_used` — one CiteBrief-branded trial client CC |
+| 0019 | Sender domain verification checklist (`spf`/`dkim`/`dmarc`/`cf` + `verified_at`) |
 
 ---
 
@@ -789,7 +793,7 @@ Marketing message hierarchy:
 | **Members** | **Shipped** Agency+ | Owner invites only. Roles: owner, admin, member. Seat cap includes pending invites |
 | **Brand kit** | **Shipped** | Logo, color, footer, Prepared by |
 | **Billing** | **Shipped** | Plan, usage, Dodo portal, cancel at period end, add-ons, upgrade prompts |
-| **Settings** | **Shipped** | Workspace, timezone (cron), default engines, sender, Slack, hours-saved (Agency+) |
+| **Settings** | **Shipped** | Workspace, Domains (getcitebrief.com + Studio custom sender DNS checklist), timezone (cron), default engines, Slack, hours-saved (Agency+) |
 | **Onboarding** | **Shipped** | 6 fields → generated 20 → first run → PDF → send/share |
 | **Client portal archive** | **Later** | Listed on Studio pricing copy; no dedicated portal |
 | **Command palette ⌘K** | **Later** | |
@@ -915,6 +919,8 @@ Dashboard load does not trigger new model calls.
 **Shipped:** Starter / Agency / Studio / Enterprise; extra brand / seat / run; premium pack flag; unpaid/trial 1/1/1; no free forever; no recurring weekly send until paid; no Studio engines in unpaid/trial; dunning on failed subscription; cancel at period end; PDFs 90 days after end; upgrade prompts; annual = 10 months; usage screen.
 
 **In-app billing UI (Shipped):** `/app/settings/billing` highlights **one** plan (badge Current plan / After trial / Selected — never two green cards). Add-on purchase is hidden until paid `active`. Public `/pricing` stays three cards + Enterprise note; the in-app plan grid includes Enterprise at the $1,499 floor.
+
+**Plan-change metering (Shipped):** When a workspace changes paid plan mid-period (e.g. Starter → Agency), `subscriptions.plan_metering_since` resets. Monthly recheck usage and “extra at $9” labels only count runs created on/after `max(start of calendar month, plan_metering_since)` under the **current** plan softCap. Pre-upgrade runs do not consume the new plan’s monthly recheck pool. “N extra at $9” shows only for runs that settled a real Dodo-metered extra (`extra_run` + `billed_at`) in that window — never from a stale lifetime `extra_runs` counter. Agency truth remains: Friday included slot, manuals from the monthly recheck pool, no silent extras.
 
 Revenue moments (still the intended prompts): 3rd Starter brand → Agency; weekly on Starter → Agency; custom sender → Studio; 11th Agency brand → extra brand or Studio; 4th Agency seat → extra seat or Studio; more Grok / engine volume → pack or Enterprise; custom/SSO/SLA → Enterprise; frequent reruns → extra run meter.
 
@@ -1091,17 +1097,20 @@ Lighthouse marketing > 90. Mobile landing works. App can be desktop-first (1280+
 - Cron: `"0 * * * *"`; `runFridayCron` enqueues when the workspace timezone is Friday 06:00 (Starter: first Friday of the month).
 
 ### 21.1 Email (Shipped)
-Cloudflare Email Service via Wrangler `send_email` binding **`EMAIL`**. Default From: `CiteBrief <auth@getcitebrief.com>` (`CF_EMAIL_FROM`). Templates in `src/emails/`.
+Cloudflare Email Service via Wrangler `send_email` binding **`EMAIL`**. Default From: `CiteBrief <auth@getcitebrief.com>` (`CF_EMAIL_FROM`). Templates in `src/emails/`. System sending domain is always **`getcitebrief.com`**.
 
 | Mail | Chrome |
 |---|---|
 | Verify email, magic link, invite, dunning, deletion | CiteBrief mark + getcitebrief.com footer |
 | Friday report send and client CC | Agency logo/name, kit accent, prepared-by footer (no CiteBrief chrome) |
+| Trial one-shot client CC | CiteBrief chrome + getcitebrief.com From (not agency white-label) |
 | Friday queued / report-ready (internal) | CiteBrief chrome |
 
 Production without `EMAIL.send` **fails closed** (throw). Local `next dev` stubs.
 
-Studio custom sender: display name + `reports@{sender_domain}` when custom sender is allowed.
+**Domain management (Shipped):** Settings → Domains shows CiteBrief system domain status and Studio custom sender. Studio saves display name + hostname; owners attest SPF / DKIM / DMARC / Cloudflare Email onboard. Custom From `Name <reports@{domain}>` only when the checklist is complete; otherwise Studio still uses getcitebrief.com (optional display name). Automatic DNS polling is **Later**. getcitebrief.com onboard remains **Ops** (Cloudflare Email Sending dashboard).
+
+Studio custom sender: display name + `reports@{sender_domain}` when custom sender is allowed **and** domain verified.
 
 ### 21.2 Security (Shipped)
 

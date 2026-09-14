@@ -19,20 +19,39 @@ export function DataTable({
   );
 }
 
-export function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <th className={cn("px-4 font-medium", className)}>{children}</th>;
+export function Th({
+  children,
+  className,
+  nowrap,
+}: {
+  children?: React.ReactNode;
+  className?: string;
+  nowrap?: boolean;
+}) {
+  return <th className={cn("px-4 font-medium", nowrap && "whitespace-nowrap", className)}>{children}</th>;
 }
 
 export function Td({
   children,
   className,
   truncate,
+  nowrap,
 }: {
   children?: React.ReactNode;
   className?: string;
   truncate?: boolean;
+  nowrap?: boolean;
 }) {
   return (
-    <td className={cn("px-4", truncate && "max-w-[220px] truncate", className)}>{children}</td>
+    <td
+      className={cn(
+        "px-4 align-middle",
+        truncate && "max-w-[220px] truncate",
+        nowrap && "whitespace-nowrap",
+        className,
+      )}
+    >
+      {children}
+    </td>
   );
 }

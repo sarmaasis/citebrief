@@ -5,7 +5,13 @@ import { useState } from "react";
 import { IndustryPacks } from "@/components/prompts/industry-packs";
 import { PromptEditor } from "@/components/prompts/prompt-editor";
 import { Button } from "@/components/ui/button";
-import { generatePromptsCta, promptSetHint, type PromptDraft, validatePromptSet } from "@/lib/prompts";
+import {
+  generatePromptsCta,
+  promptSetHint,
+  REPLACE_PROMPTS_CONFIRM,
+  type PromptDraft,
+  validatePromptSet,
+} from "@/lib/prompts";
 
 export function PromptsPage({
   brandId,
@@ -24,16 +30,37 @@ export function PromptsPage({
   const [pending, setPending] = useState(false);
 
   async function generate() {
+    const belowCap = prompts.length > 0 && prompts.length < promptCap;
+    const replacing = prompts.length > 0 && !belowCap;
+    if (replacing && !window.confirm(REPLACE_PROMPTS_CONFIRM)) {
+      return;
+    }
+
     setPending(true);
     setStatus(null);
     try {
-      const response = await fetch(`/api/brands/${brandId}/prompts/generate`, { method: "POST" });
-      const data = (await response.json()) as { prompts?: PromptDraft[]; error?: string };
+      const response = await fetch(`/api/brands/${brandId}/prompts/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          belowCap
+            ? { existing: prompts, mode: "topup" }
+            : prompts.length > 0
+              ? { mode: "replace" }
+              : {},
+        ),
+      });
+      const data = (await response.json()) as { prompts?: PromptDraft[]; error?: string; toppedUp?: boolean };
       if (!response.ok || !data.prompts) {
         setStatus(data.error ?? "Could not generate prompts.");
         return;
       }
       setPrompts(data.prompts);
+      if (data.toppedUp) {
+        setStatus(`Added ${data.prompts.length - prompts.length} buyer questions (now ${data.prompts.length}).`);
+      } else if (replacing) {
+        setStatus("New set ready — save to archive the previous prompts and keep past report scores.");
+      }
     } finally {
       setPending(false);
     }
@@ -74,7 +101,7 @@ export function PromptsPage({
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={() => void generate()} disabled={pending}>
-            {generatePromptsCta(promptCap, prompts.length > 0)}
+            {generatePromptsCta(promptCap, prompts.length > 0, prompts.length)}
           </Button>
           <Button type="button" onClick={() => void save()} disabled={pending || prompts.length === 0}>
             Save
@@ -82,7 +109,16 @@ export function PromptsPage({
         </div>
       </div>
       <div className="mb-6">
-        <IndustryPacks brandName={brandName} promptCap={promptCap} onApply={setPrompts} />
+        <IndustryPacks
+          brandName={brandName}
+          promptCap={promptCap}
+          onApply={(next) => {
+            if (prompts.length > 0 && !window.confirm(REPLACE_PROMPTS_CONFIRM)) {
+              return;
+            }
+            setPrompts(next);
+          }}
+        />
       </div>
       {prompts.length === 0 ? (
         <div className="rounded-cb-card border border-cb-line bg-cb-surface px-6 py-16 text-center">

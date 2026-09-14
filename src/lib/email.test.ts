@@ -32,8 +32,19 @@ assert.equal(
     customSender: true,
     senderName: "Northstar Agency",
     senderDomain: "reports.agency.com",
+    domainVerified: true,
   }),
   "Northstar Agency <reports@reports.agency.com>",
+);
+assert.equal(
+  resolveFromAddress({
+    env: { CF_EMAIL_FROM: "CiteBrief <reports@getcitebrief.com>" },
+    customSender: true,
+    senderName: "Northstar Agency",
+    senderDomain: "reports.agency.com",
+    domainVerified: false,
+  }),
+  "Northstar Agency <reports@getcitebrief.com>",
 );
 
 const invite = inviteEmail({

@@ -111,18 +111,20 @@ export default async function RisksPage({
         </div>
       ) : (
         <div className="mt-8">
-          <DataTable minWidth="1080px">
+          <DataTable minWidth={showAffectedPrompts || showAffectedEngines ? "1280px" : "1080px"}>
             <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
               <tr className="h-12 border-b border-cb-line">
-                <Th>Brand</Th>
-                <Th>Severity</Th>
+                <Th nowrap className="w-[1%] min-w-[7rem]">
+                  Brand
+                </Th>
+                <Th nowrap>Severity</Th>
                 <Th>What happened</Th>
                 <Th>Why it matters</Th>
                 <Th>Recommended fix</Th>
-                {showFirstSeen ? <Th>First seen</Th> : null}
-                <Th>Last seen</Th>
+                {showFirstSeen ? <Th nowrap>First seen</Th> : null}
+                <Th nowrap>Last seen</Th>
                 {showAffectedPrompts ? <Th>Affected prompts</Th> : null}
-                {showAffectedEngines ? <Th>Engines</Th> : null}
+                {showAffectedEngines ? <Th nowrap>Engines</Th> : null}
               </tr>
             </thead>
             <tbody>
@@ -135,39 +137,41 @@ export default async function RisksPage({
                       : "h-12 border-b border-cb-line last:border-0"
                   }
                 >
-                  <Td>
-                    <Link href={item.href} className="text-cb-accent">
+                  <Td nowrap className="w-[1%] min-w-[7rem]">
+                    <Link href={item.href} className="inline-flex max-w-[12rem] items-center gap-1.5 text-cb-accent">
                       {item.unread && item.severity === "at_risk" ? (
-                        <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-cb-accent align-middle" aria-label="Unread" />
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cb-accent" aria-label="Unread" />
                       ) : null}
-                      {item.brandName}
+                      <span className="truncate">{item.brandName}</span>
                     </Link>
                   </Td>
-                  <Td>
+                  <Td nowrap>
                     <RiskPill risk={item.severity} />
                   </Td>
-                  <Td truncate className="text-cb-muted">
+                  <Td truncate className="max-w-[180px] text-cb-muted">
                     {item.whatHappened}
                   </Td>
-                  <Td truncate className="text-cb-muted">
+                  <Td truncate className="max-w-[180px] text-cb-muted">
                     {item.whyItMatters}
                   </Td>
-                  <Td truncate>{item.recommendedFix}</Td>
+                  <Td truncate className="max-w-[200px]">
+                    {item.recommendedFix}
+                  </Td>
                   {showFirstSeen ? (
-                    <Td className="whitespace-nowrap font-mono text-xs text-cb-muted">
+                    <Td nowrap className="font-mono text-xs text-cb-muted">
                       {item.firstSeenAt ? formatShortDate(new Date(item.firstSeenAt)) : "—"}
                     </Td>
                   ) : null}
-                  <Td className="whitespace-nowrap font-mono text-xs text-cb-muted">
+                  <Td nowrap className="font-mono text-xs text-cb-muted">
                     {item.lastSeenAt ? formatShortDate(new Date(item.lastSeenAt)) : "—"}
                   </Td>
                   {showAffectedPrompts ? (
-                    <Td truncate className="text-cb-muted">
+                    <Td truncate className="max-w-[240px] text-cb-muted" title={item.affectedPrompts.join("; ")}>
                       {item.affectedPrompts.slice(0, 2).join("; ") || "—"}
                     </Td>
                   ) : null}
                   {showAffectedEngines ? (
-                    <Td truncate className="font-mono text-xs text-cb-muted">
+                    <Td nowrap className="font-mono text-xs text-cb-muted">
                       {item.affectedEngines.join(", ") || "—"}
                     </Td>
                   ) : null}

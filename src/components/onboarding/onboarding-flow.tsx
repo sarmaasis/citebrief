@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { CORE_ENGINES, ENGINES, type EngineState } from "@/lib/engines";
 import { onboardingStepFromResume, syncOnboardingBrandQuery, type OnboardingResume } from "@/lib/onboarding-resume";
-import { generatePromptsCta, promptSetHint, type PromptDraft, validatePromptSet } from "@/lib/prompts";
+import { generatePromptsCta, promptSetHint, REPLACE_PROMPTS_CONFIRM, type PromptDraft, validatePromptSet } from "@/lib/prompts";
 import { UpgradeDialog, UpgradePrompt } from "@/components/billing/upgrade-prompt";
 import { UPGRADE_COPY, brandCapUpgradeFromError } from "@/lib/upgrade-copy";
 import { Logo } from "@/components/brand/logo";
@@ -227,10 +227,25 @@ export function OnboardingFlow({
     if (!brandId) {
       return;
     }
+    const belowCap = prompts.length > 0 && prompts.length < promptCap;
+    const replacing = prompts.length > 0 && !belowCap;
+    if (replacing && !window.confirm(REPLACE_PROMPTS_CONFIRM)) {
+      return;
+    }
     setPending(true);
     setStatus(null);
     try {
-      const response = await fetch(`/api/brands/${brandId}/prompts/generate`, { method: "POST" });
+      const response = await fetch(`/api/brands/${brandId}/prompts/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          belowCap
+            ? { existing: prompts, mode: "topup" }
+            : prompts.length > 0
+              ? { mode: "replace" }
+              : {},
+        ),
+      });
       const data = (await response.json()) as {
         prompts?: PromptDraft[];
         source?: "template" | "llm";
@@ -458,11 +473,20 @@ export function OnboardingFlow({
               Back
             </Button>
             <Button type="button" variant="outline" onClick={() => void generate()} disabled={pending}>
-              {generatePromptsCta(promptCap, prompts.length > 0)}
+              {generatePromptsCta(promptCap, prompts.length > 0, prompts.length)}
             </Button>
           </div>
           <div className="mt-4">
-            <IndustryPacks brandName={fields.name} promptCap={promptCap} onApply={setPrompts} />
+            <IndustryPacks
+              brandName={fields.name}
+              promptCap={promptCap}
+              onApply={(next) => {
+                if (prompts.length > 0 && !window.confirm(REPLACE_PROMPTS_CONFIRM)) {
+                  return;
+                }
+                setPrompts(next);
+              }}
+            />
           </div>
           <div className="mt-6">
             {prompts.length === 0 ? (
@@ -501,7 +525,9 @@ export function OnboardingFlow({
             </p>
           ) : null}
           {runStatus === "partial" ? (
-            <p className="mt-3 text-sm text-cb-pending">The PDF still shipped. One source did not return.</p>
+            <p className="mt-3 text-sm text-cb-pending">
+              The PDF still shipped. Use Retry on the failed source — it does not use a recheck.
+            </p>
           ) : null}
           <div className="mt-8 space-y-3">
             {(engines && ENGINES.filter((e) => engines[e.id] && engines[e.id] !== "skipped").length

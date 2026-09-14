@@ -391,6 +391,15 @@ export function ReportViewer({
             >
               CC client
             </Button>
+          ) : allowClientCc ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCcOpen(true)}
+            >
+              CC client (trial)
+            </Button>
           ) : null}
           {showSources ? (
             <Button type="button" variant="outline" size="sm" onClick={() => setSourcesOpen(true)}>
@@ -536,7 +545,11 @@ export function ReportViewer({
         open={ccOpen}
         onOpenChange={setCcOpen}
         title="CC this report to your client"
-        description="We email the summary and a read-only client link. Use their work address."
+        description={
+          allowSend
+            ? "We email the summary and a read-only client link. Use their work address."
+            : "Trial includes one CiteBrief-branded send to a client. Agency white-label CC starts on a paid plan."
+        }
       >
         <form onSubmit={(event) => void sendCcClient(event)} className="space-y-3">
           <div className="space-y-2">

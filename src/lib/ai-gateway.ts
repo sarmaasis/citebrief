@@ -554,9 +554,10 @@ function requestIdFromResponse(response: Response, data: unknown): string | null
  * Provider credentials live in Cloudflare AI Gateway stored keys / unified billing.
  * App code only needs CF_ACCOUNT_ID, AI_GATEWAY_ID, CF_AI_GATEWAY_TOKEN.
  *
- * Cache note: D1 `engine_cache` is the product soft-fail cache and wins for
- * repeated prompt×engine answers inside CiteBrief. Gateway cache (`allow_24h`)
- * is additive at the edge and does not replace D1.
+ * Cache note: D1 `engine_cache` is the product soft-fail cache. Free Retry may
+ * read it for a failed engine; metered `processRun` always queries live and
+ * writes on success. Gateway cache (`allow_24h`) is additive at the edge and
+ * does not replace D1.
  */
 export async function aiGatewayRequest(args: AiGatewayRequestArgs): Promise<AiGatewayResult> {
   if (!isAiGatewayConfigured(args.env)) {

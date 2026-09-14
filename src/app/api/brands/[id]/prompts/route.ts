@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { getAppContext } from "@/lib/session";
 import { normalizePromptDrafts, type PromptDraft, validatePromptSet } from "@/lib/prompts";
+import { planPromptSave } from "@/lib/prompt-persist";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { jsonError, jsonOk } from "@/server/json";
 import { getWorkspaceBrand } from "@/server/workspace-data";
@@ -21,7 +22,11 @@ export async function GET(_request: Request, context: RouteContext) {
   if (!brand) {
     return jsonError("Brand not found.", 404);
   }
-  const rows = await ctx.db.select().from(prompts).where(eq(prompts.brandId, id)).orderBy(prompts.sortOrder);
+  const rows = await ctx.db
+    .select()
+    .from(prompts)
+    .where(and(eq(prompts.brandId, id), isNull(prompts.archivedAt)))
+    .orderBy(prompts.sortOrder);
   return jsonOk({ prompts: rows });
 }
 
@@ -47,21 +52,56 @@ export async function PUT(request: Request, context: RouteContext) {
 
   const now = new Date();
   try {
-    await ctx.db.delete(prompts).where(eq(prompts.brandId, id));
-    for (const draft of drafts) {
+    const existing = await ctx.db.select().from(prompts).where(eq(prompts.brandId, id));
+    const plan = planPromptSave(
+      existing.map((row) => ({
+        id: row.id,
+        text: row.text,
+        mix: row.mix,
+        sortOrder: row.sortOrder,
+        archivedAt: row.archivedAt ?? null,
+      })),
+      drafts,
+    );
+
+    for (const update of plan.updates) {
+      await ctx.db
+        .update(prompts)
+        .set({
+          text: update.text,
+          mix: update.mix,
+          sortOrder: update.sortOrder,
+          updatedAt: now,
+          ...(update.unarchive ? { archivedAt: null } : {}),
+        })
+        .where(eq(prompts.id, update.id));
+    }
+
+    for (const draft of plan.inserts) {
       await ctx.db.insert(prompts).values({
         id: crypto.randomUUID(),
         brandId: id,
-        text: draft.text.trim(),
+        text: draft.text,
         mix: draft.mix,
         sortOrder: draft.sortOrder,
+        archivedAt: null,
         createdAt: now,
         updatedAt: now,
       });
+    }
+
+    if (plan.archiveIds.length > 0) {
+      await ctx.db
+        .update(prompts)
+        .set({ archivedAt: now, updatedAt: now })
+        .where(and(eq(prompts.brandId, id), inArray(prompts.id, plan.archiveIds)));
     }
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "Could not save prompts.", 500);
   }
 
-  return jsonOk({ saved: drafts.length });
+  return jsonOk({
+    saved: drafts.length,
+    archived: true,
+  });
 }

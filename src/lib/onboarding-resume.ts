@@ -101,6 +101,7 @@ export function serializeOnboardingResume(bundle: {
     },
     prompts: normalizePromptDrafts(
       bundle.prompts.map((row) => ({
+        id: row.id,
         text: row.text,
         mix: asPromptMix(row.mix),
         sortOrder: row.sortOrder,

@@ -116,7 +116,7 @@ export default async function ReportsPipelinePage({
           <p className="mb-4 text-sm text-cb-muted">
             Monthly summary, before/after movement, notes, and completed actions for client calls.
             {ent.allowsCustomSender
-              ? " Studio custom sender applies when you email from the report."
+              ? " Studio custom sender applies after Domains DNS verification."
               : ""}
           </p>
           <ClientReportingCenter rows={reportingRows} />
@@ -124,7 +124,7 @@ export default async function ReportsPipelinePage({
             <div className="mt-4">
               <StudioUpgradeHint
                 title="Custom sender + white-label send path"
-                body="Agency already gets the reporting center. Studio adds custom sender name/domain so client-facing emails leave from your agency identity."
+                body="Agency already gets the reporting center. Studio adds custom sender name/domain (Settings → Domains) so client-facing emails leave from your agency identity."
               />
             </div>
           ) : null}

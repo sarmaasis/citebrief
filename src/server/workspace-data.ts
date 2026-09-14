@@ -31,7 +31,11 @@ export async function getBrandBundle(ctx: AppContext, brandId: string) {
 
   const [compRows, promptRows, latestRun, latestReport] = await Promise.all([
     ctx.db.select().from(competitors).where(eq(competitors.brandId, brandId)),
-    ctx.db.select().from(prompts).where(eq(prompts.brandId, brandId)).orderBy(prompts.sortOrder),
+    ctx.db
+      .select()
+      .from(prompts)
+      .where(and(eq(prompts.brandId, brandId), isNull(prompts.archivedAt)))
+      .orderBy(prompts.sortOrder),
     ctx.db.select().from(runs).where(eq(runs.brandId, brandId)).orderBy(desc(runs.createdAt)).limit(1),
     ctx.db
       .select()
@@ -74,7 +78,7 @@ export async function listHomeRows(ctx: AppContext) {
       const promptCountRows = await ctx.db
         .select({ id: prompts.id })
         .from(prompts)
-        .where(eq(prompts.brandId, brand.id));
+        .where(and(eq(prompts.brandId, brand.id), isNull(prompts.archivedAt)));
       const latestReport = reportList[0] ?? null;
       const previousReport = reportList[1] ?? null;
       const mentionedDelta =

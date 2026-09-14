@@ -8,12 +8,14 @@ import {
   stubPaidSubscriptionPatch,
 } from "@/lib/billing";
 import { createDodoCheckout } from "@/lib/dodo";
-import { isPaidActive } from "@/lib/entitlements";
+import { isPaidActive, workspaceEntitlements } from "@/lib/entitlements";
+import { topUpWorkspaceBrandPrompts } from "@/lib/prompt-topup";
 import { isProductionRuntime } from "@/lib/runtime-env";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { requireOwner } from "@/lib/permissions";
 import { getAppContext } from "@/lib/session";
+import { planChangeMeteringPatch } from "@/lib/usage";
 import { jsonError, jsonOk } from "@/server/json";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { subscriptions } from "@/db/schema";
@@ -91,12 +93,18 @@ export async function GET(request: Request) {
   });
 
   if (persistStubPaid) {
+    const prevPromptCap = workspaceEntitlements(existing).promptCap;
     const patch = stubPaidSubscriptionPatch({ plan, interval });
+    const metering = planChangeMeteringPatch({
+      previousPlan: existing?.plan,
+      nextPlan: plan,
+    });
     if (!existing) {
       await ctx.db.insert(subscriptions).values({
         id: crypto.randomUUID(),
         workspaceId: ctx.workspace.id,
         ...patch,
+        ...(metering ?? { planMeteringSince: new Date(), extraRuns: 0 }),
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -105,9 +113,22 @@ export async function GET(request: Request) {
         .update(subscriptions)
         .set({
           ...patch,
+          ...(metering ?? {}),
           updatedAt: new Date(),
         })
         .where(eq(subscriptions.id, existing.id));
+    }
+    const nextPromptCap = workspaceEntitlements({
+      ...existing,
+      ...patch,
+      trialEndsAt: patch.trialEndsAt,
+    }).promptCap;
+    if (nextPromptCap > prevPromptCap) {
+      try {
+        await topUpWorkspaceBrandPrompts(ctx.db, ctx.workspace.id, nextPromptCap);
+      } catch (error) {
+        console.info("[checkout] prompt top-up failed", error);
+      }
     }
   } else if (!existing && checkout.mode === "redirect") {
     await ctx.db.insert(subscriptions).values({

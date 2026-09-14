@@ -127,14 +127,18 @@ export function RunStatus({
       {canShip && status !== "failed" ? (
         <p className="mt-3 text-sm text-cb-text">
           {status === "partial" || coreComplete === 3
-            ? "The PDF still ships. One source did not return."
+            ? failedEngines.length
+              ? "The PDF still ships. Use Retry on the failed source — it does not use a recheck. Run now starts a new metered run."
+              : "The PDF still ships. One source did not return."
             : scoreMentioned != null
               ? `Named in ${scoreMentioned} buyer questions.`
               : "The PDF can ship from the sources that returned."}
         </p>
       ) : null}
       <p className="mt-2 text-xs text-cb-muted">
-        Retrying a failed source does not use another weekly run. The Friday report is included; extra full re-runs this week are $9.
+        {failedEngines.length
+          ? "Prefer Retry on a failed source (free). A full Run now / recheck meters a new run even if other sources look unchanged."
+          : "Retrying a failed source does not use another weekly run. The Friday report is included; extra full re-runs this week are $9."}
       </p>
       <div className="mt-6 space-y-3" aria-live="polite">
         {list.map((engine) => {
@@ -188,7 +192,7 @@ export function RunStatus({
         <div className="mt-8 space-y-3">
           <p className="text-sm text-cb-danger">
             Fewer than {minShip} source{minShip === 1 ? "" : "s"} returned, so this PDF did not ship. Retry a
-            failed source, or run again when ready.
+            failed source first (free) — Run again meters a new run.
           </p>
           {failedEngines.length ? (
             <p className="text-xs text-cb-muted">
@@ -196,7 +200,7 @@ export function RunStatus({
             </p>
           ) : null}
           <Button asChild variant="outline">
-            <Link href={`/app/brands/${brandId}`}>Run again from brand</Link>
+            <Link href={`/app/brands/${brandId}`}>Brand home</Link>
           </Button>
         </div>
       ) : null}

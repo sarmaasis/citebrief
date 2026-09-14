@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { prompts, runs } from "@/db/schema";
 import { getDb } from "@/db";
@@ -17,7 +17,10 @@ export async function GET(request: Request, context: { params: Promise<{ runId: 
   const db = await getDb();
   const [run] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
   if (!run) return jsonError("Run not found.", 404);
-  const promptRows = await db.select().from(prompts).where(eq(prompts.brandId, run.brandId));
+  const promptRows = await db
+    .select()
+    .from(prompts)
+    .where(and(eq(prompts.brandId, run.brandId), isNull(prompts.archivedAt)));
   let engineStates: Record<string, string> = {};
   try {
     engineStates = JSON.parse(run.engineStates || "{}") as Record<string, string>;

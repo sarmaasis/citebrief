@@ -65,6 +65,7 @@ export async function GET(request: Request) {
           text: prompts.text,
           mix: prompts.mix,
           sortOrder: prompts.sortOrder,
+          archivedAt: prompts.archivedAt,
         })
         .from(prompts)
         .where(eq(prompts.brandId, brandId))),
@@ -137,6 +138,15 @@ export async function GET(request: Request) {
           timezone: workspace.timezone,
           senderName: workspace.senderName,
           senderDomain: workspace.senderDomain,
+          senderDomainVerifiedAt: workspace.senderDomainVerifiedAt
+            ? new Date(workspace.senderDomainVerifiedAt).toISOString()
+            : null,
+          senderDomainChecks: {
+            spfOk: Boolean(workspace.senderDomainSpfOk),
+            dkimOk: Boolean(workspace.senderDomainDkimOk),
+            dmarcOk: Boolean(workspace.senderDomainDmarcOk),
+            cfOk: Boolean(workspace.senderDomainCfOk),
+          },
         }
       : null,
     members,

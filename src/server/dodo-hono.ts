@@ -7,7 +7,15 @@ import { parseBillingInterval, parsePlanId } from "@/lib/billing";
 import { dodoCurrentPeriodEnd, dodoProductId } from "@/lib/dodo";
 import { dunningEmail } from "@/emails";
 import { sendTransactionalEmail } from "@/lib/email";
-import { bumpExtraBrands, bumpExtraRunCredits, bumpExtraSeats, setPremiumEnginePack } from "@/lib/usage";
+import { workspaceEntitlements } from "@/lib/entitlements";
+import { topUpWorkspaceBrandPrompts } from "@/lib/prompt-topup";
+import {
+  bumpExtraBrands,
+  bumpExtraRunCredits,
+  bumpExtraSeats,
+  planChangeMeteringPatch,
+  setPremiumEnginePack,
+} from "@/lib/usage";
 
 type DodoEnv = {
   Bindings: CloudflareEnv;
@@ -126,6 +134,7 @@ export async function applyDodoWebhookPayload(
 
   if (workspaceId) {
     const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1);
+    const prevPromptCap = workspaceEntitlements(sub).promptCap;
 
     const statusFromType = (): string => {
       if (eventType.includes("cancelled") || eventType.includes("canceled")) return "cancelled";
@@ -161,22 +170,33 @@ export async function applyDodoWebhookPayload(
       ? sub.currentPeriodEnd
       : dodoCurrentPeriodEnd(data, nextInterval);
 
+    const nextPlan = addon && sub ? sub.plan : plan;
+    const nextStatus = addon && sub?.status === "active" ? sub.status : statusFromType();
+    const nextBillingInterval = addon && sub ? sub.billingInterval : interval;
+    const nextCancelAtPeriodEnd =
+      cancelAtNext !== undefined
+        ? cancelAtNext
+        : eventType.includes("cancelled") || eventType.includes("canceled")
+          ? true
+          : (sub?.cancelAtPeriodEnd ?? false);
+
+    const metering = planChangeMeteringPatch({
+      previousPlan: sub?.plan,
+      nextPlan,
+    });
+
     if (sub) {
       await db
         .update(subscriptions)
         .set({
-          plan: addon ? sub.plan : plan,
-          billingInterval: addon ? sub.billingInterval : interval,
-          status: addon && sub.status === "active" ? sub.status : statusFromType(),
+          plan: nextPlan,
+          billingInterval: nextBillingInterval,
+          status: nextStatus,
           dodoCustomerId: dodoCustomerId || sub.dodoCustomerId,
           dodoSubscriptionId: dodoSubscriptionId || sub.dodoSubscriptionId,
           currentPeriodEnd: periodEnd,
-          cancelAtPeriodEnd:
-            cancelAtNext !== undefined
-              ? cancelAtNext
-              : eventType.includes("cancelled") || eventType.includes("canceled")
-                ? true
-                : sub.cancelAtPeriodEnd,
+          cancelAtPeriodEnd: nextCancelAtPeriodEnd,
+          ...(metering ?? {}),
           updatedAt: new Date(),
         })
         .where(eq(subscriptions.id, sub.id));
@@ -184,16 +204,40 @@ export async function applyDodoWebhookPayload(
       await db.insert(subscriptions).values({
         id: crypto.randomUUID(),
         workspaceId,
-        plan,
-        status: statusFromType(),
+        plan: nextPlan,
+        status: nextStatus,
         dodoCustomerId,
         dodoSubscriptionId,
-        billingInterval: interval,
+        billingInterval: nextBillingInterval,
         currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: cancelAtNext ?? false,
+        cancelAtPeriodEnd: nextCancelAtPeriodEnd,
+        planMeteringSince: new Date(),
+        extraRuns: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+    }
+
+    const nextPromptCap = workspaceEntitlements({
+      plan: nextPlan,
+      status: nextStatus,
+      trialEndsAt: sub?.trialEndsAt ?? null,
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: nextCancelAtPeriodEnd,
+      extraBrands: sub?.extraBrands,
+      extraSeats: sub?.extraSeats,
+      extraRuns: sub?.extraRuns,
+      extraRunCredits: sub?.extraRunCredits,
+      billingInterval: nextBillingInterval,
+      premiumEnginePack: sub?.premiumEnginePack,
+    }).promptCap;
+
+    if (nextPromptCap > prevPromptCap) {
+      try {
+        await topUpWorkspaceBrandPrompts(db, workspaceId, nextPromptCap);
+      } catch (error) {
+        console.info("[dodo-webhook] prompt top-up failed", error);
+      }
     }
 
     if (env && (eventType.includes("subscription.failed") || eventType.endsWith(".failed"))) {

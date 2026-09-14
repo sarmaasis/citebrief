@@ -1,4 +1,11 @@
-import { extractFromAnswer } from "./extractor";
+import assert from "node:assert/strict";
+import { brandSiteLabel, extractFromAnswer } from "./extractor";
+
+assert.equal(brandSiteLabel("https://canwechat.dev", "CanWeChat"), "canwechat.dev");
+assert.equal(brandSiteLabel("canwechat.dev/pricing", "CanWeChat"), "canwechat.dev");
+assert.equal(brandSiteLabel("https://www.canwechat.dev", "CanWeChat"), "canwechat.dev");
+assert.equal(brandSiteLabel(null, "CanWeChat"), "the CanWeChat site");
+assert.equal(brandSiteLabel("", "CanWeChat"), "the CanWeChat site");
 
 const row = extractFromAnswer({
   brand: "Northstar",
@@ -9,6 +16,7 @@ const row = extractFromAnswer({
     "Shortlist: ClickUp, Asana, Northstar. Northstar appears in the shortlist. ClickUp leads this shortlist. Sources: https://example.com/clickup",
   incumbent: "Asana",
   category: "project management",
+  siteUrl: "https://northstar.app",
 });
 
 if (!row.mentioned) {
@@ -20,5 +28,28 @@ if (!row.whoWon) {
 if (!row.sentence.split(" ").length || row.sentence.split(" ").length > 22) {
   throw new Error("sentence length odd: " + row.sentence);
 }
+assert.match(row.nextAction, /northstar\.app/);
+assert.doesNotMatch(row.nextAction, /\.example\b/);
 
-console.log("extractor.test.ts ok", row.whoWon, row.nextAction);
+const canWe = extractFromAnswer({
+  brand: "CanWeChat",
+  competitors: ["Slack", "Teams"],
+  prompt: "best team chat for agencies",
+  engine: "chatgpt",
+  rawAnswer: "Shortlist: Slack, CanWeChat. CanWeChat appears and leads this shortlist.",
+  siteUrl: "https://canwechat.dev",
+});
+assert.match(canWe.nextAction, /canwechat\.dev/);
+assert.doesNotMatch(canWe.nextAction, /canwechat\.example/);
+
+const noSite = extractFromAnswer({
+  brand: "CanWeChat",
+  competitors: ["Slack"],
+  prompt: "best chat tool",
+  engine: "gemini",
+  rawAnswer: "Shortlist: CanWeChat. CanWeChat leads this shortlist.",
+});
+assert.match(noSite.nextAction, /the CanWeChat site/);
+assert.doesNotMatch(noSite.nextAction, /\.example\b/);
+
+console.log("extractor.test.ts ok", row.whoWon, row.nextAction, canWe.nextAction);

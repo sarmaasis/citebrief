@@ -13,14 +13,22 @@ export const MIX_TARGET = 4;
 /** Paid Starter / Agency default pack size (4+4+4+4+4). */
 export const PROMPT_COUNT = 20;
 export const PROMPT_YEAR = 2026;
-export const PROMPT_WRITER_WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
+/** Cheap Workers AI instruct model for numbered buyer-prompt packs. Non-fast 3.1-8b was deprecated 2026-05-30. */
+export const PROMPT_WRITER_WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
 export const PROMPT_WRITER_MAX_TOKENS = 700;
 
 export type PromptCountOptions = { count?: number };
 
-export function generatePromptsCta(count: number, existing: boolean): string {
-  return existing ? `Regenerate ${count} prompts` : `Generate ${count} prompts`;
+export function generatePromptsCta(count: number, existing: boolean, currentCount?: number): string {
+  if (existing && currentCount != null && currentCount > 0 && currentCount < count) {
+    return `Add ${count - currentCount} prompts`;
+  }
+  return existing ? "Replace all prompts" : `Generate ${count} prompts`;
 }
+
+/** Confirm copy when hard-replacing a full prompt set (archives old rows; keeps report scores). */
+export const REPLACE_PROMPTS_CONFIRM =
+  "This archives current prompts. Past report scores stay; the Prompts table will show the new set.";
 
 export function promptSetHint(count: number): string {
   if (count < PROMPT_COUNT) {
@@ -33,6 +41,8 @@ export function promptSetHint(count: number): string {
 }
 
 export type PromptDraft = {
+  /** Stable DB id when editing an existing prompt — preserved across save. */
+  id?: string;
   text: string;
   mix: PromptMix;
   sortOrder: number;
@@ -61,6 +71,7 @@ export function normalizePromptDraft(draft: PromptDraft): PromptDraft {
   const inferred = match ? mixFromPrefixLabel(match[1] || "") : null;
   return {
     ...draft,
+    id: draft.id,
     mix: inferred ?? draft.mix,
     text: stripMixLabelPrefix(draft.text),
   };
@@ -173,8 +184,15 @@ export function validatePromptSet(
   for (const prompt of normalizePromptDrafts(prompts)) {
     const vanity = isVanityPrompt(prompt.text, brand, prompt.mix);
     if (!vanity) continue;
-    // Trial packs: only empty text blocks Run. False SEO flags must not.
-    if (maxCount < PROMPT_COUNT && vanity !== "Write a full buyer question.") {
+    // Trial packs: empty text still blocks. Soften only definitional "what is X"
+    // so onboarding edits are not blocked by aggressive SEO false positives —
+    // brand-login / GEO / "does ChatGPT mention" still fail.
+    if (
+      maxCount < PROMPT_COUNT &&
+      vanity === VANITY_MESSAGE &&
+      isDefinitionalWhatIs(prompt.text.trim()) &&
+      !VANITY_PATTERNS.some((pattern) => pattern.test(prompt.text.trim()))
+    ) {
       continue;
     }
     return { ok: false, error: vanity };
@@ -248,6 +266,49 @@ function constraintPhrase(value: string) {
 function ensureQuestion(text: string) {
   const trimmed = text.trim().replace(/[.]+$/, "");
   return /[?!]$/.test(trimmed) ? trimmed : `${trimmed}?`;
+}
+
+/**
+ * Keep existing drafts and append pack lines until `targetCap`.
+ * Prefer underrepresented mixes; skip duplicate text. Idempotent at/above cap.
+ * Empty sets are left alone (caller generates a full pack on first setup).
+ */
+export function topUpPromptDrafts(
+  existing: PromptDraft[],
+  targetCap: number,
+  input: PromptPackInput,
+): PromptDraft[] {
+  const cap = Math.max(1, targetCap);
+  if (existing.length === 0 || existing.length >= cap) {
+    return existing.map((draft, index) => ({ ...draft, sortOrder: index + 1 }));
+  }
+
+  const needed = cap - existing.length;
+  const pack = generatePromptPack(input, { count: cap });
+  const used = new Set(existing.map((draft) => draft.text.trim().toLowerCase()));
+  const counts = mixCounts(existing);
+  const additions: PromptDraft[] = [];
+  const candidates = pack.filter((draft) => !used.has(draft.text.trim().toLowerCase()));
+
+  while (additions.length < needed && candidates.length > 0) {
+    candidates.sort((a, b) => {
+      const aCount = counts[a.mix] + additions.filter((row) => row.mix === a.mix).length;
+      const bCount = counts[b.mix] + additions.filter((row) => row.mix === b.mix).length;
+      if (aCount !== bCount) return aCount - bCount;
+      return a.sortOrder - b.sortOrder;
+    });
+    const next = candidates.shift();
+    if (!next) break;
+    const key = next.text.trim().toLowerCase();
+    if (used.has(key)) continue;
+    used.add(key);
+    additions.push(next);
+  }
+
+  return [...existing, ...additions].map((draft, index) => ({
+    ...draft,
+    sortOrder: index + 1,
+  }));
 }
 
 export function generatePromptPack(input: PromptPackInput, options?: PromptCountOptions): PromptDraft[] {
@@ -422,6 +483,38 @@ Return only the numbered list.`;
   return { prompts: generatePromptPack(input, { count }), source: "template" };
 }
 
+/** Infer mix from labels or buyer-question shape — not solely list position. */
+export function inferMixFromText(text: string): PromptMix | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const labeled = trimmed.match(MIX_LABEL_PREFIX);
+  if (labeled) {
+    const fromLabel = mixFromPrefixLabel(labeled[1] || "");
+    if (fromLabel) return fromLabel;
+  }
+  const t = stripMixLabelPrefix(trimmed).toLowerCase();
+
+  if (/\bvs\.?\b|\bversus\b/.test(t)) return "comparison";
+  if (/\b(switch(?:ing)?|leave|still worth|problems with|why do .+ leave)\b/.test(t)) return "switch";
+  if (/\b(instead of|better than|replacement|replace\b|who is better)\b/.test(t)) return "incumbent";
+  if (
+    /\b(alternatives? for|compared to)\b/.test(t) &&
+    !/\b(best|top)\b/.test(t)
+  ) {
+    return "comparison";
+  }
+  if (
+    /\b(which .+ (?:tool|platform|software|vendor) (?:can|should|help)|affordable .+ for|that need(?:s)? to|with (?:slack|google drive)|who need to)\b/.test(
+      t,
+    )
+  ) {
+    return "job";
+  }
+  if (/\b(best|top|which .+ (?:tool|platform|vendor|option|shortlist))\b/.test(t)) return "discovery";
+  if (/\balternatives?\b/.test(t)) return "incumbent";
+  return null;
+}
+
 function parseNumberedPrompts(content: string, count = PROMPT_COUNT): PromptDraft[] {
   const lines = content
     .split("\n")
@@ -430,7 +523,8 @@ function parseNumberedPrompts(content: string, count = PROMPT_COUNT): PromptDraf
   if (lines.length < count) {
     return [];
   }
-  return generatePromptPack(
+
+  const positionFallback = generatePromptPack(
     {
       brand: "brand",
       category: "category",
@@ -439,10 +533,33 @@ function parseNumberedPrompts(content: string, count = PROMPT_COUNT): PromptDraf
       competitors: [],
     },
     { count },
-  ).map((row, index) =>
-    normalizePromptDraft({
-      ...row,
-      text: lines[index] ?? row.text,
-    }),
   );
+
+  const drafts = lines.slice(0, count).map((line, index) => {
+    const inferred = inferMixFromText(line);
+    return normalizePromptDraft({
+      text: line,
+      mix: inferred ?? positionFallback[index]?.mix ?? MIXES[index % MIXES.length],
+      sortOrder: index + 1,
+    });
+  });
+
+  // Prefer content tags; if the pack is short of a mix for a locked 20-set, fill gaps
+  // from still-ambiguous lines using position order so save-time 4+4+4+4+4 can pass.
+  if (count >= PROMPT_COUNT) {
+    const locked = drafts.slice(0, PROMPT_COUNT);
+    if (!mixIsLocked(locked)) {
+      const counts = mixCounts(locked);
+      for (const draft of locked) {
+        if (inferMixFromText(draft.text)) continue;
+        const needed = MIXES.find((mix) => counts[mix] < MIX_TARGET);
+        if (!needed) break;
+        counts[draft.mix] -= 1;
+        draft.mix = needed;
+        counts[needed] += 1;
+      }
+    }
+  }
+
+  return drafts;
 }

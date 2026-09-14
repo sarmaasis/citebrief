@@ -26,14 +26,14 @@ export function RunNowButton({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
-  const [extra, setExtra] = useState(false);
+  const [usedCredit, setUsedCredit] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
   async function run() {
     setPending(true);
     setError(null);
     setCode(null);
-    setExtra(false);
+    setUsedCredit(false);
     setShowUpgrade(false);
     try {
       const response = await fetch(`/api/brands/${brandId}/runs`, {
@@ -45,6 +45,7 @@ export function RunNowButton({
         runId?: string;
         error?: string;
         extraRun?: boolean;
+        consumeCredit?: boolean;
         code?: string;
       };
       if (!response.ok || !data.runId) {
@@ -53,7 +54,7 @@ export function RunNowButton({
         if (response.status === 402) setShowUpgrade(true);
         return;
       }
-      if (data.extraRun) setExtra(true);
+      if (data.consumeCredit) setUsedCredit(true);
       const focus = promptId ? `?prompt=${encodeURIComponent(promptId)}` : "";
       router.push(`/app/brands/${brandId}/runs/${data.runId}${focus}`);
     } finally {
@@ -92,9 +93,9 @@ export function RunNowButton({
         {pending ? "Queuing…" : label}
       </Button>
       {hint ? <p className="max-w-[220px] text-right text-xs text-cb-muted">{hint}</p> : null}
-      {extra ? (
+      {usedCredit ? (
         <p className="max-w-[220px] text-right text-xs text-cb-pending">
-          This run is outside the included cap and will be metered.
+          This run used a prepaid extra-run credit.
         </p>
       ) : null}
       {error && !showUpgrade ? <p className="max-w-[220px] text-right text-xs text-cb-danger">{error}</p> : null}

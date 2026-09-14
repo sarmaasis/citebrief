@@ -25,6 +25,7 @@ import {
   pdfRetentionExpired,
   reportSendBlockedReason,
   reportSendDenial,
+  subscriptionEndedAt,
   workspaceEntitlements,
 } from "./entitlements";
 import { suggestedClientEmail } from "./report-writer";
@@ -58,13 +59,22 @@ assert.equal(workspaceEntitlements(trial).seatCap, 1);
 assert.equal(workspaceEntitlements(trial).allowsWeeklyCadence, false);
 assert.equal(workspaceEntitlements(trial).allowsMembers, false);
 assert.equal(workspaceEntitlements(trial).allowsHistory, false);
-assert.equal(workspaceEntitlements(trial).allowsClientCc, false);
+assert.equal(workspaceEntitlements(trial).allowsTrialClientCc, true);
+assert.equal(workspaceEntitlements(trial).allowsClientCc, true);
 assert.equal(workspaceEntitlements(trial).allowsSlack, false);
 assert.equal(workspaceEntitlements(trial).allowsEmailSend, false);
 assert.equal(workspaceEntitlements(trial).allowsCommandCenter, false);
 assert.equal(workspaceEntitlements(trial).allowsPortfolioRollups, false);
 assert.equal(workspaceEntitlements(trial).allowsWeeklySendQueue, false);
 assert.equal(workspaceEntitlements(null).allowsHistory, false);
+assert.equal(
+  workspaceEntitlements({ ...trial, trialClientCcUsed: true }).allowsTrialClientCc,
+  false,
+);
+assert.equal(
+  workspaceEntitlements({ ...trial, trialClientCcUsed: true }).allowsClientCc,
+  false,
+);
 
 const paidAgency = {
   plan: "agency",
@@ -185,6 +195,23 @@ assert.equal(
 );
 assert.equal(reportSendBlockedReason({ ccClient: "  ", allowsEmailSend: true, allowsClientCc: false }), null);
 assert.equal(reportSendBlockedReason({ allowsEmailSend: true, allowsClientCc: false }), null);
+assert.equal(
+  reportSendBlockedReason({
+    ccClient: "client@example.com",
+    allowsEmailSend: false,
+    allowsClientCc: true,
+    allowsTrialClientCc: true,
+  }),
+  null,
+);
+assert.match(
+  reportSendBlockedReason({
+    allowsEmailSend: false,
+    allowsClientCc: true,
+    allowsTrialClientCc: true,
+  }) ?? "",
+  /client CC/i,
+);
 
 const starterSend = reportSendDenial({
   allowsEmailSend: workspaceEntitlements(paidStarter).allowsEmailSend,
@@ -202,8 +229,32 @@ assert.equal(agencySend, null);
 const trialSend = reportSendDenial({
   allowsEmailSend: workspaceEntitlements(trial).allowsEmailSend,
   allowsClientCc: workspaceEntitlements(trial).allowsClientCc,
+  allowsTrialClientCc: workspaceEntitlements(trial).allowsTrialClientCc,
 });
 assert.equal(trialSend?.status, 403);
+
+const trialCcSend = reportSendDenial({
+  ccClient: "client@example.com",
+  allowsEmailSend: workspaceEntitlements(trial).allowsEmailSend,
+  allowsClientCc: workspaceEntitlements(trial).allowsClientCc,
+  allowsTrialClientCc: workspaceEntitlements(trial).allowsTrialClientCc,
+});
+assert.equal(trialCcSend, null);
+
+const cancelledPaidNoPeriod = {
+  plan: "agency",
+  status: "cancelled",
+  trialEndsAt: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000),
+  currentPeriodEnd: null,
+};
+const endedAt = subscriptionEndedAt(cancelledPaidNoPeriod, Date.now());
+assert.ok(endedAt);
+assert.notEqual(endedAt?.getTime(), cancelledPaidNoPeriod.trialEndsAt.getTime());
+assert.equal(pdfRetentionExpired(cancelledPaidNoPeriod), false);
+assert.equal(
+  pdfRetentionExpired(cancelledPaidNoPeriod, Date.now() + 100 * 24 * 60 * 60 * 1000),
+  true,
+);
 
 assert.equal(shouldSettleBillableExtra("complete"), true);
 assert.equal(shouldSettleBillableExtra("partial"), true);

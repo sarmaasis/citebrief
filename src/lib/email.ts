@@ -39,6 +39,8 @@ type SendArgs = {
   senderName?: string | null;
   senderDomain?: string | null;
   customSender?: boolean;
+  /** Required with customSender + domain to send as reports@{domain}. */
+  domainVerified?: boolean;
 };
 
 export function isEmailBindingReady(env?: EmailEnv | null): boolean {
@@ -68,12 +70,19 @@ export function resolveFromAddress(args: {
   senderName?: string | null;
   senderDomain?: string | null;
   customSender?: boolean;
+  /** When false/undefined, custom domain is ignored and From stays on getcitebrief.com. */
+  domainVerified?: boolean;
 }): string {
   const fallback = args.env.CF_EMAIL_FROM?.trim() || DEFAULT_FROM;
   if (!args.customSender) return fallback;
   const name = args.senderName?.trim();
   const domain = args.senderDomain?.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-  if (name && domain && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
+  if (
+    args.domainVerified &&
+    name &&
+    domain &&
+    /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)
+  ) {
     return `${name} <reports@${domain}>`;
   }
   if (name) {
@@ -98,6 +107,7 @@ export async function sendTransactionalEmail({
   senderName,
   senderDomain,
   customSender,
+  domainVerified,
 }: SendArgs): Promise<{ ok: true; stubbed?: boolean; messageId?: string }> {
   const decision = emailSendDecision(env);
   if (decision.action === "fail") {
@@ -108,7 +118,9 @@ export async function sendTransactionalEmail({
     return { ok: true, stubbed: true };
   }
 
-  const from = parseFromAddress(resolveFromAddress({ env, senderName, senderDomain, customSender }));
+  const from = parseFromAddress(
+    resolveFromAddress({ env, senderName, senderDomain, customSender, domainVerified }),
+  );
   const result = await env.EMAIL!.send({
     to,
     from,

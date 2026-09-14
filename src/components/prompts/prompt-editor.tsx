@@ -54,7 +54,7 @@ export function PromptEditor({
         {prompts.map((prompt, index) => {
           const vanity = isVanityPrompt(prompt.text, brandName, prompt.mix);
           return (
-            <li key={`${prompt.sortOrder}-${index}`} className="rounded-cb-card border border-cb-line bg-cb-surface p-3">
+            <li key={prompt.id ?? `${prompt.sortOrder}-${index}`} className="rounded-cb-card border border-cb-line bg-cb-surface p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="font-mono text-xs text-cb-muted">{String(index + 1).padStart(2, "0")}</span>
                 <NativeSelect

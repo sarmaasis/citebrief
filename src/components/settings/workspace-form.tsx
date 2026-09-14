@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
-import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { EnginePicker } from "@/components/settings/engine-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,8 +35,6 @@ export function WorkspaceForm({
   initial: {
     name: string;
     timezone: string;
-    senderName: string;
-    senderDomain: string;
     defaultEngines: string;
     slackWebhookUrl: string;
     minutesSavedPerReport: number;
@@ -54,15 +50,12 @@ export function WorkspaceForm({
 }) {
   const [name, setName] = useState(initial.name);
   const [timezone, setTimezone] = useState(initial.timezone);
-  const [senderName, setSenderName] = useState(initial.senderName);
-  const [senderDomain, setSenderDomain] = useState(initial.senderDomain);
   const [defaultEngines, setDefaultEngines] = useState(initial.defaultEngines);
   const [slackWebhookUrl, setSlackWebhookUrl] = useState(initial.slackWebhookUrl);
   const [minutesSavedPerReport, setMinutesSavedPerReport] = useState(String(initial.minutesSavedPerReport));
   const [notifyHighRisks, setNotifyHighRisks] = useState(initial.notifyHighRisks);
   const [notice, setNotice] = useState<FormNotice | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showSenderUpgrade, setShowSenderUpgrade] = useState(false);
   const timezoneOptions = TIMEZONES.includes(timezone) ? TIMEZONES : [timezone, ...TIMEZONES];
 
   async function onSubmit(event: React.FormEvent) {
@@ -76,8 +69,6 @@ export function WorkspaceForm({
         body: JSON.stringify({
           name,
           timezone,
-          senderName,
-          senderDomain,
           defaultEngines,
           slackWebhookUrl,
           minutesSavedPerReport: Number(minutesSavedPerReport),
@@ -87,9 +78,6 @@ export function WorkspaceForm({
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
         setNotice({ type: "error", text: data.error ?? "Could not save workspace." });
-        if (data.error?.toLowerCase().includes("sender")) {
-          setShowSenderUpgrade(true);
-        }
         return;
       }
       setNotice({ type: "success", text: "Workspace saved. Friday cron uses this timezone at 06:00." });
@@ -100,14 +88,6 @@ export function WorkspaceForm({
 
   return (
     <div className="space-y-6">
-      {showSenderUpgrade ? (
-        <UpgradePrompt
-          title={UPGRADE_COPY.customSender.title}
-          body={UPGRADE_COPY.customSender.body}
-          cta={UPGRADE_COPY.customSender.cta}
-          onDismiss={() => setShowSenderUpgrade(false)}
-        />
-      ) : null}
       <form onSubmit={onSubmit} className="max-w-lg space-y-4">
         <div className="space-y-2">
           <Label htmlFor="name">Workspace name</Label>
@@ -124,44 +104,15 @@ export function WorkspaceForm({
           </NativeSelect>
           <p className="text-xs text-cb-muted">Friday reports queue at 06:00 in this timezone.</p>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="senderName">Email sender name</Label>
-          <Input
-            id="senderName"
-            value={senderName}
-            onChange={(e) => {
-              setSenderName(e.target.value);
-              if (!customSenderAllowed && e.target.value.trim() && e.target.value.trim() !== "CiteBrief") {
-                setShowSenderUpgrade(true);
-              }
-            }}
-            placeholder="CiteBrief"
-          />
-          {!customSenderAllowed ? (
-            <p className="text-xs text-cb-muted">
-              Starter and Agency use the CiteBrief sender. Custom sender name and domain are Studio.
-            </p>
-          ) : (
-            <p className="text-xs text-cb-muted">Studio custom sender name. Domain setup is handled in DNS.</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="senderDomain">Sender domain</Label>
-          <Input
-            id="senderDomain"
-            value={senderDomain}
-            onChange={(e) => {
-              setSenderDomain(e.target.value);
-              if (!customSenderAllowed && e.target.value.trim()) setShowSenderUpgrade(true);
-            }}
-            placeholder="mail.agency.com"
-            disabled={!customSenderAllowed}
-          />
-          <p className="text-xs text-cb-muted">
-            {customSenderAllowed
-              ? "Studio custom domain. DNS is configured after this hostname is saved."
-              : "Custom sender domain is Studio."}
-          </p>
+        <div className="rounded-cb-control border border-cb-line bg-cb-bg px-3 py-3 text-sm text-cb-muted">
+          Email sender and custom domain are managed under{" "}
+          <a href="/app/settings/domains" className="text-cb-accent underline-offset-2 hover:underline">
+            Domains
+          </a>
+          .{" "}
+          {customSenderAllowed
+            ? "Studio can verify a custom reports@ domain there."
+            : "Trial and Agency use CiteBrief on getcitebrief.com; Studio unlocks a custom sender."}
         </div>
         <EnginePicker
           value={defaultEngines}

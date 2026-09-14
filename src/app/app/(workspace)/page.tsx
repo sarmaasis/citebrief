@@ -72,7 +72,7 @@ export default async function AppHomePage({
           href="/app/onboarding"
           steps={[
             "Add your brand and category context",
-            "Generate 20 buyer questions",
+            `Generate ${ent.promptCap} buyer questions`,
             "Run the first report on ChatGPT + Gemini",
           ]}
         />

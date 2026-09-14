@@ -20,6 +20,16 @@ export const workspaces = sqliteTable("workspaces", {
   timezone: text("timezone").notNull().default("America/New_York"),
   senderName: text("sender_name"),
   senderDomain: text("sender_domain"),
+  /** Owner-attested SPF record for Studio custom sender domain. */
+  senderDomainSpfOk: integer("sender_domain_spf_ok", { mode: "boolean" }).notNull().default(false),
+  /** Owner-attested DKIM (cf-bounce._domainkey) for Studio custom sender. */
+  senderDomainDkimOk: integer("sender_domain_dkim_ok", { mode: "boolean" }).notNull().default(false),
+  /** Owner-attested DMARC for Studio custom sender. */
+  senderDomainDmarcOk: integer("sender_domain_dmarc_ok", { mode: "boolean" }).notNull().default(false),
+  /** Owner-attested: hostname onboarded on Cloudflare Email Sending. */
+  senderDomainCfOk: integer("sender_domain_cf_ok", { mode: "boolean" }).notNull().default(false),
+  /** Set when all four checklist items are true; cleared when domain changes. */
+  senderDomainVerifiedAt: integer("sender_domain_verified_at", { mode: "timestamp_ms" }),
   defaultEngines: text("default_engines"),
   slackWebhookUrl: text("slack_webhook_url"),
   /** PRODUCT §18.2.1: owner-adjustable minutes saved per generated report (45–90). */
@@ -99,10 +109,15 @@ export const prompts = sqliteTable(
     text: text("text").notNull(),
     mix: text("mix").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
+    /** Soft-archive: keep IDs so historical run_rows / report joins survive replace. */
+    archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [index("prompts_brand_idx").on(table.brandId)],
+  (table) => [
+    index("prompts_brand_idx").on(table.brandId),
+    index("prompts_brand_active_idx").on(table.brandId, table.archivedAt),
+  ],
 );
 
 export const runs = sqliteTable(
@@ -219,6 +234,13 @@ export const subscriptions = sqliteTable(
     extraRunCredits: integer("extra_run_credits").notNull().default(0),
     premiumEnginePack: integer("premium_engine_pack", { mode: "boolean" }).notNull().default(false),
     billingInterval: text("billing_interval").notNull().default("monthly"),
+    /**
+     * When set, monthly recheck + billable-extra meters only count runs on/after
+     * this instant (also clamped to start of calendar month). Set on plan change.
+     */
+    planMeteringSince: integer("plan_metering_since", { mode: "timestamp_ms" }),
+    /** Trial conversion: one CiteBrief-branded client CC already used. */
+    trialClientCcUsed: integer("trial_client_cc_used", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
