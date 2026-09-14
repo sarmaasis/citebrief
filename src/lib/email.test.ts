@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { fridayReportEmail, inviteEmail, magicLinkEmail, verifyEmail } from "../emails";
+import { fridayReportEmail, highRiskDigestEmail, inviteEmail, magicLinkEmail, verifyEmail } from "../emails";
 import {
   DEFAULT_FROM,
   emailSendDecision,
@@ -59,6 +59,15 @@ assert.match(friday.html, /ClickUp still wins/);
 assert.match(friday.html, /Open the report/);
 assert.match(friday.html, /https:\/\/getcitebrief.com\/r\/token/);
 assert.match(friday.text, /Northstar/);
+
+const riskDigest = highRiskDigestEmail({
+  workspaceName: "Harbor",
+  risks: [{ brandName: "Northstar", whatHappened: "Named score dropped 3." }],
+  risksUrl: "https://getcitebrief.com/app/risks",
+});
+assert.match(riskDigest.subject, /1 high-risk/);
+assert.match(riskDigest.html, /Northstar/);
+assert.match(riskDigest.html, /Open risk alerts/);
 
 const client = fridayReportEmail({
   brandName: "Northstar",

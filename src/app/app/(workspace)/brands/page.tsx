@@ -155,9 +155,10 @@ export default async function BrandsPage({
       {rows.length === 0 ? (
         <EmptyState
           title="No brands yet"
-          line="Start the first Friday report."
+          line="Scorecards appear after you add a brand and run a report. Start with onboarding — one brand is enough to prove the workflow."
           cta="Add a brand"
           href="/app/onboarding"
+          steps={["Add a brand", "Generate prompts", "Run the first Friday report"]}
         />
       ) : !tableView && !includeArchived ? (
         filteredScorecards.length === 0 ? (

@@ -24,6 +24,9 @@ export const workspaces = sqliteTable("workspaces", {
   slackWebhookUrl: text("slack_webhook_url"),
   /** PRODUCT §18.2.1: owner-adjustable minutes saved per generated report (45–90). */
   minutesSavedPerReport: integer("minutes_saved_per_report").notNull().default(60),
+  /** When true, Friday cron emails a digest of At-risk clients (Agency+). */
+  notifyHighRisks: integer("notify_high_risks", { mode: "boolean" }).notNull().default(false),
+  highRiskLastNotifiedAt: integer("high_risk_last_notified_at", { mode: "timestamp_ms" }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

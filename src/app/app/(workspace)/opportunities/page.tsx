@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/app/empty-state";
 import { LockedModule } from "@/components/app/locked-module";
 import { OpportunityStatusControl } from "@/components/app/opportunity-status";
 import { PortfolioFilters } from "@/components/app/portfolio-filters";
+import { StudioBadge, StudioUpgradeHint } from "@/components/app/studio-badge";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { pageFilters } from "@/lib/command-center";
 import { dashboardModulesForPlan } from "@/lib/dashboard-metrics";
@@ -52,18 +53,28 @@ export default async function OpportunitiesPage({
     return (
       <div>
         <h1 className="mb-8 text-xl font-semibold tracking-tight">Opportunities</h1>
-        <EmptyState title="No brands yet" line="Start the first Friday report." cta="Add a brand" href="/app/onboarding" />
+        <EmptyState
+          title="No brands yet"
+          line="Opportunities appear after a Friday report finds gaps — comparison pages, PR placements, and source refreshes."
+          cta="Add a brand"
+          href="/app/onboarding"
+          steps={["Add a brand", "Run a report", "Return here for the action queue"]}
+        />
       </div>
     );
   }
 
   const fullQueue = modules.opportunityQueue;
-  const owners = [...new Set(allRows.map((row) => row.brand.clientOwner).filter((value): value is string => Boolean(value)))].sort();
+  const owners = [
+    ...new Set(allRows.map((row) => row.brand.clientOwner).filter((value): value is string => Boolean(value))),
+  ].sort();
   const brands = allRows.map((row) => ({ id: row.brand.id, name: row.brand.name }));
   let items = fullQueue ? snapshot.opportunities : snapshot.opportunities.slice(0, 3);
   if (filters.brandId) items = items.filter((item) => item.brandId === filters.brandId);
   if (fullQueue && filters.owner) {
-    const owned = new Set(allRows.filter((row) => row.brand.clientOwner === filters.owner).map((row) => row.brand.id));
+    const owned = new Set(
+      allRows.filter((row) => row.brand.clientOwner === filters.owner).map((row) => row.brand.id),
+    );
     items = items.filter((item) => owned.has(item.brandId));
   }
   if (fullQueue && filters.opportunityType) {
@@ -78,21 +89,41 @@ export default async function OpportunitiesPage({
           ? "Action queue from stored reports. Impact, effort, and status for the next client conversation."
           : "Basic opportunities from your latest report. Agency unlocks the full multi-client queue with status and owners."}
       </p>
+      {fullQueue && !modules.opportunityScoring ? (
+        <div className="mt-4">
+          <StudioUpgradeHint
+            title="Priority opportunity scoring"
+            body="Studio doubles scoring weight so the queue sorts like a consultant triage — high-impact, lower-effort work floats first across the portfolio."
+          />
+        </div>
+      ) : null}
       {fullQueue ? (
         <div className="mt-6">
           <PortfolioFilters fields={["opportunityType", "owner", "brandId"]} owners={owners} brands={brands} />
         </div>
       ) : null}
       {items.length === 0 ? (
-        <p className="mt-8 text-sm text-cb-muted">
-          {filters.opportunityType || filters.owner || filters.brandId
-            ? "No opportunities in this filter."
-            : "No comparison gaps or visibility drops in the latest reports. Run or review a report to find the next piece of work."}
-        </p>
+        <div className="mt-8">
+          <EmptyState
+            title="No open opportunities"
+            line={
+              filters.opportunityType || filters.owner || filters.brandId
+                ? "No opportunities in this filter."
+                : "No comparison gaps or visibility drops in the latest reports. Run or review a report to find the next piece of work."
+            }
+            cta="Open brands"
+            href="/app/brands"
+            secondaryCta="Overview"
+            secondaryHref="/app"
+          />
+        </div>
       ) : (
         <div className="mt-8 grid gap-4">
           {items.map((item) => (
-            <article key={`${item.brandId}-${item.key}`} className="min-w-0 rounded-cb-card border border-cb-line bg-cb-surface p-5">
+            <article
+              key={`${item.brandId}-${item.key}`}
+              className="min-w-0 rounded-cb-card border border-cb-line bg-cb-surface p-5"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{item.title}</p>
@@ -102,7 +133,11 @@ export default async function OpportunitiesPage({
                   <span className="rounded-cb-control bg-cb-muted-bg px-2 py-1 capitalize">{item.status}</span>
                   <span>{item.impact} impact</span>
                   <span>{item.effort} effort</span>
-                  {fullQueue && item.priorityScore > 0 ? (
+                  {fullQueue && modules.opportunityScoring && item.priorityScore > 0 ? (
+                    <span className="inline-flex items-center gap-1 font-mono tabular-nums">
+                      <StudioBadge /> P{item.priorityScore}
+                    </span>
+                  ) : fullQueue && item.priorityScore > 0 ? (
                     <span className="font-mono tabular-nums">P{item.priorityScore}</span>
                   ) : null}
                 </div>

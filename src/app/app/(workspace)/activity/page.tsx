@@ -42,9 +42,12 @@ export default async function ActivityPage() {
         <h1 className="mb-8 text-xl font-semibold tracking-tight">Activity</h1>
         <EmptyState
           title="No activity yet"
-          line="Runs, reports, and planned opportunities will show up here."
+          line="Runs, reports, and planned opportunities will show up here after the first Friday workflow."
           cta="Add a brand"
           href="/app/onboarding"
+          secondaryCta="Go to Overview"
+          secondaryHref="/app"
+          steps={["Add a brand", "Run a report", "Watch the timeline fill in"]}
         />
       </div>
     );

@@ -113,6 +113,8 @@ export type PromptPerformanceRow = {
   enginesChecked: string[];
   lastAnswerSummary: string | null;
   movement: number | null;
+  /** Chronological visibility scores across recent reports (0 / 50 / 100). */
+  scoreHistory: number[];
   filterTags: Array<
     "winning" | "losing" | "no_mention" | "competitor_wins" | "high_intent" | "recently_changed" | "failed"
   >;
@@ -162,6 +164,8 @@ export type RiskAlertItem = {
   affectedPrompts: string[];
   affectedEngines: string[];
   href: string;
+  /** True when the risk is newer than the last high-risk email digest (in-app unread). */
+  unread?: boolean;
 };
 
 export type ActionHistoryItem = {
@@ -462,6 +466,10 @@ export function buildOpportunityQueueItem(
   const opportunity = opportunityFromRow(row);
   if (!opportunity) return null;
   const effort = effortForOpportunity(opportunity.key);
+  const relatedBit =
+    related?.relatedPrompt || related?.relatedEngine
+      ? ` Signal: ${[related.relatedEngine, related.relatedPrompt].filter(Boolean).join(" · ")}.`
+      : "";
   return {
     key: opportunity.key,
     title: opportunity.type,
@@ -473,7 +481,7 @@ export function buildOpportunityQueueItem(
     impact: opportunity.value,
     effort,
     suggestedAction: opportunity.service,
-    reason: opportunity.reason,
+    reason: `${opportunity.reason}${relatedBit}`,
     suggestedPage: suggestedPageForOpportunity(opportunity.key),
     owner: row.brand.clientOwner ?? null,
     status,
@@ -493,12 +501,22 @@ export function buildRiskAlert(
     lastSeenAt?: string | null;
     affectedPrompts?: string[];
     affectedEngines?: string[];
+    lastNotifiedAt?: string | Date | null;
   },
 ): RiskAlertItem | null {
   const risk = clientRisk(row);
   if (risk === "stable") return null;
   const why = riskWhy(row);
   const opportunity = opportunityFromRow(row);
+  const lastSeenAt = extras?.lastSeenAt ?? row.latestReport?.createdAt?.toString?.() ?? null;
+  const firstSeenAt = extras?.firstSeenAt ?? null;
+  const lastNotifiedMs = extras?.lastNotifiedAt
+    ? new Date(extras.lastNotifiedAt).getTime()
+    : null;
+  const seenMs = lastSeenAt ? new Date(lastSeenAt).getTime() : firstSeenAt ? new Date(firstSeenAt).getTime() : null;
+  const unread =
+    risk === "at_risk" &&
+    (lastNotifiedMs == null || (seenMs != null && !Number.isNaN(seenMs) && seenMs > lastNotifiedMs));
   return {
     brandId: row.brand.id,
     brandName: row.brand.name,
@@ -509,13 +527,14 @@ export function buildRiskAlert(
         ? "Client retention risk — visibility or send workflow needs attention this week."
         : "Early warning — address before the next Friday send.",
     recommendedFix: opportunity?.service ?? weeklyAction(row, true)?.verb ?? "Review the latest report",
-    firstSeenAt: extras?.firstSeenAt ?? null,
-    lastSeenAt: extras?.lastSeenAt ?? row.latestReport?.createdAt?.toString?.() ?? null,
+    firstSeenAt,
+    lastSeenAt,
     affectedPrompts: extras?.affectedPrompts ?? [],
     affectedEngines: extras?.affectedEngines ?? [],
     href: row.latestReport
       ? `/app/brands/${row.brand.id}/reports/${row.latestReport.id}`
       : `/app/brands/${row.brand.id}`,
+    unread,
   };
 }
 

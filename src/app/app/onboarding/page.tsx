@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
@@ -35,9 +36,9 @@ export default async function OnboardingPage({
           <h1 className="text-xl font-semibold tracking-tight">Brand limit reached</h1>
           <UpgradePrompt title={upgrade.title} body={upgradeHintForBrandCap(ent)} cta={upgrade.cta} />
           <p className="text-sm text-cb-muted">
-            <a href="/app/brands" className="text-cb-accent">
+            <Link href="/app/brands" className="text-cb-accent">
               Back to brands
-            </a>
+            </Link>
           </p>
         </div>
       );

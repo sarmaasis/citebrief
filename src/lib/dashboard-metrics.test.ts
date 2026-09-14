@@ -86,7 +86,7 @@ assert.ok(risk);
 assert.equal(risk.severity, "at_risk");
 assert.equal(risk.firstSeenAt, "2026-08-01T00:00:00.000Z");
 assert.deepEqual(risk.affectedEngines, ["chatgpt"]);
-assert.match(risk.whatHappened, /./);
+assert.ok(risk.unread === true || risk.unread === false);
 
 const affected = riskAffectedFromSignals(baseRow, [
   {

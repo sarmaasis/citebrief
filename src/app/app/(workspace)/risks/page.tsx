@@ -50,7 +50,7 @@ export default async function RisksPage({
     return (
       <div>
         <h1 className="mb-8 text-xl font-semibold tracking-tight">Risks</h1>
-        <EmptyState title="No brands yet" line="Start the first Friday report." cta="Add a brand" href="/app/onboarding" />
+        <EmptyState title="No brands yet" line="Risk alerts roll up Watch / At risk clients from stored reports after you add a brand and run Friday." cta="Add a brand" href="/app/onboarding" steps={["Add a brand", "Run a report", "Watch At-risk clients here"]} />
       </div>
     );
   }
@@ -68,22 +68,47 @@ export default async function RisksPage({
   const showFirstSeen = alerts.some((item) => item.firstSeenAt);
   const showAffectedPrompts = alerts.some((item) => item.affectedPrompts.length > 0);
   const showAffectedEngines = alerts.some((item) => item.affectedEngines.length > 0);
+  const unreadCount = alerts.filter((item) => item.unread && item.severity === "at_risk").length;
 
   return (
     <div className="min-w-0">
       <h1 className="text-xl font-semibold tracking-tight">Risks</h1>
       <p className="mt-1 text-sm text-cb-muted">
         Severity, what happened, why it matters, and the recommended fix — from stored reports.
+        {snapshot.highRiskLastNotifiedAt
+          ? ` Last high-risk email ${formatShortDate(new Date(snapshot.highRiskLastNotifiedAt))}.`
+          : snapshot.notifyHighRisks
+            ? " High-risk Friday email is on; no digest sent yet."
+            : ""}
+        {unreadCount > 0 ? ` ${unreadCount} unread At-risk alert${unreadCount === 1 ? "" : "s"}.` : ""}
       </p>
+      {!snapshot.notifyHighRisks ? (
+        <p className="mt-2 text-xs text-cb-muted">
+          Turn on “Email me when clients are At risk” in{" "}
+          <Link href="/app/settings/workspace" className="text-cb-accent">
+            Workspace settings
+          </Link>{" "}
+          for a Friday digest.
+        </p>
+      ) : null}
       <div className="mt-6">
         <PortfolioFilters fields={["risk", "owner", "brandId"]} owners={owners} brands={brands} />
       </div>
       {alerts.length === 0 ? (
-        <p className="mt-8 text-sm text-cb-muted">
-          {filters.risk || filters.owner || filters.brandId
-            ? "No clients in this filter."
-            : "No Watch or At risk clients this week."}
-        </p>
+        <div className="mt-8">
+          {filters.risk || filters.owner || filters.brandId ? (
+            <p className="text-sm text-cb-muted">No clients in this filter.</p>
+          ) : (
+            <EmptyState
+              title="No Watch or At risk clients"
+              line="When named scores drop, competitors lead, or sends slip, alerts land here with a recommended fix."
+              cta="Open Overview"
+              href="/app"
+              secondaryCta="Run a brand"
+              secondaryHref="/app/brands"
+            />
+          )}
+        </div>
       ) : (
         <div className="mt-8">
           <DataTable minWidth="1080px">
@@ -102,9 +127,19 @@ export default async function RisksPage({
             </thead>
             <tbody>
               {alerts.map((item) => (
-                <tr key={item.brandId} className="h-12 border-b border-cb-line last:border-0">
+                <tr
+                  key={item.brandId}
+                  className={
+                    item.unread && item.severity === "at_risk"
+                      ? "h-12 border-b border-cb-line bg-cb-accent-subtle/40 last:border-0"
+                      : "h-12 border-b border-cb-line last:border-0"
+                  }
+                >
                   <Td>
                     <Link href={item.href} className="text-cb-accent">
+                      {item.unread && item.severity === "at_risk" ? (
+                        <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-cb-accent align-middle" aria-label="Unread" />
+                      ) : null}
                       {item.brandName}
                     </Link>
                   </Td>

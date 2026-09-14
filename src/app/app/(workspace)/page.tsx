@@ -67,9 +67,14 @@ export default async function AppHomePage({
         <h1 className="mb-8 text-xl font-semibold tracking-tight">Overview</h1>
         <EmptyState
           title="No brands yet"
-          line="Start the first Friday report."
+          line="Add a brand, generate buyer questions, and run the first Friday report — Overview fills in from stored answers."
           cta="Add a brand"
           href="/app/onboarding"
+          steps={[
+            "Add your brand and category context",
+            "Generate 20 buyer questions",
+            "Run the first report on ChatGPT + Gemini",
+          ]}
         />
       </div>
     );
@@ -428,9 +433,12 @@ function LightHome({
         <h1 className="mb-8 text-xl font-semibold tracking-tight">Overview</h1>
         <EmptyState
           title="No brands yet"
-          line="Start the first Friday report."
+          line="Trial and Starter start here: add one brand, generate prompts, and run the first report."
           cta="Add a brand"
           href="/app/onboarding"
+          secondaryCta="See plans"
+          secondaryHref="/app/settings/billing"
+          steps={["Add a brand", "Generate prompts", "Run ChatGPT + Gemini"]}
         />
       </div>
     );

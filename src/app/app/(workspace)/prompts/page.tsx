@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DataTable, Td, Th } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
+import { Sparkline } from "@/components/app/sparkline";
 import { RunNowButton } from "@/components/brands/run-now-button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { getAppContext } from "@/lib/session";
@@ -25,9 +26,10 @@ export default async function PromptsPerformancePage({
         <h1 className="mb-8 text-xl font-semibold tracking-tight">Prompts</h1>
         <EmptyState
           title="No brands yet"
-          line="Generate buyer questions after you add a brand."
+          line="Generate buyer questions after you add a brand — then track mention and recommendation performance per prompt."
           cta="Add a brand"
           href="/app/onboarding"
+          steps={["Add a brand", "Generate prompts", "Run a report to see performance"]}
         />
       </div>
     );
@@ -120,17 +122,25 @@ export default async function PromptsPerformancePage({
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-cb-muted">
-          {items.length === 0 ? "Run a report to see prompt performance." : "No prompts match this filter."}
-        </p>
+        <EmptyState
+          title={items.length === 0 ? "No prompt performance yet" : "No prompts match this filter"}
+          line={
+            items.length === 0
+              ? "Run a Friday report to score each buyer question for mention, recommendation, and competitors."
+              : "Try All or another filter to see tracked prompts."
+          }
+          cta={items.length === 0 ? "Open brands" : "Clear filter"}
+          href={items.length === 0 ? "/app/brands" : "/app/prompts"}
+        />
       ) : (
-        <DataTable minWidth="1040px">
+        <DataTable minWidth="1120px">
           <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
             <tr className="h-12 border-b border-cb-line">
               <Th>Prompt</Th>
               <Th>Brand</Th>
               <Th>Mix</Th>
               <Th>Score</Th>
+              <Th>Trend</Th>
               <Th>Status</Th>
               <Th>Position</Th>
               <Th>Competitors</Th>
@@ -159,6 +169,9 @@ export default async function PromptsPerformancePage({
                 </Td>
                 <Td className="text-cb-muted">{item.mix || "—"}</Td>
                 <Td className="font-mono tabular-nums">{item.visibilityScore ?? "—"}</Td>
+                <Td>
+                  <Sparkline values={item.scoreHistory} />
+                </Td>
                 <Td>
                   {item.recommended ? (
                     <StatusPill status="named">Recommended</StatusPill>

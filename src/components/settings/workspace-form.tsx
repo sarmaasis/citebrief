@@ -32,6 +32,7 @@ export function WorkspaceForm({
   studioEnginesAllowed,
   paid,
   showRoiMinutes,
+  riskNotifyAllowed,
 }: {
   initial: {
     name: string;
@@ -41,12 +42,15 @@ export function WorkspaceForm({
     defaultEngines: string;
     slackWebhookUrl: string;
     minutesSavedPerReport: number;
+    notifyHighRisks: boolean;
+    highRiskLastNotifiedAt: string | null;
   };
   slackAllowed: boolean;
   customSenderAllowed: boolean;
   studioEnginesAllowed: boolean;
   paid: boolean;
   showRoiMinutes?: boolean;
+  riskNotifyAllowed?: boolean;
 }) {
   const [name, setName] = useState(initial.name);
   const [timezone, setTimezone] = useState(initial.timezone);
@@ -55,6 +59,7 @@ export function WorkspaceForm({
   const [defaultEngines, setDefaultEngines] = useState(initial.defaultEngines);
   const [slackWebhookUrl, setSlackWebhookUrl] = useState(initial.slackWebhookUrl);
   const [minutesSavedPerReport, setMinutesSavedPerReport] = useState(String(initial.minutesSavedPerReport));
+  const [notifyHighRisks, setNotifyHighRisks] = useState(initial.notifyHighRisks);
   const [notice, setNotice] = useState<FormNotice | null>(null);
   const [busy, setBusy] = useState(false);
   const [showSenderUpgrade, setShowSenderUpgrade] = useState(false);
@@ -76,6 +81,7 @@ export function WorkspaceForm({
           defaultEngines,
           slackWebhookUrl,
           minutesSavedPerReport: Number(minutesSavedPerReport),
+          notifyHighRisks,
         }),
       });
       const data = (await response.json()) as { error?: string };
@@ -193,6 +199,29 @@ export function WorkspaceForm({
           ) : (
             <p className="text-xs text-cb-muted">Posts a short message when a report is ready or Friday send runs.</p>
           )}
+        </div>
+        <div className="space-y-2">
+          <label className="flex items-start gap-2 text-sm text-cb-text">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={notifyHighRisks}
+              disabled={!riskNotifyAllowed}
+              onChange={(e) => setNotifyHighRisks(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium">Email me when clients are At risk</span>
+              <span className="mt-1 block text-xs text-cb-muted">
+                {riskNotifyAllowed
+                  ? `Friday digest of At-risk brands via Cloudflare Email.${
+                      initial.highRiskLastNotifiedAt
+                        ? ` Last sent ${new Date(initial.highRiskLastNotifiedAt).toLocaleDateString()}.`
+                        : " Not sent yet."
+                    }`
+                  : "Agency+ with email send unlocks high-risk Friday digests."}
+              </span>
+            </span>
+          </label>
         </div>
         <Button type="submit" disabled={busy}>
           {busy ? "Saving…" : "Save workspace"}

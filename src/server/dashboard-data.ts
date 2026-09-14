@@ -82,10 +82,10 @@ export async function buildDashboardSnapshot(
         : null;
     })
     .filter((id): id is string => Boolean(id));
-  let citationByBrand = new Map<string, { cited: number; total: number }>();
-  let winLoseByBrand = new Map<string, { win: number; lose: number }>();
-  let signalsByBrand = new Map<string, OpportunitySignalRow[]>();
-  let competitorRows: Array<{
+  const citationByBrand = new Map<string, { cited: number; total: number }>();
+  const winLoseByBrand = new Map<string, { win: number; lose: number }>();
+  const signalsByBrand = new Map<string, OpportunitySignalRow[]>();
+  const competitorRows: Array<{
     brandId: string;
     brandName: string;
     whoWon: string | null;
@@ -175,7 +175,8 @@ export async function buildDashboardSnapshot(
     }
   }
 
-  const studioScoring = ent.plan === "studio" || ent.plan === "enterprise";
+  const studioScoring =
+    ent.plan === "studio" || ent.plan === "enterprise" || Boolean(ent.allowsPortfolioExport);
   const nextRun = nextScheduledRunAt({
     timezone,
     weekly: ent.allowsWeeklyCadence,
@@ -257,6 +258,7 @@ export async function buildDashboardSnapshot(
         lastSeenAt: row.latestReport?.createdAt ? new Date(row.latestReport.createdAt).toISOString() : null,
         affectedPrompts: affected.affectedPrompts,
         affectedEngines: affected.affectedEngines,
+        lastNotifiedAt: workspace?.highRiskLastNotifiedAt ?? null,
       });
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
@@ -285,6 +287,10 @@ export async function buildDashboardSnapshot(
     opportunities,
     risks,
     competitorLeaderboard,
+    notifyHighRisks: Boolean(workspace?.notifyHighRisks),
+    highRiskLastNotifiedAt: workspace?.highRiskLastNotifiedAt
+      ? new Date(workspace.highRiskLastNotifiedAt).toISOString()
+      : null,
     rows: filteredRows.map((row) => serializeCommandRow(row, ent, planned)),
   };
 }
@@ -306,15 +312,20 @@ export async function buildPromptPerformance(
     .from(reports)
     .where(eq(reports.brandId, brandId))
     .orderBy(desc(reports.createdAt))
-    .limit(2);
+    .limit(6);
   const latest = reportList[0];
   const previous = reportList[1];
   if (!latest) return [];
 
+  const historyRuns = reportList.slice().reverse();
+  const historyRowSets = await Promise.all(
+    historyRuns.map((report) => ctx.db.select().from(runRows).where(eq(runRows.runId, report.runId))),
+  );
+
   const [latestRows, previousRows, promptRows] = await Promise.all([
-    ctx.db.select().from(runRows).where(eq(runRows.runId, latest.runId)),
+    Promise.resolve(historyRowSets[historyRowSets.length - 1] ?? []),
     previous
-      ? ctx.db.select().from(runRows).where(eq(runRows.runId, previous.runId))
+      ? Promise.resolve(historyRowSets[historyRowSets.length - 2] ?? [])
       : Promise.resolve([] as (typeof runRows.$inferSelect)[]),
     ctx.db.select().from(prompts).where(eq(prompts.brandId, brandId)),
   ]);
@@ -323,6 +334,23 @@ export async function buildPromptPerformance(
   const prevMention = new Map<string, boolean>();
   for (const row of previousRows) {
     if (row.mentioned) prevMention.set(row.promptId, true);
+  }
+
+  const historyScoreByPrompt = new Map<string, number[]>();
+  for (const rows of historyRowSets) {
+    const byPrompt = new Map<string, { mentioned: boolean; recommended: boolean }>();
+    for (const row of rows) {
+      const current = byPrompt.get(row.promptId) ?? { mentioned: false, recommended: false };
+      if (row.mentioned) current.mentioned = true;
+      if (row.recommended) current.recommended = true;
+      byPrompt.set(row.promptId, current);
+    }
+    for (const [promptId, data] of byPrompt) {
+      const score = data.recommended ? 100 : data.mentioned ? 50 : 0;
+      const series = historyScoreByPrompt.get(promptId) ?? [];
+      series.push(score);
+      historyScoreByPrompt.set(promptId, series);
+    }
   }
 
   const byPrompt = new Map<
@@ -398,6 +426,9 @@ export async function buildPromptPerformance(
       enginesChecked: [...data.engines],
       lastAnswerSummary: data.summary,
       movement: previous ? movement : null,
+      scoreHistory: historyScoreByPrompt.get(promptId) ?? [
+        data.recommended ? 100 : data.mentioned ? 50 : 0,
+      ],
       filterTags,
     });
   }

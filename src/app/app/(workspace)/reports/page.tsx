@@ -5,6 +5,7 @@ import { LockedModule } from "@/components/app/locked-module";
 import { PipelineStrip } from "@/components/app/pipeline-strip";
 import { PortfolioExport } from "@/components/app/portfolio-export";
 import { PortfolioFilters } from "@/components/app/portfolio-filters";
+import { StudioBadge, StudioUpgradeHint } from "@/components/app/studio-badge";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { pageFilters, pipelineCounts } from "@/lib/command-center";
 import { dashboardModulesForPlan } from "@/lib/dashboard-metrics";
@@ -61,7 +62,7 @@ export default async function ReportsPipelinePage({
     return (
       <div>
         <h1 className="mb-8 text-xl font-semibold tracking-tight">Reports</h1>
-        <EmptyState title="No brands yet" line="Start the first Friday report." cta="Add a brand" href="/app/onboarding" />
+        <EmptyState title="No brands yet" line="The send queue and client reporting center fill after you add a brand and generate the first Friday report." cta="Add a brand" href="/app/onboarding" steps={["Add a brand", "Run a report", "Approve and send from this queue"]} />
       </div>
     );
   }
@@ -108,11 +109,25 @@ export default async function ReportsPipelinePage({
 
       {modules.clientReportingCenter ? (
         <section className="mt-12">
-          <h2 className="mb-3 text-sm font-medium">Client reporting center</h2>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-medium">Client reporting center</h2>
+            {ent.allowsCustomSender ? <StudioBadge /> : null}
+          </div>
           <p className="mb-4 text-sm text-cb-muted">
             Monthly summary, before/after movement, notes, and completed actions for client calls.
+            {ent.allowsCustomSender
+              ? " Studio custom sender applies when you email from the report."
+              : ""}
           </p>
           <ClientReportingCenter rows={reportingRows} />
+          {!ent.allowsCustomSender ? (
+            <div className="mt-4">
+              <StudioUpgradeHint
+                title="Custom sender + white-label send path"
+                body="Agency already gets the reporting center. Studio adds custom sender name/domain so client-facing emails leave from your agency identity."
+              />
+            </div>
+          ) : null}
         </section>
       ) : null}
     </div>

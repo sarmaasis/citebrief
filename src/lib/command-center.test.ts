@@ -57,8 +57,9 @@ assert.equal(pipelineStage(approvedUnsent), "ready_to_send");
 assert.equal(PIPELINE_LABEL.ready_to_send, "Approved");
 assert.equal(weeklyAction(approvedUnsent, true)?.verb, "Send report");
 assert.match(riskWhy(review), /Dropped from 9\/20 to 8\/20|not sent|recommended/i);
-assert.equal(opportunityFromRow(review)?.type, "Comparison page");
+assert.equal(opportunityFromRow(review)?.type, "Win the recommendation, not just the mention");
 assert.equal(opportunityFromRow(review)?.key, "comparison_page");
+assert.match(opportunityFromRow(review)?.reason || "", /Named in 8\/20/);
 
 const drop25 = {
   brand,
@@ -97,6 +98,7 @@ const competitorLead = {
 assert.equal(clientRisk(competitorLead), "at_risk");
 assert.equal(riskWhy(competitorLead), "Competitor leads 12 buyer questions.");
 assert.equal(opportunityFromRow(competitorLead)?.key, "pr_placement");
+assert.match(opportunityFromRow(competitorLead)?.type || "", /Displace ClickUp/);
 
 const overdue = {
   brand,
@@ -157,7 +159,8 @@ const missing = {
   },
 };
 assert.equal(clientRisk(missing), "at_risk");
-assert.equal(opportunityFromRow(missing)?.type, "GEO package");
+assert.equal(opportunityFromRow(missing)?.type, "Own the category answers AI still skips");
+assert.equal(opportunityFromRow(missing)?.key, "geo_package");
 
 const counts = pipelineCounts([ready, review, sent]);
 assert.equal(counts.ready_to_run, 1);

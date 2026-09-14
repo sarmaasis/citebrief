@@ -38,6 +38,7 @@ export default async function WorkspaceSettingsPage() {
           studioEnginesAllowed={ent.allowsStudioEngines}
           paid={ent.paid}
           showRoiMinutes={ent.allowsCommandCenter}
+          riskNotifyAllowed={ent.allowsPortfolioRollups && ent.allowsEmailSend}
           initial={{
             name: workspace.name,
             timezone: workspace.timezone,
@@ -46,6 +47,10 @@ export default async function WorkspaceSettingsPage() {
             defaultEngines,
             slackWebhookUrl: workspace.slackWebhookUrl || "",
             minutesSavedPerReport: workspace.minutesSavedPerReport ?? 60,
+            notifyHighRisks: Boolean(workspace.notifyHighRisks),
+            highRiskLastNotifiedAt: workspace.highRiskLastNotifiedAt
+              ? new Date(workspace.highRiskLastNotifiedAt).toISOString()
+              : null,
           }}
         />
       </div>

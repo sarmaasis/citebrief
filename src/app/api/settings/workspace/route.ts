@@ -34,12 +34,18 @@ export async function GET() {
       defaultEngines: workspace.defaultEngines,
       slackWebhookUrl: workspace.slackWebhookUrl,
       minutesSavedPerReport: clampMinutesSaved(workspace.minutesSavedPerReport),
+      notifyHighRisks: Boolean(workspace.notifyHighRisks),
+      highRiskLastNotifiedAt: workspace.highRiskLastNotifiedAt
+        ? new Date(workspace.highRiskLastNotifiedAt).toISOString()
+        : null,
     },
     entitlements: {
       paid: ent.paid,
       allowsSlack: ent.allowsSlack,
       allowsCustomSender: ent.allowsCustomSender,
       allowsStudioEngines: ent.allowsStudioEngines,
+      allowsPortfolioRollups: ent.allowsPortfolioRollups,
+      allowsEmailSend: ent.allowsEmailSend,
     },
     role: ctx.role,
   });
@@ -59,6 +65,7 @@ export async function PUT(request: Request) {
     defaultEngines?: string;
     slackWebhookUrl?: string | null;
     minutesSavedPerReport?: number;
+    notifyHighRisks?: boolean;
   };
   const name = body.name?.trim();
   if (!name) return jsonError("Workspace name is required.");
@@ -99,6 +106,9 @@ export async function PUT(request: Request) {
   });
   if (!engines.ok) return jsonError(engines.error);
 
+  const notifyHighRisks =
+    Boolean(body.notifyHighRisks) && ent.allowsPortfolioRollups && ent.allowsEmailSend;
+
   await ctx.db
     .update(workspaces)
     .set({
@@ -109,6 +119,7 @@ export async function PUT(request: Request) {
       defaultEngines: engines.normalized,
       slackWebhookUrl,
       minutesSavedPerReport: clampMinutesSaved(body.minutesSavedPerReport),
+      notifyHighRisks,
       updatedAt: new Date(),
     })
     .where(eq(workspaces.id, ctx.workspace.id));
@@ -121,7 +132,12 @@ export async function PUT(request: Request) {
     targetType: "workspace",
     targetId: ctx.workspace.id,
     request,
-    metadata: { timezone, senderDomain: Boolean(senderDomain), slack: Boolean(slackWebhookUrl) },
+    metadata: {
+      timezone,
+      senderDomain: Boolean(senderDomain),
+      slack: Boolean(slackWebhookUrl),
+      notifyHighRisks,
+    },
   });
 
   return jsonOk({ ok: true });

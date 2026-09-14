@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { CompetitorDossier } from "@/components/app/competitor-dossier";
 import { DataTable, Td, Th } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
 import { EngineBreakdownEmpty, EngineBreakdownGrid } from "@/components/app/engine-breakdown";
 import { LockedModule } from "@/components/app/locked-module";
+import { StudioUpgradeHint } from "@/components/app/studio-badge";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { dashboardModulesForPlan } from "@/lib/dashboard-metrics";
 import { workspaceEntitlements } from "@/lib/entitlements";
@@ -14,7 +16,7 @@ import { listWorkspaceBrands } from "@/server/workspace-data";
 export default async function CompetitorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ brandId?: string; tab?: string }>;
+  searchParams: Promise<{ brandId?: string; tab?: string; competitor?: string }>;
 }) {
   const ctx = await getAppContext();
   if (!ctx) {
@@ -32,9 +34,10 @@ export default async function CompetitorsPage({
         <h1 className="mb-8 text-xl font-semibold tracking-tight">Competitors</h1>
         <EmptyState
           title="No brands yet"
-          line="Add a brand and run a report to see who AI recommends."
+          line="Competitor intelligence is built from Friday answers — who wins, which engines favor them, and which pages get cited."
           cta="Add a brand"
           href="/app/onboarding"
+          steps={["Add a brand", "Run a report", "Open Competitors to see who AI recommends"]}
         />
       </div>
     );
@@ -64,6 +67,16 @@ export default async function CompetitorsPage({
     ? snapshot.competitorLeaderboard
     : snapshot.competitorLeaderboard.slice(0, 5);
 
+  const selectedCompetitor = params.competitor?.trim().toLowerCase() || null;
+  const dossier =
+    selectedCompetitor && brandId
+      ? leaderboard.find(
+          (row) => row.brandId === brandId && row.name.toLowerCase() === selectedCompetitor,
+        ) ??
+        leaderboard.find((row) => row.name.toLowerCase() === selectedCompetitor) ??
+        null
+      : null;
+
   const promptRows = leaderboard.flatMap((row) =>
     row.promptsWon.map((prompt) => ({
       prompt,
@@ -77,6 +90,9 @@ export default async function CompetitorsPage({
   );
 
   const brandQuery = brandId ? `brandId=${brandId}` : "";
+  const closeDossierHref = `/app/competitors${brandQuery ? `?${brandQuery}` : ""}${
+    byPrompt ? `${brandQuery ? "&" : "?"}tab=prompts` : ""
+  }`;
 
   return (
     <div className="min-w-0">
@@ -86,9 +102,19 @@ export default async function CompetitorsPage({
           Who wins buyer questions, which pages get cited, and how engines differ — from stored reports only.
         </p>
         {!modules.competitorLeaderboard ? (
-          <p className="mt-2 text-xs text-cb-muted">Basic competitor mentions on this plan. Agency unlocks the full leaderboard.</p>
+          <p className="mt-2 text-xs text-cb-muted">
+            Basic competitor mentions on this plan. Agency unlocks the full leaderboard.
+          </p>
         ) : null}
       </div>
+
+      {dossier ? (
+        <CompetitorDossier
+          entry={dossier}
+          showCitedPages={modules.advancedCompetitorIntel}
+          closeHref={closeDossierHref}
+        />
+      ) : null}
 
       <div className="mb-6 flex flex-wrap gap-2">
         <Link
@@ -117,7 +143,14 @@ export default async function CompetitorsPage({
         <section className="mb-10">
           <h2 className="mb-3 text-sm font-medium">Competitor by prompt</h2>
           {promptRows.length === 0 ? (
-            <p className="text-sm text-cb-muted">No competitor prompt wins in the latest runs yet.</p>
+            <EmptyState
+              title="No competitor wins yet"
+              line="Run a Friday report so CiteBrief can see who AI names as the top choice on each buyer question."
+              cta="Open brands"
+              href="/app/brands"
+              secondaryCta="Add a brand"
+              secondaryHref="/app/onboarding?new=1"
+            />
           ) : (
             <DataTable minWidth="760px">
               <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
@@ -132,9 +165,19 @@ export default async function CompetitorsPage({
               </thead>
               <tbody>
                 {promptRows.map((row) => (
-                  <tr key={`${row.brandId}-${row.competitor}-${row.prompt}`} className="h-12 border-b border-cb-line last:border-0">
+                  <tr
+                    key={`${row.brandId}-${row.competitor}-${row.prompt}`}
+                    className="h-12 border-b border-cb-line last:border-0"
+                  >
                     <Td truncate>{row.prompt}</Td>
-                    <Td className="font-medium">{row.competitor}</Td>
+                    <Td className="font-medium">
+                      <Link
+                        href={`/app/competitors?brandId=${row.brandId}&competitor=${encodeURIComponent(row.competitor)}`}
+                        className="text-cb-accent"
+                      >
+                        {row.competitor}
+                      </Link>
+                    </Td>
                     <Td>
                       <Link href={`/app/brands/${row.brandId}`} className="text-cb-accent">
                         {row.brandName}
@@ -163,7 +206,14 @@ export default async function CompetitorsPage({
         <section className="mb-10">
           <h2 className="mb-3 text-sm font-medium">Leaderboard</h2>
           {leaderboard.length === 0 ? (
-            <p className="text-sm text-cb-muted">No competitor wins in the latest runs yet.</p>
+            <EmptyState
+              title="No competitor wins yet"
+              line="After a report runs, open any competitor name for a dossier: mentions, engines, movement, and cited pages."
+              cta="Open brands"
+              href="/app/brands"
+              secondaryCta="Run from Overview"
+              secondaryHref="/app"
+            />
           ) : (
             <DataTable minWidth="920px">
               <thead className="sticky top-0 bg-cb-surface text-left text-cb-muted">
@@ -182,7 +232,14 @@ export default async function CompetitorsPage({
               <tbody>
                 {leaderboard.map((row) => (
                   <tr key={`${row.brandId}-${row.name}`} className="h-12 border-b border-cb-line last:border-0">
-                    <Td className="font-medium">{row.name}</Td>
+                    <Td className="font-medium">
+                      <Link
+                        href={`/app/competitors?brandId=${row.brandId}&competitor=${encodeURIComponent(row.name)}`}
+                        className="text-cb-accent"
+                      >
+                        {row.name}
+                      </Link>
+                    </Td>
                     <Td>
                       <Link href={`/app/brands/${row.brandId}`} className="text-cb-accent">
                         {row.brandName}
@@ -243,6 +300,13 @@ export default async function CompetitorsPage({
             </tbody>
           </DataTable>
         </section>
+      ) : modules.competitorLeaderboard && !modules.advancedCompetitorIntel ? (
+        <section className="mb-10">
+          <StudioUpgradeHint
+            title="Competitor cited pages"
+            body="Studio surfaces the exact URLs AI cites for winning competitors so you can counter specific pages — not just names on a leaderboard. Studio also adds Grok coverage and priority opportunity scoring."
+          />
+        </section>
       ) : null}
 
       <section>
@@ -253,7 +317,9 @@ export default async function CompetitorsPage({
               {brands.map((brand) => (
                 <Link
                   key={brand.id}
-                  href={`/app/competitors?brandId=${brand.id}${byPrompt ? "&tab=prompts" : ""}`}
+                  href={`/app/competitors?brandId=${brand.id}${byPrompt ? "&tab=prompts" : ""}${
+                    params.competitor ? `&competitor=${encodeURIComponent(params.competitor)}` : ""
+                  }`}
                   className={
                     brand.id === brandId
                       ? "rounded-cb-control bg-cb-accent-subtle px-2 py-1 text-xs text-cb-accent"

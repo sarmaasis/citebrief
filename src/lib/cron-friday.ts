@@ -7,6 +7,7 @@ import { isLocalFirstFridaySix, isLocalFridaySix } from "@/lib/friday-tz";
 import { fridayQueuedEmail } from "@/emails";
 import { sendTransactionalEmail } from "@/lib/email";
 import { workspaceEntitlements } from "@/lib/entitlements";
+import { maybeSendHighRiskDigest } from "@/lib/risk-notify";
 import { postSlackIncomingWebhook } from "@/lib/slack";
 import { getWorkspaceSubscription } from "@/lib/usage";
 
@@ -154,6 +155,18 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
       }
 
       results.push({ workspaceId: workspace.id, brandId: brand.id, runId, timezone: tz });
+    }
+
+    try {
+      await maybeSendHighRiskDigest({
+        db,
+        env,
+        workspace,
+        ent,
+        notifyTo,
+      });
+    } catch (error) {
+      console.info("[friday-cron] high-risk digest skipped", error);
     }
   }
 

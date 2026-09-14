@@ -108,3 +108,26 @@ export function reportReadyEmail(args: {
     }),
   };
 }
+
+/** Minimal Friday digest when workspace opts into high-risk alerts. */
+export function highRiskDigestEmail(args: {
+  workspaceName: string;
+  risks: Array<{ brandName: string; whatHappened: string; href?: string }>;
+  risksUrl?: string;
+}) {
+  const lines = args.risks.slice(0, 12).map(
+    (risk) =>
+      `<li style="margin:0 0 8px"><strong>${escapeHtml(risk.brandName)}</strong> — ${escapeHtml(risk.whatHappened)}</li>`,
+  );
+  return {
+    subject: `${args.workspaceName}: ${args.risks.length} high-risk client${args.risks.length === 1 ? "" : "s"}`,
+    ...renderEmailLayout({
+      preheader: `${args.risks.length} At-risk client${args.risks.length === 1 ? "" : "s"} need attention before the next send.`,
+      eyebrow: "Risk alerts",
+      title: "High-risk clients this week",
+      bodyHtml: `<p style="margin:0 0 12px">${escapeHtml(args.workspaceName)} has ${args.risks.length} At-risk brand${args.risks.length === 1 ? "" : "s"} from the latest stored reports.</p><ul style="margin:0;padding-left:18px">${lines.join("")}</ul>`,
+      cta: args.risksUrl ? { href: args.risksUrl, label: "Open risk alerts" } : undefined,
+    }),
+  };
+}
+

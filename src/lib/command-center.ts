@@ -310,61 +310,67 @@ export function opportunityFromRow(row: CommandRow & { brand: { id: string; name
     return {
       ...base,
       key: "geo_package",
-      type: "GEO package",
-      reason: "No presence on key buyer questions",
+      type: "Own the category answers AI still skips",
+      reason: `${row.brand.name} is invisible on high-intent buyer questions — named in 0 of ${total}. Until category and “best for” pages exist, engines will keep recommending someone else.`,
       evidence: `Named in 0 of ${total} buyer questions.`,
-      service: "GEO retainer or content package",
-      wording: `${row.brand.name} is missing from AI answers on high-intent buyer questions. We should own the comparison and “best for” pages this month.`,
+      service: "Ship a GEO content package: category, best-for, and comparison pages this month",
+      wording: `${row.brand.name} has zero presence on the buyer questions that drive shortlists. A focused GEO package — category positioning, best-for landers, and comparison pages — is the retainer conversation this week.`,
       value: "High",
     };
   }
   if (row.competitorLeadShare != null && row.competitorLeadShare >= 0.5 && row.competitorLeadCount) {
-    const leader = row.competitorLeader ? ` ${row.competitorLeader} is winning the shortlist.` : "";
+    const leader = row.competitorLeader?.trim() || "a competitor";
     return {
       ...base,
       key: "pr_placement",
-      type: "PR/source placement",
-      reason: "Competitor leads most buyer questions",
-      evidence: `Competitor leads ${row.competitorLeadCount} of ${total} buyer questions.${leader}`,
-      service: "PR or third-party source placement",
-      wording: `${row.brand.name} loses high-intent questions because third-party sources mention a competitor first. A citation and review push is the next conversation.`,
+      type: `Displace ${leader} as the default shortlist pick`,
+      reason: `${leader} leads ${row.competitorLeadCount} of ${total} buyer questions (${Math.round(row.competitorLeadShare * 100)}%). Impact: AI is training buyers on their narrative before yours. Effort: PR and third-party citations, not just on-site edits.`,
+      evidence: `Competitor leads ${row.competitorLeadCount} of ${total} buyer questions. ${leader} is winning the shortlist.`,
+      service: `Prioritize review, listing, and citation placements that name ${row.brand.name} alongside or ahead of ${leader}`,
+      wording: `${row.brand.name} loses high-intent questions because third-party sources surface ${leader} first. A citation and review push — not another homepage tweak — is the next client conversation.`,
       value: "High",
     };
   }
   if (named != null && named > 0 && (rec == null || rec < named)) {
     const gap = named - (rec ?? 0);
+    const leader = row.competitorLeader?.trim();
     return {
       ...base,
       key: "comparison_page",
-      type: "Comparison page",
-      reason: "Named in answers but not recommended first",
+      type: leader
+        ? `Close the shortlist gap vs ${leader}`
+        : "Win the recommendation, not just the mention",
+      reason: `Named in ${named}/${total} but recommended in only ${rec ?? 0}/${total} (gap ${gap}). Impact: buyers see you, then choose someone else. Effort: one clear comparison/alternatives page usually moves this.`,
       evidence: `Named in ${named}/${total}, recommended in ${rec ?? "—"}/${total}.`,
-      service: "Comparison or alternatives page",
-      wording: `${row.brand.name} is mentioned, but a competitor still wins the shortlist. A clear comparison page is the next client conversation.`,
+      service: leader
+        ? `Publish a ${row.brand.name} vs ${leader} comparison (and alternatives) page`
+        : "Publish a comparison / alternatives page that states when you win",
+      wording: `${row.brand.name} is in the answer set, but ${leader || "a competitor"} still wins the shortlist. A decisive comparison page is the highest-leverage content move before the next Friday send.`,
       value: gap >= 5 ? "High" : "Medium",
     };
   }
   if (row.mentionedDelta != null && row.mentionedDelta < 0) {
+    const drop = Math.abs(row.mentionedDelta);
     return {
       ...base,
       key: "source_refresh",
-      type: "Source refresh",
-      reason: `Named score dropped ${Math.abs(row.mentionedDelta)}`,
-      evidence: `Named score dropped ${Math.abs(row.mentionedDelta)} versus the last report.`,
-      service: "Source-worthy content refresh",
-      wording: `Visibility slipped this period. Refresh the pages AI already cites before the next Friday send.`,
-      value: Math.abs(row.mentionedDelta) >= 5 ? "High" : "Medium",
+      type: `Recover ${drop} lost named answer${drop === 1 ? "" : "s"}`,
+      reason: `Named score dropped ${drop} vs the prior report. Impact: momentum is going the wrong way into the next client send. Effort: refresh the pages engines already cite before inventing new content.`,
+      evidence: `Named score dropped ${drop} versus the last report.`,
+      service: "Refresh source-worthy pages AI already cites (proof, pricing clarity, freshness)",
+      wording: `Visibility slipped this period. Before pitching net-new pages, refresh the URLs AI already cites so named answers rebound before the next Friday send.`,
+      value: drop >= 5 ? "High" : "Medium",
     };
   }
   if (row.missingSources && row.latestReport) {
     return {
       ...base,
       key: "technical_seo",
-      type: "Technical SEO cleanup",
-      reason: "Answers mention the brand without citing source pages",
+      type: "Make cited pages quoteable",
+      reason: `${row.brand.name} appears in answers without source URLs. Impact: mentions without citations are fragile — engines cannot defend the pick. Effort: crawlability, schema, and clear page entities beat a full redesign.`,
       evidence: "Most engine answers are missing source URLs.",
-      service: "Technical SEO cleanup",
-      wording: `${row.brand.name} is discoverable in answers but pages are not being cited. Clean up source pages so AI can quote them.`,
+      service: "Technical SEO cleanup so AI can cite homepage, product, and proof pages",
+      wording: `${row.brand.name} is discoverable in answers but pages are not being cited. Clean up source pages so AI can quote them with confidence.`,
       value: "Small",
     };
   }
