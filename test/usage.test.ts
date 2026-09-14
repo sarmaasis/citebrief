@@ -16,6 +16,7 @@ import {
   meteringWindowStart,
   planChangeMeteringPatch,
   runCountsTowardCap,
+  shouldBumpRunsUsedAfterEnqueue,
   wonBilledAtClaim,
 } from "@/lib/usage";
 
@@ -596,6 +597,27 @@ assert.equal(runCountsTowardCap("running"), true);
   const trialRuns = trialRunStatuses.filter(runCountsTowardCap).length;
   assert.equal(decideUnpaidRunCap(trialRuns).allowed, true);
   assert.equal(decideUnpaidRunCap(trialRuns + 1).allowed, false);
+}
+
+// --- Enqueue failure must not permanently inflate runsUsed ---
+
+assert.equal(shouldBumpRunsUsedAfterEnqueue("sent"), true);
+assert.equal(shouldBumpRunsUsedAfterEnqueue("placeholder"), true);
+assert.equal(shouldBumpRunsUsedAfterEnqueue("failed"), false);
+
+{
+  // Failed enqueue → mark run failed → soft-cap still free; runsUsed not bumped.
+  const enqueueOutcome: "failed" = "failed";
+  const runStatus = enqueueOutcome === "failed" ? "failed" : "queued";
+  assert.equal(runCountsTowardCap(runStatus), false);
+  assert.equal(shouldBumpRunsUsedAfterEnqueue(enqueueOutcome), false);
+  const decision = decidePaidRunCap({
+    plan: "agency",
+    brandWeekRunCount: [runStatus].filter(runCountsTowardCap).length,
+    monthlyRechecksUsed: 10,
+    extraRunCredits: 0,
+  });
+  assertAllowedFree(decision);
 }
 
 console.log("usage.test.ts ok");

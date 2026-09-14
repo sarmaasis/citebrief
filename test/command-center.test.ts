@@ -15,6 +15,7 @@ import {
   suggestedClientEmail,
   weeklyAction,
 } from "@/lib/command-center";
+import { indexLatestByBrandId, indexTopNByBrandId } from "@/server/workspace-data";
 
 const brand = { id: "b1", name: "Northstar" };
 
@@ -201,5 +202,30 @@ assert.ok(email.includes("Recommended in 7 of 20"));
 assert.equal(pageFilters({ stage: "needs_review" }).pipeline, "needs_review");
 assert.equal(pageFilters({ brand: "b1" }).brandId, "b1");
 assert.equal(pageFilters({ sent: "0", opportunityType: "geo_package" }).opportunityType, "geo_package");
+
+{
+  // listHomeRows batch fold: newest-first → one latest run + two reports per brand.
+  const latest = indexLatestByBrandId([
+    { brandId: "a", id: "r-new" },
+    { brandId: "a", id: "r-old" },
+    { brandId: "b", id: "r-b" },
+  ]);
+  assert.equal(latest.get("a")?.id, "r-new");
+  assert.equal(latest.get("b")?.id, "r-b");
+  const top2 = indexTopNByBrandId(
+    [
+      { brandId: "a", id: "rep1" },
+      { brandId: "a", id: "rep2" },
+      { brandId: "a", id: "rep3" },
+      { brandId: "b", id: "rep-b" },
+    ],
+    2,
+  );
+  assert.deepEqual(
+    top2.get("a")?.map((row) => row.id),
+    ["rep1", "rep2"],
+  );
+  assert.equal(top2.get("b")?.length, 1);
+}
 
 console.log("command-center.test.ts ok");

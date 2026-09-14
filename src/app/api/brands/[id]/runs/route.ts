@@ -2,7 +2,13 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq, isNull } from "drizzle-orm";
 import { scheduledEngineStatus } from "@/lib/engines";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { assertRunCap, bumpRunsUsed, capDenialFromError, getWorkspaceSubscription } from "@/lib/usage";
+import {
+  assertRunCap,
+  bumpRunsUsed,
+  capDenialFromError,
+  getWorkspaceSubscription,
+  shouldBumpRunsUsedAfterEnqueue,
+} from "@/lib/usage";
 import { formatWeekOf } from "@/lib/friday";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
@@ -83,6 +89,8 @@ export async function POST(request: Request, context: RouteContext) {
   const engineStates = scheduledEngineStatus(resolved.engines.map((engine) => engine.id));
 
   // Insert before enqueue so the queue consumer can load the row.
+  // Weekly included quota is reserved by the inserted row (assertRunCap counts
+  // non-failed runs). Attempt counter bumps only after enqueue succeeds.
   await ctx.db.insert(runs).values({
     id: runId,
     brandId: id,
@@ -95,12 +103,7 @@ export async function POST(request: Request, context: RouteContext) {
     createdAt: now,
   });
 
-  // Weekly included quota is reserved by the inserted row. Attempt counter
-  // increments here; Dodo extra-run meter + extraRuns + prepaid credits wait
-  // until a report exists (settleBillableExtraRun in processRun).
-  await bumpRunsUsed(ctx.db, ctx.workspace.id, false);
-
-  let queue = "placeholder";
+  let queue: "sent" | "failed" | "placeholder" = "placeholder";
   if (env.RUNS_QUEUE) {
     try {
       await env.RUNS_QUEUE.send(payload);
@@ -113,6 +116,12 @@ export async function POST(request: Request, context: RouteContext) {
         .where(eq(runs.id, runId));
       queue = "failed";
     }
+  }
+
+  // Dodo extra-run meter + extraRuns + prepaid credits wait until a report
+  // exists (settleBillableExtraRun in processRun). Do not bump on send failure.
+  if (shouldBumpRunsUsedAfterEnqueue(queue)) {
+    await bumpRunsUsed(ctx.db, ctx.workspace.id, false);
   }
 
   return jsonOk({ runId, queue, payload, extraRun, consumeCredit, engines: engineStates }, 201);

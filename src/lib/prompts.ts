@@ -501,10 +501,16 @@ export function inferMixFromText(text: string): PromptMix | null {
     /\b(alternatives? for|compared to)\b/.test(t) &&
     !/\b(best|top)\b/.test(t)
   ) {
-    return "comparison";
+    // "X alternatives for …" is incumbent-seeded unless it's an explicit vs/compare.
+    if (/\bvs\.?\b|\bversus\b|\bcompared to\b/.test(t)) return "comparison";
+    return "incumbent";
+  }
+  // "which tool should buyer use…" is Discovery shortlisting (not Job constraint).
+  if (/\bwhich .+ (?:tool|platform|software|vendor) should\b/.test(t)) {
+    return "discovery";
   }
   if (
-    /\b(which .+ (?:tool|platform|software|vendor) (?:can|should|help)|affordable .+ for|that need(?:s)? to|with (?:slack|google drive)|who need to)\b/.test(
+    /\b(which .+ (?:tool|platform|software|vendor) (?:can|help)|affordable .+ for|that need(?:s)? to|with (?:slack|google drive)|who need to)\b/.test(
       t,
     )
   ) {
@@ -515,7 +521,8 @@ export function inferMixFromText(text: string): PromptMix | null {
   return null;
 }
 
-function parseNumberedPrompts(content: string, count = PROMPT_COUNT): PromptDraft[] {
+/** Parse LLM numbered list; mix from content heuristics (labels / shape), not slot alone. */
+export function parseNumberedPrompts(content: string, count = PROMPT_COUNT): PromptDraft[] {
   const lines = content
     .split("\n")
     .map((line) => ensureQuestion(cleanBusinessText(line.replace(/^\s*\d+[.)]\s*/, ""))))
@@ -544,19 +551,32 @@ function parseNumberedPrompts(content: string, count = PROMPT_COUNT): PromptDraf
     });
   });
 
-  // Prefer content tags; if the pack is short of a mix for a locked 20-set, fill gaps
-  // from still-ambiguous lines using position order so save-time 4+4+4+4+4 can pass.
+  // Prefer content tags; rebalance to 4+4+4+4+4 for locked packs when needed.
+  // Over-subscribed inferences yield capacity to underfilled mixes so save-time lock passes.
   if (count >= PROMPT_COUNT) {
     const locked = drafts.slice(0, PROMPT_COUNT);
     if (!mixIsLocked(locked)) {
-      const counts = mixCounts(locked);
-      for (const draft of locked) {
-        if (inferMixFromText(draft.text)) continue;
-        const needed = MIXES.find((mix) => counts[mix] < MIX_TARGET);
-        if (!needed) break;
-        counts[draft.mix] -= 1;
-        draft.mix = needed;
+      const inferred = locked.map((draft) => inferMixFromText(draft.text));
+      const assigned: Array<PromptMix | null> = locked.map(() => null);
+      const counts = mixCounts([]);
+      for (let i = 0; i < locked.length; i++) {
+        const mix = inferred[i];
+        if (!mix || counts[mix] >= MIX_TARGET) continue;
+        assigned[i] = mix;
+        counts[mix] += 1;
+      }
+      for (let i = 0; i < locked.length; i++) {
+        if (assigned[i]) continue;
+        const needed =
+          MIXES.find((mix) => counts[mix] < MIX_TARGET) ??
+          positionFallback[i]?.mix ??
+          MIXES[i % MIXES.length];
+        assigned[i] = needed;
         counts[needed] += 1;
+      }
+      for (let i = 0; i < locked.length; i++) {
+        const mix = assigned[i];
+        if (mix) locked[i]!.mix = mix;
       }
     }
   }

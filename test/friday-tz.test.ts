@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { fridayBrandAlreadyQueued, fridayBrandHasPrompts } from "@/lib/cron-friday";
 import { isLocalFridaySix, isSendOverdue, lastLocalFridaySix, localWeekdayAndHour, nextScheduledRunAt } from "@/lib/friday-tz";
 
 // Fixed UTC instant: Friday 2026-09-11 10:30 UTC = 06:30 America/New_York (EDT, UTC-4)
@@ -46,5 +47,14 @@ assert.ok(
     now: new Date("2026-09-14T12:00:00.000Z"),
   }),
 );
+
+// Batched Friday eligibility (prompt / week-run sets) keeps enqueue correctness.
+const withPrompts = new Set(["b1", "b2"]);
+assert.equal(fridayBrandHasPrompts("b1", withPrompts), true);
+assert.equal(fridayBrandHasPrompts("b3", withPrompts), false);
+const alreadyQueued = new Set(["b1"]);
+assert.equal(fridayBrandAlreadyQueued("b1", alreadyQueued, false), true);
+assert.equal(fridayBrandAlreadyQueued("b2", alreadyQueued, false), false);
+assert.equal(fridayBrandAlreadyQueued("b1", alreadyQueued, true), false);
 
 console.log("friday-tz.test.ts: ok");

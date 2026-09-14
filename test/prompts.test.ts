@@ -4,8 +4,10 @@ import {
   generatePromptsCta,
   inferMixFromText,
   isVanityPrompt,
+  mixCounts,
   mixIsLocked,
   normalizePromptDraft,
+  parseNumberedPrompts,
   REPLACE_PROMPTS_CONFIRM,
   stripMixLabelPrefix,
   topUpPromptDrafts,
@@ -164,6 +166,68 @@ assert.equal(inferMixFromText("who is better than Asana for agencies"), "incumbe
 assert.equal(inferMixFromText("which project management tool can help agencies client work"), "job");
 assert.equal(inferMixFromText("best project management platforms for agencies in 2026"), "discovery");
 assert.equal(inferMixFromText("Comparison: Zendesk vs Freshdesk for agencies"), "comparison");
+
+{
+  // Out-of-position mixes: content heuristics win over slot index (not 1=Discovery…).
+  const shuffled = parseNumberedPrompts(
+    [
+      "1. Northstar vs ClickUp for agencies",
+      "2. when should agencies switch from Asana",
+      "3. who is better than Asana for agencies",
+      "4. which project management tool can help agencies client work",
+      "5. best project management platforms for agencies in 2026",
+    ].join("\n"),
+    5,
+  );
+  assert.equal(shuffled.length, 5);
+  assert.equal(shuffled[0]?.mix, "comparison");
+  assert.equal(shuffled[1]?.mix, "switch");
+  assert.equal(shuffled[2]?.mix, "incumbent");
+  assert.equal(shuffled[3]?.mix, "job");
+  assert.equal(shuffled[4]?.mix, "discovery");
+  // Position-only assignment would have been discovery/comparison/job/switch/incumbent.
+  assert.notEqual(shuffled[0]?.mix, "discovery");
+}
+
+{
+  const labeled = parseNumberedPrompts(
+    [
+      "1. Incumbent: Asana alternatives for teams that need client work",
+      "2. Switch: problems with Asana for agencies",
+      "3. Job: affordable project management software for agencies with fast setup",
+      "4. Discovery: top project management vendors for agencies in 2026",
+      "5. Comparison: Monday vs Northstar for agencies",
+    ].join("\n"),
+    5,
+  );
+  assert.deepEqual(
+    labeled.map((row) => row.mix),
+    ["incumbent", "switch", "job", "discovery", "comparison"],
+  );
+  assert.equal(labeled[0]?.text.includes("Incumbent:"), false);
+}
+
+{
+  // Full 20-pack from template order still locks 4+4+4+4+4 after parse.
+  const lockedPack = generatePromptPack({
+    brand: "Northstar",
+    category: "project management",
+    buyer: "agencies",
+    job: "client work",
+    incumbent: "Asana",
+    competitors: ["ClickUp"],
+  });
+  const numbered = lockedPack.map((row, i) => `${i + 1}. ${row.text}`).join("\n");
+  const parsed = parseNumberedPrompts(numbered, 20);
+  assert.equal(mixIsLocked(parsed), true);
+  assert.deepEqual(mixCounts(parsed), {
+    discovery: 4,
+    comparison: 4,
+    job: 4,
+    switch: 4,
+    incumbent: 4,
+  });
+}
 
 {
   const vanityTrial = validatePromptSet(

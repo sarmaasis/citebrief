@@ -36,14 +36,17 @@ export function Td({
   className,
   truncate,
   nowrap,
+  title,
 }: {
   children?: React.ReactNode;
   className?: string;
   truncate?: boolean;
   nowrap?: boolean;
+  title?: string;
 }) {
   return (
     <td
+      title={title}
       className={cn(
         "px-4 align-middle",
         truncate && "max-w-[220px] truncate",

@@ -352,6 +352,17 @@ export async function bumpRunsUsed(db: Database, workspaceId: string, extraRun =
     .where(eq(subscriptions.id, sub.id));
 }
 
+/**
+ * runsUsed bumps only after a successful enqueue (or local placeholder with no queue).
+ * Failed queue sends must not permanently inflate the attempt counter — the run is
+ * marked failed and excluded from soft-cap via runCountsTowardCap / ne(failed).
+ */
+export function shouldBumpRunsUsedAfterEnqueue(
+  queue: "sent" | "failed" | "placeholder",
+): boolean {
+  return queue !== "failed";
+}
+
 /** Dodo extra-run meter + extraRuns + prepaid credits settle only after a report exists. */
 export function shouldSettleBillableExtra(status: string): boolean {
   return status === "complete" || status === "partial";

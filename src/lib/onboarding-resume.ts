@@ -73,7 +73,7 @@ export function serializeOnboardingResume(bundle: {
     clientNotes?: string | null;
   };
   competitors: Array<{ name: string }>;
-  prompts: Array<{ text: string; mix: string; sortOrder: number }>;
+  prompts: Array<{ id?: string; text: string; mix: string; sortOrder: number }>;
   latestRun: { id: string; status: string; engineStates: string | null } | null;
   latestReport: {
     id: string;

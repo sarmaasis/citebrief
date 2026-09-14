@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "@/db";
 import { brands, prompts, runs, users, workspaceMembers, workspaces } from "@/db/schema";
 import { emptyEngineStatus } from "@/lib/engines";
@@ -30,6 +30,25 @@ export type FridayCronOptions = {
   force?: boolean;
   now?: Date;
 };
+
+/**
+ * Pure helpers for Friday eligibility after batched prompt / existing-run loads.
+ * Exported for unit tests.
+ */
+export function fridayBrandHasPrompts(
+  brandId: string,
+  brandIdsWithPrompts: Set<string>,
+): boolean {
+  return brandIdsWithPrompts.has(brandId);
+}
+
+export function fridayBrandAlreadyQueued(
+  brandId: string,
+  brandIdsWithWeekRun: Set<string>,
+  force: boolean,
+): boolean {
+  return !force && brandIdsWithWeekRun.has(brandId);
+}
 
 /**
  * Friday cron: enqueue one run per active brand whose workspace timezone
@@ -74,23 +93,33 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
       .from(brands)
       .where(and(eq(brands.workspaceId, workspace.id), isNull(brands.archivedAt)));
 
-    for (const brand of activeBrands) {
-      const promptRows = await db
-        .select()
+    if (activeBrands.length === 0) continue;
+
+    const brandIds = activeBrands.map((brand) => brand.id);
+    const week = formatWeekOf(now);
+
+    // Batch prompt existence + week-run checks across brands (not per-brand in the loop).
+    const [promptRows, existingWeekRuns] = await Promise.all([
+      db
+        .select({ brandId: prompts.brandId })
         .from(prompts)
-        .where(and(eq(prompts.brandId, brand.id), isNull(prompts.archivedAt)));
-      if (promptRows.length === 0) {
+        .where(and(inArray(prompts.brandId, brandIds), isNull(prompts.archivedAt))),
+      db
+        .select({ brandId: runs.brandId })
+        .from(runs)
+        .where(and(inArray(runs.brandId, brandIds), eq(runs.periodStart, week))),
+    ]);
+
+    const brandIdsWithPrompts = new Set(promptRows.map((row) => row.brandId));
+    const brandIdsWithWeekRun = new Set(existingWeekRuns.map((row) => row.brandId));
+
+    for (const brand of activeBrands) {
+      if (!fridayBrandHasPrompts(brand.id, brandIdsWithPrompts)) {
         skipped.push({ workspaceId: workspace.id, reason: `brand ${brand.id} has no prompts` });
         continue;
       }
 
-      const week = formatWeekOf(now);
-      const [existing] = await db
-        .select()
-        .from(runs)
-        .where(and(eq(runs.brandId, brand.id), eq(runs.periodStart, week)))
-        .limit(1);
-      if (existing && !options.force) {
+      if (fridayBrandAlreadyQueued(brand.id, brandIdsWithWeekRun, Boolean(options.force))) {
         skipped.push({ workspaceId: workspace.id, reason: `brand ${brand.id} already has week ${week}` });
         continue;
       }
@@ -105,6 +134,7 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
         engineStates: JSON.stringify(emptyEngineStatus()),
         createdAt: now,
       });
+      brandIdsWithWeekRun.add(brand.id);
 
       let queued = false;
       try {

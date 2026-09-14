@@ -12,6 +12,11 @@
 #   CLOUDFLARE_API_TOKEN    Account permission: Workers Scripts Edit, D1 Edit
 #   CLOUDFLARE_ACCOUNT_ID   Cloudflare account id
 #
+# Lint / test / Build OpenNext do NOT need those secrets. `initOpenNextCloudflareForDev`
+# runs only when NODE_ENV=development (`next dev`), so the build stays offline/local
+# (miniflare-style bindings; no Cloudflare remote proxy). Token + account id are
+# required only for D1 migrate and Deploy steps below.
+#
 # Staging D1 (required — CI does not use the production D1 id):
 #   npx wrangler d1 create citebrief-staging
 #   Paste database_id into wrangler.jsonc env.preview.d1_databases

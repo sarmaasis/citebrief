@@ -4,6 +4,28 @@ import { competitorSignalsFromRows } from "@/lib/command-center";
 import { isSendOverdue } from "@/lib/friday-tz";
 import type { AppContext } from "@/lib/session";
 
+/** First row per brandId assuming rows are already newest-first. */
+export function indexLatestByBrandId<T extends { brandId: string }>(rows: T[]): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const row of rows) {
+    if (!map.has(row.brandId)) map.set(row.brandId, row);
+  }
+  return map;
+}
+
+/** Up to `n` newest rows per brandId assuming rows are already newest-first. */
+export function indexTopNByBrandId<T extends { brandId: string }>(rows: T[], n: number): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const row of rows) {
+    const list = map.get(row.brandId) ?? [];
+    if (list.length < n) {
+      list.push(row);
+      map.set(row.brandId, list);
+    }
+  }
+  return map;
+}
+
 export async function listWorkspaceBrands(ctx: AppContext, includeArchived = false) {
   const rows = await ctx.db
     .select()
@@ -61,45 +83,54 @@ export async function listHomeRows(ctx: AppContext) {
     .where(and(eq(brands.workspaceId, ctx.workspace.id), isNull(brands.archivedAt)))
     .orderBy(desc(brands.createdAt));
 
-  const results = await Promise.all(
-    active.map(async (brand) => {
-      const [latestRun] = await ctx.db
-        .select()
-        .from(runs)
-        .where(eq(runs.brandId, brand.id))
-        .orderBy(desc(runs.createdAt))
-        .limit(1);
-      const reportList = await ctx.db
-        .select()
-        .from(reports)
-        .where(eq(reports.brandId, brand.id))
-        .orderBy(desc(reports.createdAt))
-        .limit(2);
-      const promptCountRows = await ctx.db
-        .select({ id: prompts.id })
-        .from(prompts)
-        .where(and(eq(prompts.brandId, brand.id), isNull(prompts.archivedAt)));
-      const latestReport = reportList[0] ?? null;
-      const previousReport = reportList[1] ?? null;
-      const mentionedDelta =
-        latestReport?.scoreMentioned != null && previousReport?.scoreMentioned != null
-          ? latestReport.scoreMentioned - previousReport.scoreMentioned
-          : null;
-      return {
-        brand,
-        latestRun: latestRun ?? null,
-        latestReport,
-        previousReport,
-        promptCount: promptCountRows.length,
-        mentionedDelta,
-        competitorLeadShare: null as number | null,
-        competitorLeadCount: 0,
-        competitorLeader: null as string | null,
-        missingSources: false,
-        sendOverdue: false,
-      };
-    }),
-  );
+  if (active.length === 0) return [];
+
+  const brandIds = active.map((brand) => brand.id);
+
+  // Batched reads (Studio 25 brands ≈ 3 queries, not 75).
+  const [allRuns, allReports, promptIdRows] = await Promise.all([
+    ctx.db.select().from(runs).where(inArray(runs.brandId, brandIds)).orderBy(desc(runs.createdAt)),
+    ctx.db
+      .select()
+      .from(reports)
+      .where(inArray(reports.brandId, brandIds))
+      .orderBy(desc(reports.createdAt)),
+    ctx.db
+      .select({ id: prompts.id, brandId: prompts.brandId })
+      .from(prompts)
+      .where(and(inArray(prompts.brandId, brandIds), isNull(prompts.archivedAt))),
+  ]);
+
+  const latestRunByBrand = indexLatestByBrandId(allRuns);
+  const reportsByBrand = indexTopNByBrandId(allReports, 2);
+
+  const promptCountByBrand = new Map<string, number>();
+  for (const row of promptIdRows) {
+    promptCountByBrand.set(row.brandId, (promptCountByBrand.get(row.brandId) ?? 0) + 1);
+  }
+
+  const results = active.map((brand) => {
+    const reportList = reportsByBrand.get(brand.id) ?? [];
+    const latestReport = reportList[0] ?? null;
+    const previousReport = reportList[1] ?? null;
+    const mentionedDelta =
+      latestReport?.scoreMentioned != null && previousReport?.scoreMentioned != null
+        ? latestReport.scoreMentioned - previousReport.scoreMentioned
+        : null;
+    return {
+      brand,
+      latestRun: latestRunByBrand.get(brand.id) ?? null,
+      latestReport,
+      previousReport,
+      promptCount: promptCountByBrand.get(brand.id) ?? 0,
+      mentionedDelta,
+      competitorLeadShare: null as number | null,
+      competitorLeadCount: 0,
+      competitorLeader: null as string | null,
+      missingSources: false,
+      sendOverdue: false,
+    };
+  });
 
   const runIds = results.map((row) => row.latestRun?.id).filter((id): id is string => Boolean(id));
   if (runIds.length === 0) return results;
