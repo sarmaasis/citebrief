@@ -23,11 +23,10 @@ export function WorkspaceChrome({
   brands: Array<{ id: string; name: string }>;
 }) {
   const pathname = usePathname();
-  const [navOpen, setNavOpen] = useState(false);
-
-  useEffect(() => {
-    setNavOpen(false);
-  }, [pathname]);
+  const [navState, setNavState] = useState({ open: false, pathname });
+  const navOpen = navState.open && navState.pathname === pathname;
+  const closeNav = () => setNavState({ open: false, pathname });
+  const openNav = () => setNavState({ open: true, pathname });
 
   useEffect(() => {
     if (!navOpen) return;
@@ -51,7 +50,7 @@ export function WorkspaceChrome({
           type="button"
           aria-label="Close menu"
           className="fixed inset-0 z-40 bg-[color:var(--cb-overlay)] lg:hidden"
-          onClick={() => setNavOpen(false)}
+          onClick={closeNav}
         />
       ) : null}
       <div
@@ -74,7 +73,7 @@ export function WorkspaceChrome({
           roleLabel={roleLabel}
           signedIn={signedIn}
           brands={brands}
-          onOpenNav={() => setNavOpen(true)}
+          onOpenNav={openNav}
         />
         <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8">
           {children}

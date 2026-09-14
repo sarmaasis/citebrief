@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PIPELINE_LABEL, type PipelineStage } from "@/lib/command-center";
 import Link from "next/link";
@@ -34,12 +34,8 @@ export function ReportsQueue({
     [rows],
   );
 
-  useEffect(() => {
-    const valid = new Set(selectable.map((row) => row.reportId as string));
-    setSelected((current) => current.filter((id) => valid.has(id)));
-  }, [selectable]);
-
-  const selectedSet = new Set(selected);
+  const validReportIds = new Set(selectable.map((row) => row.reportId as string));
+  const selectedSet = new Set(selected.filter((id) => validReportIds.has(id)));
   const selectedRows = selectable.filter((row) => row.reportId && selectedSet.has(row.reportId));
   const approveIds = selectedRows.filter((row) => row.pipeline === "needs_review").map((row) => row.reportId as string);
   const sendIds = selectedRows.filter((row) => row.pipeline === "ready_to_send").map((row) => row.reportId as string);
@@ -49,7 +45,7 @@ export function ReportsQueue({
   }
 
   function toggleAll() {
-    if (selected.length === selectable.length) {
+    if (selectedSet.size === selectable.length) {
       setSelected([]);
       return;
     }
@@ -145,7 +141,7 @@ export function ReportsQueue({
                   <input
                     type="checkbox"
                     aria-label="Select all reports"
-                    checked={selectable.length > 0 && selected.length === selectable.length}
+                    checked={selectable.length > 0 && selectedSet.size === selectable.length}
                     onChange={toggleAll}
                     disabled={selectable.length === 0}
                   />

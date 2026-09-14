@@ -75,16 +75,37 @@ export function ReportViewer({
   const [liveToken, setLiveToken] = useState(shareToken);
   const [liveExpires, setLiveExpires] = useState(shareExpiresAt ?? null);
   const [revoked, setRevoked] = useState(Boolean(shareRevokedAt));
-  const [approved, setApproved] = useState(approvalState === "approved" || Boolean(sentAt));
-  const [sent, setSent] = useState(Boolean(sentAt));
+  const [statusOverride, setStatusOverride] = useState<{ reportId: string; approved: boolean; sent: boolean } | null>(
+    null,
+  );
   const [approveBusy, setApproveBusy] = useState(false);
-  const [emailSubject, setEmailSubject] = useState(suggestedEmailSubject);
-  const [emailDraft, setEmailDraft] = useState(suggestedEmailBody);
+  const [emailState, setEmailState] = useState({
+    reportId,
+    subject: suggestedEmailSubject,
+    body: suggestedEmailBody,
+    error: null as string | null,
+  });
   const [draftBusy, setDraftBusy] = useState(false);
-  const [draftError, setDraftError] = useState<string | null>(null);
-  const lastSaved = useRef({ subject: suggestedEmailSubject, body: suggestedEmailBody });
+  const lastSaved = useRef({ reportId, subject: suggestedEmailSubject, body: suggestedEmailBody });
+  const baseApproved = approvalState === "approved" || Boolean(sentAt);
+  const baseSent = Boolean(sentAt);
+  const approved = statusOverride?.reportId === reportId ? statusOverride.approved : baseApproved;
+  const sent = statusOverride?.reportId === reportId ? statusOverride.sent : baseSent;
+  const emailSubject = emailState.reportId === reportId ? emailState.subject : suggestedEmailSubject;
+  const emailDraft = emailState.reportId === reportId ? emailState.body : suggestedEmailBody;
+  const draftError = emailState.reportId === reportId ? emailState.error : null;
   const needsApprove = allowApproval && !approved && !sent;
   const canSend = allowSend && !needsApprove;
+
+  function updateEmailState(next: Partial<{ subject: string; body: string; error: string | null }>) {
+    setEmailState((current) => {
+      const base =
+        current.reportId === reportId
+          ? current
+          : { reportId, subject: suggestedEmailSubject, body: suggestedEmailBody, error: null };
+      return { ...base, ...next };
+    });
+  }
 
   function flash(next: string) {
     setToast(next);
@@ -103,30 +124,23 @@ export function ReportViewer({
     flash(error ?? "Could not send. Try again.");
   }
 
-  useEffect(() => {
-    setApproved(approvalState === "approved" || Boolean(sentAt));
-    setSent(Boolean(sentAt));
-  }, [reportId, approvalState, sentAt]);
-
-  useEffect(() => {
-    setEmailSubject(suggestedEmailSubject);
-    setEmailDraft(suggestedEmailBody);
-    setDraftError(null);
-    lastSaved.current = { subject: suggestedEmailSubject, body: suggestedEmailBody };
-  }, [reportId, suggestedEmailSubject, suggestedEmailBody]);
-
   async function saveDraft(showToast = false) {
     if (!allowSend) return false;
     const subject = emailSubject.trim();
     const body = emailDraft.trim();
+    const saved =
+      lastSaved.current.reportId === reportId
+        ? lastSaved.current
+        : { reportId, subject: suggestedEmailSubject, body: suggestedEmailBody };
     if (!subject || !body) {
       const err = "Subject and body are required.";
-      setDraftError(err);
+      updateEmailState({ error: err });
       if (showToast) flash(err);
       return false;
     }
-    if (subject === lastSaved.current.subject && body === lastSaved.current.body) {
-      setDraftError(null);
+    if (subject === saved.subject && body === saved.body) {
+      lastSaved.current = saved;
+      updateEmailState({ error: null });
       return true;
     }
     setDraftBusy(true);
@@ -139,12 +153,12 @@ export function ReportViewer({
       const data = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         const err = data.error ?? "Could not save the email draft.";
-        setDraftError(err);
+        updateEmailState({ error: err });
         if (showToast) flash(err);
         return false;
       }
-      lastSaved.current = { subject, body };
-      setDraftError(null);
+      lastSaved.current = { reportId, subject, body };
+      updateEmailState({ error: null });
       if (showToast) flash("Suggested email saved");
       return true;
     } finally {
@@ -172,7 +186,7 @@ export function ReportViewer({
         flash(data.error ?? "Could not approve this report.");
         return;
       }
-      setApproved(true);
+      setStatusOverride({ reportId, approved: true, sent });
       flash("Report approved. You can send it now.");
     } finally {
       setApproveBusy(false);
@@ -251,7 +265,7 @@ export function ReportViewer({
         const data = (await response.json().catch(() => ({}))) as { error?: string };
         handleSendDenied(response.status, data.error);
       } else {
-        setSent(true);
+        setStatusOverride({ reportId, approved, sent: true });
         flash("Test send queued to you.");
       }
     } finally {
@@ -294,7 +308,7 @@ export function ReportViewer({
           flash(data.error ?? "Could not send. Try again.");
         }
       } else {
-        setSent(true);
+        setStatusOverride({ reportId, approved, sent: true });
         flash("Report queued to the client.");
         setCcOpen(false);
         setCcEmail("");
@@ -455,7 +469,7 @@ export function ReportViewer({
             <Input
               className="mt-2"
               value={emailSubject}
-              onChange={(event) => setEmailSubject(event.target.value)}
+              onChange={(event) => updateEmailState({ subject: event.target.value })}
               disabled={!allowSend}
             />
           </label>
@@ -464,7 +478,7 @@ export function ReportViewer({
             <textarea
               className="mt-2 min-h-28 w-full rounded-cb-control border border-cb-line bg-cb-bg px-3 py-2 text-sm text-cb-text disabled:opacity-60"
               value={emailDraft}
-              onChange={(event) => setEmailDraft(event.target.value)}
+              onChange={(event) => updateEmailState({ body: event.target.value })}
               disabled={!allowSend}
             />
           </label>
