@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { and, desc, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "@/db";
 import { auditLogs, brands, runs, subscriptions, workspaceInvites, workspaceMembers } from "@/db/schema";
@@ -205,7 +206,7 @@ export function decidePaidRunCap(args: {
   };
 }
 
-export async function getWorkspaceSubscription(db: Database, workspaceId: string) {
+export const getWorkspaceSubscription = cache(async function getWorkspaceSubscription(db: Database, workspaceId: string) {
   const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1);
   if (!sub) return null;
   // Lazy reconcile: period ended but webhook never flipped status off `active`.
@@ -219,7 +220,7 @@ export async function getWorkspaceSubscription(db: Database, workspaceId: string
     return { ...sub, status: nextStatus, updatedAt: now };
   }
   return sub;
-}
+});
 
 export async function countActiveBrands(db: Database, workspaceId: string) {
   const [row] = await db

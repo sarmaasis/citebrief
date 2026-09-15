@@ -25,16 +25,16 @@ import { listHomeRows, withSendOverdue } from "@/server/workspace-data";
 
 /** Request-scoped: home + dashboard builders both call this. */
 export const loadCommandRows = cache(async (ctx: AppContext, weekly: boolean, brandIds?: string[]) => {
-  const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
-  const rows = withSendOverdue(await listHomeRows(ctx, brandIds), {
+  const [[workspace], homeRows, plans] = await Promise.all([
+    ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1),
+    listHomeRows(ctx, brandIds),
+    ctx.db.select().from(opportunityPlans).where(eq(opportunityPlans.workspaceId, ctx.workspace.id)),
+  ]);
+  const rows = withSendOverdue(homeRows, {
     timezone: workspace?.timezone || "America/New_York",
     weekly,
   });
   const minutesSavedPerReport = clampMinutesSaved(workspace?.minutesSavedPerReport ?? MINUTES_SAVED_DEFAULT);
-  const plans = await ctx.db
-    .select()
-    .from(opportunityPlans)
-    .where(eq(opportunityPlans.workspaceId, ctx.workspace.id));
   const planned = new Set(plans.map((plan) => `${plan.brandId}:${plan.opportunityKey}`));
   return { rows, minutesSavedPerReport, planned, timezone: workspace?.timezone || "America/New_York" };
 });

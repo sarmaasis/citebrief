@@ -163,7 +163,7 @@ export const listHomeRows = cache(async (ctx: AppContext, brandIds?: string[]) =
     .groupBy(runs.brandId)
     .as("latest_run_ts");
 
-  const [latestRunRows, allReports, promptIdRows] = await Promise.all([
+  const [latestRunRows, promptIdRows, ...reportBuckets] = await Promise.all([
     ctx.db
       .select({ run: runs })
       .from(runs)
@@ -172,15 +172,15 @@ export const listHomeRows = cache(async (ctx: AppContext, brandIds?: string[]) =
         and(eq(runs.brandId, latestRunTs.brandId), eq(runs.createdAt, latestRunTs.maxCreated)),
       ),
     ctx.db
-      .select()
-      .from(reports)
-      .where(inArray(reports.brandId, activeIds))
-      .orderBy(desc(reports.createdAt)),
-    ctx.db
       .select({ id: prompts.id, brandId: prompts.brandId })
       .from(prompts)
       .where(and(inArray(prompts.brandId, activeIds), isNull(prompts.archivedAt))),
+    // ponytail: one query per brand, each index-seeks brand_id + LIMIT 2 — avoids full history scan
+    ...activeIds.map((id) =>
+      ctx.db.select().from(reports).where(eq(reports.brandId, id)).orderBy(desc(reports.createdAt)).limit(2),
+    ),
   ]);
+  const allReports = (reportBuckets as (typeof reports.$inferSelect)[][]).flat();
 
   const allRuns = latestRunRows.map((row) => row.run);
   const latestRunByBrand = indexLatestByBrandId(allRuns);
