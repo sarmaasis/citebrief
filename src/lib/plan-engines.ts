@@ -11,12 +11,12 @@ import {
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getWorkspaceSubscription } from "@/lib/usage";
 
-/** Trial default: same four public engines as paid Growth. */
+/** Trial default: same four public engines as paid Teams. */
 export const TRIAL_DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio";
-/** Growth default: ChatGPT, Gemini, Grok, AIO — no Claude. */
+/** Teams default: ChatGPT, Gemini, Grok, AIO — no Claude. */
 export const DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio";
-/** Agency default: Growth set + Perplexity. Claude not selectable. */
-export const STUDIO_DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio,perplexity";
+/** Scale default: same Cloudflare Gateway-safe set. Claude/Perplexity not selectable. */
+export const STUDIO_DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio";
 
 const KNOWN_IDS = new Set(ENGINES.map((engine) => engine.id));
 
@@ -68,7 +68,7 @@ export function validateDefaultEngines(
   for (const token of requested) {
     const id = token.startsWith("-") ? token.slice(1) : token;
     if (!KNOWN_IDS.has(id as EngineId)) {
-      return { ok: false, error: `Unknown engine "${id}". Use chatgpt, gemini, grok, aio, perplexity.` };
+      return { ok: false, error: `Unknown engine "${id}". Use chatgpt, gemini, grok, aio.` };
     }
     // Claude stays in the catalog for adapters/history but is not plan-selectable.
     if (isClaudeDisabled(id)) continue;

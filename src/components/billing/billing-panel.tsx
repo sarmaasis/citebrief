@@ -47,7 +47,7 @@ const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
     `${PLANS.studio.brands * PLANS.studio.prompts} tracked question capacity`,
     "Custom sender name and domain",
     "Bulk send and portfolio CSV export",
-    "ChatGPT, Gemini, Grok, AI Overviews, and Perplexity",
+    "ChatGPT, Gemini, Grok, and AI Overviews",
     `${PLANS.studio.seats} seats`,
     "Cited pages and prospect pitch audits",
     "Coming soon: portal archive, API/Looker exports",
@@ -385,7 +385,7 @@ export function BillingPanel({
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <p className="text-sm font-medium">Add-ons</p>
           <p className="mt-1 text-sm text-cb-muted">
-            Extra brand ${extraBrandPrice}/mo on Growth and Agency only (not Starter). Extra seat $
+            Extra brand ${extraBrandPrice}/mo on {PLANS.agency.name} and {PLANS.studio.name} only (not Starter). Extra seat $
             {SEAT_OVERAGE_USD}/mo after the seat cap. Extra run ${EXTRA_RUN_USD[selectedPlan]} after
             monthly re-check credits.
           </p>

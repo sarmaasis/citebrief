@@ -9,7 +9,6 @@ import {
   EXTRA_RUN_USD,
   MONTHLY_RECHECK_CREDITS,
   PLANS,
-  PREMIUM_ENGINE_PACK_USD,
   SEAT_OVERAGE_USD,
   TRIAL_BRAND_CAP,
   TRIAL_DAYS,
@@ -69,7 +68,7 @@ const plans = [
       "ChatGPT, Gemini, Grok, and AI Overviews",
       "Slack webhook",
       `Extra brands at $${EXTRA_BRAND_USD.agency}/mo`,
-      `Perplexity via $${PREMIUM_ENGINE_PACK_USD}/mo engine pack`,
+      "Coming soon: Looker Studio/API exports and deeper source monitoring",
     ],
   },
   {
@@ -92,7 +91,7 @@ const plans = [
       "Portfolio filters and CSV export",
       "Prospect pitch audits (48h PDF, convert on win)",
       "Cited pages on every report",
-      "ChatGPT, Gemini, Grok, AI Overviews, and Perplexity",
+      "ChatGPT, Gemini, Grok, and AI Overviews",
       `${PLANS.studio.seats} seats`,
       "Coming soon: client portal archive, Looker Studio/API exports, priority processing",
       `Extra brands at $${EXTRA_BRAND_USD.studio}/mo`,
@@ -211,8 +210,7 @@ export function PricingView({
       <p className="mt-6 text-sm leading-6 text-cb-muted">
         Add-ons: extra brand ${EXTRA_BRAND_USD.agency}/mo on {PLANS.agency.name} and {PLANS.studio.name} only (not trial or
         Starter). Extra run ${EXTRA_RUN_USD.agency} after monthly re-check credits on paid plans.
-        Extra seats ${SEAT_OVERAGE_USD}/seat/mo after the plan cap. Premium engine pack $
-        {PREMIUM_ENGINE_PACK_USD}/mo adds Perplexity on {PLANS.agency.name}. Tax handled by Dodo. Trial:{" "}
+        Extra seats ${SEAT_OVERAGE_USD}/seat/mo after the plan cap. Tax handled by Dodo. Trial:{" "}
         {TRIAL_DAYS} days, {TRIAL_BRAND_CAP} brand, {TRIAL_PROMPT_CAP} buyer questions,{" "}
         {TRIAL_RUN_CAP} full run on ChatGPT, Gemini, Grok, and AI Overviews. No free forever plan.
       </p>

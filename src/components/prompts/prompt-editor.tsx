@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MIX_LABEL, MIXES, mixCounts, normalizePromptDrafts, type PromptDraft, type PromptMix, isVanityPrompt } from "@/lib/prompts";
+import { MIX_LABEL, MIXES, mixCounts, normalizePromptDrafts, type PromptDraft, type PromptMix, brandedShareWarns, isBrandedPrompt, isVanityPrompt } from "@/lib/prompts";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
@@ -30,49 +30,68 @@ export function PromptEditor({
   brandName,
   mixTarget = 4,
   onChange,
+  readOnly = false,
 }: {
   prompts: PromptDraft[];
   brandName?: string;
   mixTarget?: number;
   onChange: (next: PromptDraft[]) => void;
+  readOnly?: boolean;
 }) {
   function update(index: number, patch: Partial<PromptDraft>) {
+    if (readOnly) return;
     onChange(prompts.map((prompt, i) => (i === index ? { ...prompt, ...patch } : prompt)));
   }
 
   useEffect(() => {
+    if (readOnly) return;
     const cleaned = normalizePromptDrafts(prompts);
     if (cleaned.some((prompt, index) => prompt.text !== prompts[index]?.text)) {
       onChange(cleaned);
     }
-  }, [onChange, prompts]);
+  }, [onChange, prompts, readOnly]);
 
   return (
     <div className="space-y-3">
       <MixMeter prompts={prompts} mixTarget={mixTarget} />
+      {brandedShareWarns(prompts, brandName) ? (
+        <p className="rounded-cb-control border border-cb-pending/40 bg-cb-pending/10 px-3 py-2 text-xs text-cb-pending">
+          More than 20% of active questions include the brand name. Those do not raise the page-1 score — keep
+          them in an appendix.
+        </p>
+      ) : null}
       <ol className="space-y-3">
         {prompts.map((prompt, index) => {
           const vanity = isVanityPrompt(prompt.text, brandName, prompt.mix);
+          const branded = prompt.branded || isBrandedPrompt(prompt.text, brandName);
           return (
             <li key={prompt.id ?? `${prompt.sortOrder}-${index}`} className="rounded-cb-card border border-cb-line bg-cb-surface p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="font-mono text-xs text-cb-muted">{String(index + 1).padStart(2, "0")}</span>
-                <NativeSelect
-                  aria-label={`Mix for question ${index + 1}`}
-                  className="h-8 w-auto px-2 text-xs"
-                  value={prompt.mix}
-                  onChange={(event) => update(index, { mix: event.target.value as PromptMix })}
-                >
-                  {MIXES.map((mix) => (
-                    <option key={mix} value={mix}>
-                      {MIX_LABEL[mix]}
-                    </option>
-                  ))}
-                </NativeSelect>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-cb-control bg-cb-bg px-2 py-1 text-xs text-cb-muted">
+                    {branded ? "Branded" : "Category"}
+                  </span>
+                  <NativeSelect
+                    aria-label={`Mix for question ${index + 1}`}
+                    className="h-8 w-auto px-2 text-xs"
+                    value={prompt.mix}
+                    disabled={readOnly}
+                    onChange={(event) => update(index, { mix: event.target.value as PromptMix })}
+                  >
+                    {MIXES.map((mix) => (
+                      <option key={mix} value={mix}>
+                        {MIX_LABEL[mix]}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
               </div>
               <Input
                 aria-label={`Buyer question ${index + 1}`}
                 value={prompt.text}
+                readOnly={readOnly}
+                disabled={readOnly}
                 onChange={(event) => update(index, { text: event.target.value })}
               />
               {vanity ? <p className="mt-2 text-xs text-cb-danger">{vanity}</p> : null}

@@ -25,6 +25,7 @@ export default async function EditBrandPage({ params }: { params: Promise<{ id: 
           logoUrl: bundle.brand.logoUrl ?? "",
           category: bundle.brand.category ?? "",
           vertical: bundle.brand.vertical ?? "",
+          market: bundle.brand.market ?? "US",
           buyer: bundle.brand.buyer ?? "",
           job: bundle.brand.job ?? "",
           incumbent: bundle.brand.incumbent ?? "",

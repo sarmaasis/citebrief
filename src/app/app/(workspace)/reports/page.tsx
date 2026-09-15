@@ -2,6 +2,7 @@ import { ReportsQueue } from "@/components/app/bulk-report-actions";
 import { ClientReportingCenterLoader } from "@/components/app/client-reporting-center-loader";
 import { EmptyState } from "@/components/app/empty-state";
 import { LockedModule } from "@/components/app/locked-module";
+import { PageHeader } from "@/components/app/page-header";
 import { PipelineStrip } from "@/components/app/pipeline-strip";
 import { PortfolioExport } from "@/components/app/portfolio-export";
 import { PortfolioFilters } from "@/components/app/portfolio-filters";
@@ -38,7 +39,7 @@ export default async function ReportsPipelinePage({
   if (!ent.allowsWeeklySendQueue) {
     return (
       <LockedModule
-        title="Reports"
+        title="Briefs"
         line={
           ent.trialing
             ? `Trial includes one report on the brand page. ${PLANS.agency.name} unlocks the Friday send queue and pipeline.`
@@ -58,7 +59,7 @@ export default async function ReportsPipelinePage({
   if (allRows.length === 0) {
     return (
       <div>
-        <h1 className="mb-8 text-xl font-semibold tracking-tight">Reports</h1>
+        <PageHeader title="Briefs" subtitle="Friday send queue fills after the first client report." />
         <EmptyState title="No brands yet" line="The send queue and client reporting center fill after you add a brand and generate the first Friday report." cta="Add a brand" href="/app/onboarding" steps={["Add a brand", "Run a report", "Approve and send from this queue"]} />
       </div>
     );
@@ -70,15 +71,11 @@ export default async function ReportsPipelinePage({
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
-          <p className="mt-1 text-sm text-cb-muted">
-            Pipeline, send queue, and client reporting center for this workspace.
-          </p>
-        </div>
-        {ent.allowsPortfolioExport ? <PortfolioExport /> : null}
-      </div>
+      <PageHeader
+        title="Briefs"
+        subtitle="Pipeline, send queue, and client reporting center for this workspace."
+        actions={ent.allowsPortfolioExport ? <PortfolioExport /> : null}
+      />
       <div className="mt-6">
         <PipelineStrip pipeline={pipelineCounts(allRows)} active={activeStage} keep={params} />
       </div>

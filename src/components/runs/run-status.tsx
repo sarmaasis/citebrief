@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ForwardablePrompt } from "@/components/reports/forwardable-prompt";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { CORE_ENGINES, ENGINES, softFailMinCore, type EngineState } from "@/lib/engines";
@@ -197,14 +198,25 @@ export function RunStatus({
         })}
       </div>
       {done && reportId ? (
-        <div className="mt-8 flex flex-wrap gap-2">
-          <Button asChild>
-            <Link href={`/app/brands/${brandId}/reports/${reportId}`}>Open report</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={`/app/brands/${brandId}`}>Brand home</Link>
-          </Button>
-        </div>
+        <>
+          <div className="mt-8 flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href={`/app/brands/${brandId}/reports/${reportId}`}>Open report</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/app/brands/${brandId}`}>Brand home</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/api/brands/${brandId}/runs/${runId}/export?format=csv`}>CSV</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/api/brands/${brandId}/runs/${runId}/export`}>JSON</Link>
+            </Button>
+          </div>
+          <div className="mt-6">
+            <ForwardablePrompt runId={runId} />
+          </div>
+        </>
       ) : null}
       {done && !reportId ? (
         <p className="mt-8 text-sm text-cb-muted">Report is still writing. Refresh in a moment.</p>

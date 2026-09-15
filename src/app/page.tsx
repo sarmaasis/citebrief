@@ -3,171 +3,96 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingHeader } from "@/components/marketing/header";
-import { MarketingPrimaryCta } from "@/components/marketing/primary-cta";
-import { DashboardPreview } from "@/components/marketing/dashboard-preview";
+import { DomainLeadForm } from "@/components/marketing/domain-lead-form";
 import { PdfPreview } from "@/components/marketing/pdf-preview";
 import { SAMPLE_REPORT } from "@/components/marketing/sample-report-data";
 import { JsonLd } from "@/components/seo/json-ld";
 import { PLANS, TRIAL_BRAND_CAP, TRIAL_DAYS, TRIAL_PROMPT_CAP, TRIAL_RUN_CAP } from "@/lib/billing";
 import { homeJsonLd, metadataPages } from "@/lib/seo";
+import { getMarketingAuth } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = metadataPages.home;
 
-const bento = [
-  {
-    kicker: "Named",
-    title: `Named in ${SAMPLE_REPORT.named} of ${SAMPLE_REPORT.total}`,
-    body: "A score a CMO can read. Not a dashboard lecture.",
-  },
-  {
-    kicker: "Who won",
-    title: "ClickUp won the shortlist",
-    body: "Asana alternatives for agencies still goes to a rival.",
-  },
-  {
-    kicker: "Next action",
-    title: "Write the comparison page",
-    body: "Asana vs Northstar. One owner. Ten days.",
-  },
-  {
-    kicker: "Friday send",
-    title: "In the inbox before standup",
-    body: "White-label PDF, optional client CC, private link.",
-  },
-];
-
 const steps = [
   {
     n: "01",
-    title: "Add one client brand",
-    body: "Six fields. CiteBrief writes twenty buyer questions. No vanity prompts about whether ChatGPT mentioned the brand.",
+    title: "You add a client, 3 competitors, a market",
+    body: "CiteBrief writes an unbranded buyer pack. Branded checks stay in an appendix and do not raise the score.",
   },
   {
     n: "02",
-    title: "Check four AI surfaces",
-    body: "ChatGPT, Gemini, Grok, and Google AI Overviews. Named, recommended, and who won.",
+    title: "We run the pack on the engines",
+    body: "ChatGPT, Gemini, Grok, and Google AI Overviews. Mentioned, cited, who won — fail closed if an engine dies.",
   },
   {
     n: "03",
-    title: "Send the Friday PDF",
-    body: "White-label cover, scores, next actions. Forward it without rewriting.",
+    title: "Friday you get a PDF the AM forwards",
+    body: "White-label cover, per-engine table, five actions. No client login.",
   },
+];
+
+const problems = [
+  { title: "The slide is a screenshot", body: "One ChatGPT grab is not a metric." },
+  { title: "The prompt had the brand in it", body: "“What is Acme?” always cites Acme." },
+  { title: "The client still doesn’t have a number", body: "They need dated sample size, not a vibe." },
 ];
 
 const fit = [
-  "SEO and content agencies adding AI-search reporting to retainers.",
-  "PR agencies proving third-party mentions and citations matter.",
-  "Paid and search agencies defending strategy when buyers ask ChatGPT first.",
-  "B2B SaaS agencies whose clients care about comparison and shortlist queries.",
+  "Practices with retainers",
+  "Consultants with more than one logo",
+  "In-house teams with more than one brand",
 ];
 
-const posture = [
-  {
-    against: "Cheap trackers",
-    line: "Your client cannot read a vanity score. They need a Friday letter.",
-  },
-  {
-    against: "Deep platforms",
-    line: "Your account manager needs a finished report by Friday, plus a clear next-action queue.",
-  },
-  {
-    against: "SEO suite tabs",
-    line: "AI-search reporting is a client deliverable, not another keyword module.",
-  },
-  {
-    against: "Manual slides",
-    line: "Stop spending strategist time copying screenshots into decks.",
-  },
-];
-
-export default function HomePage() {
+export default async function HomePage() {
+  const auth = await getMarketingAuth();
   return (
     <div className="min-h-screen">
       <JsonLd json={homeJsonLd()} />
       <MarketingHeader />
       <main id="main">
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-2 lg:py-24">
+        <section className="mx-auto grid max-w-6xl items-start gap-12 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-2 lg:py-24">
           <div>
-            <h1 className="font-serif text-4xl leading-[1.1] tracking-tight text-cb-text sm:text-5xl lg:text-[56px] lg:leading-[1.05] xl:text-[64px]">
-              The Friday AI-search report your client actually reads.
+            <p className="text-xs font-medium uppercase tracking-wide text-cb-accent">Friday brief for client teams</p>
+            <h1 className="mt-3 font-serif text-4xl leading-[1.1] tracking-tight text-cb-text sm:text-5xl lg:text-[52px] lg:leading-[1.05]">
+              The file your AM can forward when the client asks “are we in ChatGPT?”
             </h1>
             <p className="mt-6 max-w-xl text-lg text-cb-muted">
-              Your score, who is winning your shortlist queries, and one next action per gap —
-              delivered as a white-label Friday PDF you forward without editing.
+              Unbranded buyer questions across ChatGPT, Gemini, Grok, and Google AI Overviews. One white-label PDF
+              per client, every Friday.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <MarketingPrimaryCta signedOutLabel="Send a Friday report" size="lg" />
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <a href="#send-domain">Send a client domain</a>
+              </Button>
               <Button asChild variant="outline" size="lg">
-                <Link href="/report">View sample report</Link>
+                <Link href="/report">Read a sample brief</Link>
               </Button>
             </div>
+            <p className="mt-4 text-sm text-cb-muted">No client login. Your logo. Dated sample — not one screenshot.</p>
+            <p className="mt-3 text-sm font-medium text-cb-text">
+              66% of agencies say clients now ask for this. 48% still cannot measure it.
+            </p>
+            <p className="mt-1 text-xs text-cb-muted">AgencyAnalytics 2026 · n=494</p>
+            <div id="send-domain">
+              <DomainLeadForm signedIn={auth.signedIn} />
+            </div>
             <p className="mt-4 text-sm text-cb-muted">
-              {TRIAL_DAYS}-day trial: {TRIAL_BRAND_CAP} brand, {TRIAL_PROMPT_CAP} buyer questions,
-              ChatGPT + Gemini + Grok + AI Overviews, {TRIAL_RUN_CAP} full report. No extra reruns until
-              paid. {PLANS.agency.name} is ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands.
+              {TRIAL_DAYS}-day trial: {TRIAL_BRAND_CAP} brand, {TRIAL_PROMPT_CAP} buyer questions, {TRIAL_RUN_CAP}{" "}
+              full report. {PLANS.agency.name} is ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} clients.
             </p>
           </div>
-          <div className="grid gap-4">
-            <DashboardPreview />
+          <div>
             <PdfPreview />
           </div>
         </section>
 
         <section className="border-t border-cb-line">
-          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-24">
-            <h2 className="text-2xl font-semibold tracking-tight">90 seconds: Overview, scorecard, send</h2>
-            <p className="mt-2 max-w-2xl text-sm text-cb-muted">
-              No loom yet. This is the path a buyer walks in-product: sample client already scored, preview the
-              white-label PDF, copy the client link.
-            </p>
-            <ol className="mt-10 grid gap-4 md:grid-cols-3">
-              <li className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
-                <p className="font-mono text-xs tabular-nums text-cb-accent">01</p>
-                <h3 className="mt-3 text-base font-medium tracking-tight">Overview is the send queue</h3>
-                <p className="mt-2 text-sm leading-6 text-cb-muted">
-                  Letters ready → Approve & send. Named score, who won, one next action. Not hours-saved.
-                </p>
-              </li>
-              <li className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
-                <p className="font-mono text-xs tabular-nums text-cb-accent">02</p>
-                <h3 className="mt-3 text-base font-medium tracking-tight">Brand scorecard</h3>
-                <p className="mt-2 text-sm leading-6 text-cb-muted">
-                  Eight-week named vs recommended, rival share, cited pages in the sources drawer.
-                </p>
-              </li>
-              <li className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
-                <p className="font-mono text-xs tabular-nums text-cb-accent">03</p>
-                <h3 className="mt-3 text-base font-medium tracking-tight">Preview then forward</h3>
-                <p className="mt-2 text-sm leading-6 text-cb-muted">
-                  Exact client PDF, branded /r link, revoke, copy for Slack. Same letter they print.
-                </p>
-              </li>
-            </ol>
-            <div className="mt-10 rounded-cb-panel border border-cb-line bg-cb-surface p-6">
-              <p className="text-xs font-medium uppercase tracking-wide text-cb-accent">Worked example</p>
-              <p className="mt-3 text-lg font-medium tracking-tight text-cb-text">
-                Northline kept the Northstar retainer by sending {SAMPLE_REPORT.named}/{SAMPLE_REPORT.total} named
-                instead of screenshots.
-              </p>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-cb-muted">
-                {SAMPLE_REPORT.summary} The letter named ClickUp on the gap, assigned a comparison page, and
-                landed before Friday standup.
-              </p>
-              <Link href="/report" className="mt-4 inline-block text-sm text-cb-accent">
-                Read the sample letter →
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:pb-24">
-          <div className="grid gap-4 md:grid-cols-2">
-            {bento.map((cell) => (
-              <div key={cell.kicker} className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
-                <p className="text-xs font-medium uppercase tracking-wide text-cb-accent">{cell.kicker}</p>
-                <p className="mt-3 text-lg font-medium tracking-tight text-cb-text">{cell.title}</p>
-                <p className="mt-2 text-sm text-cb-muted">{cell.body}</p>
+          <div className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:px-6 md:grid-cols-3 sm:py-16">
+            {problems.map((item) => (
+              <div key={item.title}>
+                <h2 className="text-base font-medium tracking-tight">{item.title}</h2>
+                <p className="mt-2 text-sm text-cb-muted">{item.body}</p>
               </div>
             ))}
           </div>
@@ -175,10 +100,7 @@ export default function HomePage() {
 
         <section className="border-t border-cb-line">
           <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-24">
-            <h2 className="text-2xl font-semibold tracking-tight">From one client brand to a Friday PDF</h2>
-            <p className="mt-2 max-w-2xl text-sm text-cb-muted">
-              The weekly artifact is the PDF. The product is the agency workflow around it.
-            </p>
+            <h2 className="text-2xl font-semibold tracking-tight">How a brief works</h2>
             <ol className="mt-10 grid gap-4 md:grid-cols-3">
               {steps.map((step) => (
                 <li key={step.n} className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
@@ -192,53 +114,53 @@ export default function HomePage() {
         </section>
 
         <section className="border-t border-cb-line">
-          <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-2 lg:py-24">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight">For agencies that already sell retainers</h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-cb-muted">
-                Primary buyer is an agency owner, strategy lead, or account director with 5 to 40
-                clients. Account managers run the workflow. Clients just read the PDF.
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-24">
+            <h2 className="text-2xl font-semibold tracking-tight">What’s on page 1</h2>
+            <ul className="mt-6 max-w-xl space-y-2 text-sm text-cb-muted">
+              <li>Mentioned or not, per engine</li>
+              <li>Who got the slot</li>
+              <li>Which buyer questions you lost</li>
+              <li>Five actions for next week</li>
+            </ul>
+            <div className="mt-10 rounded-cb-panel border border-cb-line bg-cb-surface p-6">
+              <p className="text-xs font-medium uppercase tracking-wide text-cb-accent">Worked example</p>
+              <p className="mt-3 text-lg font-medium tracking-tight text-cb-text">
+                Northline kept the Northstar retainer by sending {SAMPLE_REPORT.named}/{SAMPLE_REPORT.total} named
+                instead of screenshots.
               </p>
-              <ul className="mt-8 space-y-3 text-sm leading-6 text-cb-text">
-                {fit.map((item) => (
-                  <li key={item} className="border-t border-cb-line pt-3 first:border-t-0 first:pt-0">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-6 text-sm text-cb-muted">
-                Not a $29 personal score. Not a GEO optimizer, keyword tracker, or content factory.
-              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-cb-muted">{SAMPLE_REPORT.summary}</p>
+              <Link href="/report" className="mt-4 inline-block text-sm text-cb-accent">
+                Read the sample letter →
+              </Link>
             </div>
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Win on the Friday letter, not a client login</h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-cb-muted">
-                Clients read the PDF. Your team uses the {PLANS.agency.name} command center between Fridays.
-              </p>
-              <ul className="mt-8 space-y-0">
-                {posture.map((item) => (
-                  <li key={item.against} className="border-t border-cb-line py-4 first:border-t-0 first:pt-0">
-                    <p className="text-sm font-medium text-cb-text">{item.against}</p>
-                    <p className="mt-1 text-sm text-cb-muted">{item.line}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-cb-line">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-24">
+            <h2 className="text-2xl font-semibold tracking-tight">Who it’s for</h2>
+            <ul className="mt-6 space-y-2 text-sm text-cb-text">
+              {fit.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            <p className="mt-4 text-sm text-cb-muted">Not a $29 personal score. Not a GEO optimizer.</p>
           </div>
         </section>
 
         <section className="border-t border-cb-line">
           <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-4 py-12 sm:px-6 sm:py-16 md:flex-row md:items-center lg:py-24">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight">{PLANS.agency.name} is the weekly reporting system.</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">Send one domain. Friday you have a brief.</h2>
               <p className="mt-2 max-w-xl text-sm text-cb-muted">
-                ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands, weekly Friday reports,
-                and the command center. {PLANS.studio.name} at ${PLANS.studio.amountUsd}/mo adds white-label
-                sending, custom sender, and {PLANS.studio.brands} client brands.
+                ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} clients on {PLANS.agency.name}.{" "}
+                {PLANS.studio.name} at ${PLANS.studio.amountUsd}/mo for {PLANS.studio.brands} brands and custom sender.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <MarketingPrimaryCta signedOutLabel="Send a Friday report" />
+              <Button asChild>
+                <a href="#send-domain">Send a client domain</a>
+              </Button>
               <Button asChild variant="outline">
                 <Link href="/pricing">See {PLANS.agency.name} at ${PLANS.agency.amountUsd}</Link>
               </Button>

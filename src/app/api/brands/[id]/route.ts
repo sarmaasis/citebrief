@@ -51,6 +51,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.vertical !== undefined || body.category !== undefined) {
     next.vertical = (body.vertical ?? body.category)?.trim() || null;
   }
+  if (body.market !== undefined) next.market = body.market.trim() || "US";
   if (body.category !== undefined) next.category = body.category.trim() || null;
   if (body.buyer !== undefined) next.buyer = body.buyer.trim() || null;
   if (body.job !== undefined) next.job = body.job.trim() || null;

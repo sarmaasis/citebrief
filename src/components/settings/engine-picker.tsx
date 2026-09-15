@@ -7,7 +7,7 @@ import {
   type PlanEngineGate,
 } from "@/lib/plan-engines";
 
-const CATALOG_ENGINES = CORE_ENGINES.filter((engine) => !isClaudeDisabled(engine.id));
+const CATALOG_ENGINES = CORE_ENGINES.filter((engine) => !isClaudeDisabled(engine.id) && engine.id !== "perplexity");
 
 export function EnginePicker({
   value,
@@ -46,9 +46,9 @@ export function EnginePicker({
       <p className="text-xs text-cb-muted">
         {paid
           ? studioAllowed
-            ? "Friday reports use ChatGPT, Gemini, Grok, AI Overviews, and Perplexity. Reports ship if most sources return."
-            : "Friday reports use ChatGPT, Gemini, Grok, and AI Overviews. Add the premium engine pack for Perplexity."
-          : "Trial reports use ChatGPT, Gemini, Grok, and AI Overviews. One full run. Perplexity is on Agency or the premium pack."}
+            ? "Friday reports use ChatGPT, Gemini, Grok, and AI Overviews. Reports ship if most sources return."
+            : "Friday reports use ChatGPT, Gemini, Grok, and AI Overviews."
+          : "Trial reports use ChatGPT, Gemini, Grok, and AI Overviews. One full run."}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         {CATALOG_ENGINES.map((engine) => {
@@ -69,7 +69,7 @@ export function EnginePicker({
                 {engine.label}
                 {locked ? (
                   <span className="ml-1 text-xs text-cb-muted">
-                    {engine.id === "perplexity" ? "(Agency / pack)" : "(paid)"}
+                    (paid)
                   </span>
                 ) : null}
               </span>

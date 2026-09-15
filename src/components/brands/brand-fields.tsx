@@ -8,6 +8,7 @@ export type BrandFieldValues = {
   logoUrl: string;
   category: string;
   vertical: string;
+  market: string;
   buyer: string;
   job: string;
   incumbent: string;
@@ -23,6 +24,7 @@ export const emptyBrandFields: BrandFieldValues = {
   logoUrl: "",
   category: "",
   vertical: "",
+  market: "US",
   buyer: "",
   job: "",
   incumbent: "",
@@ -84,6 +86,14 @@ export function BrandFields({
           />
         </Field>
       </div>
+      <Field id="market" label="Market">
+        <Input
+          id="market"
+          placeholder="US"
+          value={values.market}
+          onChange={(event) => set("market", event.target.value)}
+        />
+      </Field>
       <Field id="buyer" label="Buyer">
         <Input
           id="buyer"

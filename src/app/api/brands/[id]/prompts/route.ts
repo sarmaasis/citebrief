@@ -1,6 +1,12 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { getAppContext } from "@/lib/session";
-import { normalizePromptDrafts, type PromptDraft, validatePromptSet } from "@/lib/prompts";
+import {
+  isBrandedPrompt,
+  normalizePromptDrafts,
+  promptIntent,
+  type PromptDraft,
+  validatePromptSet,
+} from "@/lib/prompts";
 import { planPromptSave } from "@/lib/prompt-persist";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { jsonError, jsonOk } from "@/server/json";
@@ -70,6 +76,8 @@ export async function PUT(request: Request, context: RouteContext) {
         .set({
           text: update.text,
           mix: update.mix,
+          intent: promptIntent(update.text, update.mix),
+          branded: isBrandedPrompt(update.text, brand.name),
           sortOrder: update.sortOrder,
           updatedAt: now,
           ...(update.unarchive ? { archivedAt: null } : {}),
@@ -83,6 +91,8 @@ export async function PUT(request: Request, context: RouteContext) {
         brandId: id,
         text: draft.text,
         mix: draft.mix,
+        intent: promptIntent(draft.text, draft.mix),
+        branded: isBrandedPrompt(draft.text, brand.name),
         sortOrder: draft.sortOrder,
         archivedAt: null,
         createdAt: now,

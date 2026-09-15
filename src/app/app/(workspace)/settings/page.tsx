@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/app/page-header";
 import { PLANS } from "@/lib/billing";
 
 const links = [
@@ -17,8 +18,7 @@ const links = [
 export default function SettingsPage() {
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-      <p className="mt-3 text-sm text-cb-muted">Workspace preferences for Friday reports.</p>
+      <PageHeader title="Settings" subtitle="Workspace preferences for Friday reports." />
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {links.map((link) => (
           <Link

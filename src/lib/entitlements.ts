@@ -107,13 +107,13 @@ export function reportSendBlockedReason(args: {
   }
 
   if (!args.allowsEmailSend) {
-    return "Email sending requires Growth, Agency, or Enterprise.";
+    return `Email sending requires ${GROWTH_PLUS_LABEL}.`;
   }
   if (args.requiresApproval && !args.approved) {
     return "Approve this report before sending.";
   }
   if (hasCc && !args.allowsClientCc && !trialCc) {
-    return "Client CC requires Growth, Agency, or Enterprise.";
+    return `Client CC requires ${GROWTH_PLUS_LABEL}.`;
   }
   return null;
 }

@@ -29,12 +29,14 @@ export function AuthForm({
   mode,
   inviteToken = null,
   nextPath,
+  initialEmail = "",
 }: {
   mode: "login" | "signup";
   inviteToken?: string | null;
   nextPath?: string | null;
+  initialEmail?: string;
 }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [status, setStatus] = useState<string | null>(null);

@@ -97,6 +97,19 @@ export function ReportViewer({
   const draftError = emailState.reportId === reportId ? emailState.error : null;
   const needsApprove = allowApproval && !approved && !sent;
   const canSend = allowSend && !needsApprove;
+  const completeRows = auditRows.filter((row) => row.status !== "failed");
+  const presencePct =
+    completeRows.length > 0
+      ? Math.round((completeRows.filter((row) => row.mentioned).length / completeRows.length) * 100)
+      : null;
+  const positions = completeRows
+    .map((row) => row.position)
+    .filter((value): value is number => typeof value === "number" && value > 0);
+  const prominence = positions.length
+    ? (positions.reduce((sum, value) => sum + value, 0) / positions.length).toFixed(1)
+    : "—";
+  const positiveRows = completeRows.filter((row) => row.sentiment === "positive").length;
+  const portrayalPct = completeRows.length ? Math.round((positiveRows / completeRows.length) * 100) : null;
 
   function updateEmailState(next: Partial<{ subject: string; body: string; error: string | null }>) {
     setEmailState((current) => {
@@ -453,6 +466,11 @@ export function ReportViewer({
 
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <div className="mb-6 rounded-cb-card border border-cb-line bg-cb-surface p-5">
+          <div className="mb-5 grid gap-3 sm:grid-cols-3">
+            <Metric label="Presence" value={presencePct == null ? "—" : `${presencePct}%`} hint="Brand named across returned answers" />
+            <Metric label="Prominence" value={prominence === "—" ? "—" : `#${prominence}`} hint="Average shortlist position when found" />
+            <Metric label="Portrayal" value={portrayalPct == null ? "—" : `${portrayalPct}%`} hint="Positive/recommended answer share" />
+          </div>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-medium">Review before you send</h2>
             <p className="text-xs text-cb-muted">
@@ -615,6 +633,16 @@ export function ReportViewer({
       {showSources ? (
         <SourcesDrawer rows={auditRows} open={sourcesOpen} onOpenChange={setSourcesOpen} />
       ) : null}
+    </div>
+  );
+}
+
+function Metric({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="rounded-cb-control border border-cb-line bg-cb-bg p-3">
+      <p className="text-xs text-cb-muted">{label}</p>
+      <p className="mt-1 font-mono text-xl tabular-nums text-cb-accent">{value}</p>
+      <p className="mt-1 text-[11px] leading-4 text-cb-muted">{hint}</p>
     </div>
   );
 }

@@ -15,7 +15,7 @@ import {
 export const PRICING_FAQS = [
   {
     q: "Can my client read the PDF without an account?",
-    a: "Yes. Every plan includes a private report link. Client CC on the Friday email is Growth and Agency only. Client pages do not require login and expire after 90 days.",
+    a: `Yes. Every plan includes a private report link. Client CC on the Friday email is ${PLANS.agency.name} and ${PLANS.studio.name} only. Client pages do not require login and expire after 90 days.`,
   },
   {
     q: "What if one engine fails?",
@@ -31,7 +31,7 @@ export const PRICING_FAQS = [
   },
   {
     q: "What if I outgrow Starter?",
-    a: `Move to ${PLANS.agency.name} at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, ${PLANS.agency.brands * PLANS.agency.prompts} tracked questions, weekly Friday reports, ${MONTHLY_RECHECK_CREDITS.agency} manual re-check credits/mo, email sending, history, Slack, extra brands at $${EXTRA_BRAND_USD.agency}/mo, ${PLANS.agency.seats} seats, and the command-center dashboard. ${PLANS.studio.name} is $${PLANS.studio.amountUsd}/mo for ${PLANS.studio.brands} client brands, ${PLANS.studio.brands * PLANS.studio.prompts} tracked questions, custom sender, white-label delivery, ${MONTHLY_RECHECK_CREDITS.studio} manual re-check credits/mo, ${PLANS.studio.seats} seats, bulk send, portfolio CSV export, and ChatGPT, Gemini, Grok, and AI Overviews. Extra re-checks are $${EXTRA_RUN_USD.agency} after monthly credits on paid plans. Enterprise starts at $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract for custom limits, SSO, and SLA. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are Growth+ only (not Starter or trial).`,
+    a: `Move to ${PLANS.agency.name} at $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, ${PLANS.agency.brands * PLANS.agency.prompts} tracked questions, weekly Friday reports, ${MONTHLY_RECHECK_CREDITS.agency} manual re-check credits/mo, email sending, history, Slack, extra brands at $${EXTRA_BRAND_USD.agency}/mo, ${PLANS.agency.seats} seats, and the command-center dashboard. ${PLANS.studio.name} is $${PLANS.studio.amountUsd}/mo for ${PLANS.studio.brands} client brands, ${PLANS.studio.brands * PLANS.studio.prompts} tracked questions, custom sender, white-label delivery, ${MONTHLY_RECHECK_CREDITS.studio} manual re-check credits/mo, ${PLANS.studio.seats} seats, bulk send, portfolio CSV export, and ChatGPT, Gemini, Grok, and AI Overviews. Extra re-checks are $${EXTRA_RUN_USD.agency} after monthly credits on paid plans. Enterprise starts at $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract for custom limits, SSO, and SLA. Extra seats are $${SEAT_OVERAGE_USD}/mo after the plan cap. Extra brands are ${PLANS.agency.name}+ only (not Starter or trial).`,
   },
   {
     q: "Can I pay annually?",

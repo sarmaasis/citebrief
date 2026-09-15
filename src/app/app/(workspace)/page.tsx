@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AgencySavedViews } from "@/components/app/agency-saved-views";
 import { DataTable, Td, Th } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
+import { PageHeader } from "@/components/app/page-header";
 import { PortfolioExport } from "@/components/app/portfolio-export";
 import { RiskPill } from "@/components/app/risk-pill";
 import { ScoreChange } from "@/components/app/score-change";
@@ -31,7 +32,7 @@ export default async function AppHomePage({
   if (!ctx) {
     return (
       <div>
-        <h1 className="mb-8 text-xl font-semibold tracking-tight">Overview</h1>
+        <PageHeader title="Home" subtitle="Sign in to start the first Friday report." />
         <EmptyState line="Sign in to start the first Friday report." cta="Sign in" href="/login" />
       </div>
     );
@@ -78,7 +79,7 @@ export default async function AppHomePage({
   if (snapshot.unfilteredCount === 0) {
     return (
       <div>
-        <h1 className="mb-8 text-xl font-semibold tracking-tight">Overview</h1>
+        <PageHeader title="Home" subtitle="Add a brand to fill this week’s letters." />
         <EmptyState
           title="No brands yet"
           line="Add a brand, generate buyer questions, and run the first Friday report — Overview fills in from stored answers."
@@ -116,35 +117,35 @@ export default async function AppHomePage({
 
   return (
     <div className="min-w-0">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">This week’s letters</h1>
-          <p className="mt-1 text-sm text-cb-muted">
-            {snapshot.kpis.reportsReady > 0
-              ? `${snapshot.kpis.reportsReady} report${snapshot.kpis.reportsReady === 1 ? "" : "s"} ready to approve and send.`
-              : portfolioMovement !== "unknown"
-                ? `Portfolio is ${portfolioMovement}.`
-                : "All clients stable."}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {snapshot.kpis.reportsReady > 0 ? (
-            <Button asChild>
-              <Link href="/app/reports">Approve & send</Link>
-            </Button>
-          ) : null}
-          {ent.allowsPortfolioExport ? <PortfolioExport /> : null}
-          {canAddBrand ? (
-            <Button asChild variant={snapshot.kpis.reportsReady > 0 ? "outline" : "default"}>
-              <Link href="/app/onboarding?new=1">Add a brand</Link>
-            </Button>
-          ) : (
-            <Button asChild variant="outline">
-              <Link href="/app/settings/billing">Upgrade to add a brand</Link>
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Home"
+        subtitle={
+          snapshot.kpis.reportsReady > 0
+            ? `${snapshot.kpis.reportsReady} report${snapshot.kpis.reportsReady === 1 ? "" : "s"} ready to approve and send.`
+            : portfolioMovement !== "unknown"
+              ? `Portfolio is ${portfolioMovement}.`
+              : "All clients stable."
+        }
+        actions={
+          <>
+            {snapshot.kpis.reportsReady > 0 ? (
+              <Button asChild>
+                <Link href="/app/reports">Approve & send</Link>
+              </Button>
+            ) : null}
+            {ent.allowsPortfolioExport ? <PortfolioExport /> : null}
+            {canAddBrand ? (
+              <Button asChild variant={snapshot.kpis.reportsReady > 0 ? "outline" : "default"}>
+                <Link href="/app/onboarding?new=1">Add a brand</Link>
+              </Button>
+            ) : (
+              <Button asChild variant="outline">
+                <Link href="/app/settings/billing">Upgrade to add a brand</Link>
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* KPI cards — send job first, not hours-saved */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -361,7 +362,7 @@ function LightHome({
   if (rows.length === 0) {
     return (
       <div>
-        <h1 className="mb-8 text-xl font-semibold tracking-tight">This week’s letters</h1>
+        <PageHeader title="Home" subtitle="Add a client brand to start Friday letters." />
         <EmptyState
           title="No brands yet"
           line="Add a client brand, generate buyer questions, and run the first report."
@@ -393,31 +394,34 @@ function LightHome({
 
   return (
     <div className="min-w-0">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">This week’s letters</h1>
-          <p className="mt-1 text-sm text-cb-muted">
-            {overview.movementLabel !== "unknown" ? `Brand is ${overview.movementLabel}. ` : ""}
-            {readyCount > 0 ? `${readyCount} report${readyCount === 1 ? "" : "s"} ready to send.` : `Continue on ${PLANS[plan].name} when you subscribe.`}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {onlyBrand?.latestReport ? (
-            <Button asChild>
-              <Link href={sendHref}>{allowsApproval || allowsEmailSend ? "Approve & send" : "Preview PDF"}</Link>
-            </Button>
-          ) : null}
-          {canAddBrand ? (
-            <Button asChild variant={onlyBrand?.latestReport ? "outline" : "default"}>
-              <Link href="/app/onboarding?new=1">{sampleRow ? "Run this for my client" : "Add a brand"}</Link>
-            </Button>
-          ) : (
-            <Button asChild variant="outline">
-              <Link href="/app/settings/billing">Upgrade to add a brand</Link>
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Home"
+        subtitle={
+          `${overview.movementLabel !== "unknown" ? `Brand is ${overview.movementLabel}. ` : ""}${
+            readyCount > 0
+              ? `${readyCount} report${readyCount === 1 ? "" : "s"} ready to send.`
+              : `Continue on ${PLANS[plan].name} when you subscribe.`
+          }`
+        }
+        actions={
+          <>
+            {onlyBrand?.latestReport ? (
+              <Button asChild>
+                <Link href={sendHref}>{allowsApproval || allowsEmailSend ? "Approve & send" : "Preview PDF"}</Link>
+              </Button>
+            ) : null}
+            {canAddBrand ? (
+              <Button asChild variant={onlyBrand?.latestReport ? "outline" : "default"}>
+                <Link href="/app/onboarding?new=1">{sampleRow ? "Run this for my client" : "Add a brand"}</Link>
+              </Button>
+            ) : (
+              <Button asChild variant="outline">
+                <Link href="/app/settings/billing">Upgrade to add a brand</Link>
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {sampleRow ? (
         <div className="mb-6 rounded-cb-card border border-cb-accent bg-cb-surface p-5">

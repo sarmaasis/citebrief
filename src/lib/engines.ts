@@ -62,8 +62,8 @@ export const TRIAL_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio"]
 /** Paid Growth default: no Claude (web-search token blowups). */
 export const AGENCY_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio"];
 
-/** Agency / Enterprise + premium pack: Growth set + Perplexity. Claude stays off. */
-export const STUDIO_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio", "perplexity"];
+/** Scale / Enterprise use the same Gateway-safe engine set for launch. */
+export const STUDIO_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio"];
 
 /** Claude adapter remains; plans do not select Claude for now. */
 export function isClaudeDisabled(id: string): boolean {

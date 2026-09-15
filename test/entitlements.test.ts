@@ -29,7 +29,7 @@ import {
   subscriptionEndedAt,
   workspaceEntitlements,
 } from "@/lib/entitlements";
-import { suggestedClientEmail } from "@/lib/report-writer";
+import { suggestedClientEmail, clientBriefFilename } from "@/lib/report-writer";
 import { shouldSettleBillableExtra } from "@/lib/usage";
 import { isLocalFirstFridaySix } from "@/lib/friday-tz";
 import { generatePromptPack, validatePromptSet } from "@/lib/prompts";
@@ -42,8 +42,8 @@ assert.equal(EXTRA_BRAND_USD.studio, 29);
 assert.equal(SEAT_OVERAGE_USD, 15);
 assert.equal(ANNUAL_MONTHS_CHARGED, 10);
 assert.equal(planAnnualAmountUsd("agency"), 2490);
-assert.equal(planSeatCap("agency"), 3);
-assert.equal(planSeatCap("agency", 2), 5);
+assert.equal(planSeatCap("agency"), 5);
+assert.equal(planSeatCap("agency", 2), 7);
 
 const trial = {
   plan: "agency",
@@ -99,8 +99,8 @@ const paidAgency = {
   extraSeats: 1,
 };
 assert.equal(workspaceEntitlements(paidAgency).promptCap, 30);
-assert.equal(workspaceEntitlements(paidAgency).brandLimit, 7);
-assert.equal(workspaceEntitlements(paidAgency).seatCap, 4);
+assert.equal(workspaceEntitlements(paidAgency).brandLimit, 10);
+assert.equal(workspaceEntitlements(paidAgency).seatCap, 6);
 assert.equal(workspaceEntitlements(paidAgency).extraBrandUsd, 29);
 assert.equal(workspaceEntitlements(paidAgency).allowsWeeklyCadence, true);
 assert.equal(workspaceEntitlements(paidAgency).allowsExtraBrands, true);
@@ -144,7 +144,7 @@ assert.equal(
     trialEndsAt: null,
     currentPeriodEnd: new Date(Date.now() + 20 * 86400000),
   }).promptCap,
-  25,
+  40,
 );
 
 const unpaid = {
@@ -201,7 +201,7 @@ assert.equal(
     allowsEmailSend: true,
     allowsClientCc: false,
   }),
-  "Client CC requires Growth, Agency, or Enterprise.",
+  "Client CC requires Teams, Scale, or Enterprise.",
 );
 assert.equal(
   reportSendBlockedReason({ ccClient: "client@example.com", allowsEmailSend: true, allowsClientCc: true }),
@@ -232,7 +232,7 @@ const starterSend = reportSendDenial({
   allowsClientCc: workspaceEntitlements(paidStarter).allowsClientCc,
 });
 assert.equal(starterSend?.status, 403);
-assert.equal(starterSend?.error, "Email sending requires Growth, Agency, or Enterprise.");
+assert.equal(starterSend?.error, "Email sending requires Teams, Scale, or Enterprise.");
 
 const agencySend = reportSendDenial({
   allowsEmailSend: workspaceEntitlements(paidAgency).allowsEmailSend,
@@ -308,9 +308,9 @@ assert.equal(trialStarterCards[0].badge, "After trial");
 assert.equal(trialStarterCards[0].cta, "Continue with Starter");
 assert.equal(trialStarterCards[1].highlighted, false);
 assert.equal(trialStarterCards[1].badge, null);
-assert.equal(trialStarterCards[1].cta, "Choose Growth");
+assert.equal(trialStarterCards[1].cta, "Choose Teams");
 assert.equal(
-  billingPageIntro({ trialing: true, paid: false, plan: "starter" }).includes("Growth"),
+  billingPageIntro({ trialing: true, paid: false, plan: "starter" }).includes("Teams"),
   false,
 );
 
@@ -328,9 +328,9 @@ assert.equal(trialAgencyCards.filter((card) => card.highlighted).length, 1);
 assert.equal(trialAgencyCards[1].highlighted, true);
 assert.equal(trialAgencyCards[1].badge, "After trial");
 assert.equal(trialAgencyCards[0].badge, null);
-assert.ok(billingPageIntro({ trialing: true, paid: false, plan: "agency" }).includes("Growth"));
+assert.ok(billingPageIntro({ trialing: true, paid: false, plan: "agency" }).includes("Teams"));
 assert.equal(billingPageIntro({ trialing: true, paid: true, plan: "agency" }).includes("trial"), false);
-assert.ok(billingPageIntro({ trialing: true, paid: true, plan: "agency" }).includes("Growth plan"));
+assert.ok(billingPageIntro({ trialing: true, paid: true, plan: "agency" }).includes("Teams plan"));
 
 const paidAgencyCards = (["starter", "agency", "studio"] as const).map((id) =>
   planCardState({
@@ -394,7 +394,7 @@ const afterStubAgency = workspaceEntitlements({
 assert.equal(afterStubAgency.paid, true);
 assert.equal(afterStubAgency.trialing, false);
 assert.equal(afterStubAgency.plan, "agency");
-assert.equal(afterStubAgency.brandLimit, 5);
+assert.equal(afterStubAgency.brandLimit, 8);
 assert.equal(afterStubAgency.allowsWeeklyCadence, true);
 
 const stubStarterPatch = stubPaidSubscriptionPatch({ plan: "starter", interval: "annual", now: stubNow });
@@ -494,7 +494,7 @@ assert.equal(
 assert.equal(commandCenterDenial(workspaceEntitlements(paidStarter))?.status, 403);
 assert.match(
   commandCenterDenial(workspaceEntitlements(paidStarter))?.error ?? "",
-  /Growth, Agency, or Enterprise/,
+  /Teams, Scale, or Enterprise/,
 );
 assert.equal(commandCenterDenial(workspaceEntitlements(paidAgency)), null);
 
@@ -505,5 +505,10 @@ const draft = suggestedClientEmail({
 });
 assert.match(draft.subject, /Northstar/);
 assert.match(draft.body, /12 of 20/);
+
+assert.equal(
+  clientBriefFilename("Acme Agency", "Northstar", new Date("2026-09-16T12:00:00Z")),
+  "Acme-Agency_Northstar_AI-brief_2026-09-16.pdf",
+);
 
 console.log("entitlements.test.ts ok");

@@ -64,6 +64,11 @@ export default async function ReportPage({
       promptText: prompts.text,
       engine: runRows.engine,
       mentioned: runRows.mentioned,
+      recommended: runRows.recommended,
+      position: runRows.position,
+      sentiment: runRows.sentiment,
+      whoWon: runRows.whoWon,
+      verbatim: runRows.verbatim,
       nextAction: runRows.nextAction,
       createdAt: runRows.createdAt,
       citedUrls: runRows.citedUrls,
@@ -91,6 +96,11 @@ export default async function ReportPage({
       promptText: item.promptText,
       engine: item.engine,
       mentioned: item.mentioned,
+      recommended: item.recommended,
+      position: item.position,
+      sentiment: item.sentiment,
+      whoWon: item.whoWon,
+      verbatim: item.verbatim,
       createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : null,
       citedUrls: cited,
       citedBrandUrl: Boolean(item.citedBrandUrl),
@@ -134,6 +144,7 @@ export default async function ReportPage({
       scoreMentioned={row.report.scoreMentioned}
       scoreRecommended={row.report.scoreRecommended}
       scoreTotal={row.report.scoreTotal}
+      auditRows={auditRows}
       summary={row.report.summary}
       html={html}
       shareToken={row.report.shareToken}
@@ -142,7 +153,6 @@ export default async function ReportPage({
       partial={row.run.status === "partial"}
       sentAt={row.report.sentAt ? new Date(row.report.sentAt).toISOString() : null}
       shareOpenCount={row.report.shareOpenCount}
-      auditRows={auditRows}
       allowClientCc={ent.allowsClientCc}
       allowSend={ent.allowsEmailSend}
       allowApproval={ent.allowsApproval}

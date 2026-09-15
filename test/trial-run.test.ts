@@ -21,7 +21,7 @@ import {
 
 assert.deepEqual(TRIAL_ENGINE_IDS, ["chatgpt", "gemini", "grok", "aio"]);
 assert.deepEqual(AGENCY_ENGINE_IDS, ["chatgpt", "gemini", "grok", "aio"]);
-assert.deepEqual(STUDIO_ENGINE_IDS, ["chatgpt", "gemini", "grok", "aio", "perplexity"]);
+assert.deepEqual(STUDIO_ENGINE_IDS, ["chatgpt", "gemini", "grok", "aio"]);
 assert.equal(TRIAL_MAX_GATEWAY_REQUESTS, 90);
 assert.ok(TRIAL_MAX_GATEWAY_REQUESTS >= 20 * TRIAL_ENGINE_IDS.length);
 
@@ -32,7 +32,6 @@ assert.deepEqual(selectableEngineIds({ paid: true, allowsStudioEngines: true }),
   "gemini",
   "grok",
   "aio",
-  "perplexity",
 ]);
 assert.equal(defaultEngineStringForPlan({ paid: false }), TRIAL_DEFAULT_ENGINE_STRING);
 assert.equal(defaultEngineStringForPlan({ paid: true }), DEFAULT_ENGINE_STRING);

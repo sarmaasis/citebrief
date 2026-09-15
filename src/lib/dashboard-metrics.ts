@@ -32,6 +32,7 @@ export type ScorecardMetrics = {
   brandId: string;
   brandName: string;
   siteUrl: string | null;
+  market: string | null;
   clientOwner: string | null;
   visibilityScore: number | null;
   mentionShare: number | null;
@@ -349,7 +350,7 @@ export function buildClientReportingSummary(args: {
 
 export function buildScorecard(
   row: CommandRow & {
-    brand: { id: string; name: string; siteUrl?: string | null; clientOwner?: string | null };
+    brand: { id: string; name: string; siteUrl?: string | null; market?: string | null; clientOwner?: string | null };
   },
   args: {
     citationShare: number | null;
@@ -371,6 +372,7 @@ export function buildScorecard(
     brandId: row.brand.id,
     brandName: row.brand.name,
     siteUrl: row.brand.siteUrl ?? null,
+    market: row.brand.market ?? null,
     clientOwner: row.brand.clientOwner ?? null,
     visibilityScore,
     mentionShare,

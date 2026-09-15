@@ -6,6 +6,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { BrandFields, emptyBrandFields, type BrandFieldValues } from "@/components/brands/brand-fields";
 import { IndustryPacks } from "@/components/prompts/industry-packs";
 import { PromptEditor } from "@/components/prompts/prompt-editor";
+import { ForwardablePrompt } from "@/components/reports/forwardable-prompt";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { CORE_ENGINES, ENGINES, type EngineState } from "@/lib/engines";
@@ -65,15 +66,17 @@ export function OnboardingFlow({
   resume = null,
   startFresh = false,
   promptCap,
+  initialFields = {},
 }: {
   allowSend?: boolean;
   allowApproval?: boolean;
   resume?: OnboardingResume | null;
   startFresh?: boolean;
   promptCap: number;
+  initialFields?: Partial<BrandFieldValues>;
 }) {
   const [step, setStep] = useState(1);
-  const [fields, setFields] = useState<BrandFieldValues>(emptyBrandFields);
+  const [fields, setFields] = useState<BrandFieldValues>({ ...emptyBrandFields, ...initialFields });
   const [brandId, setBrandId] = useState<string | null>(null);
   const [prompts, setPrompts] = useState<PromptDraft[]>([]);
   const [source, setSource] = useState<"template" | "llm" | null>(null);
@@ -96,11 +99,47 @@ export function OnboardingFlow({
   const brandUpgrade = brandCapUpgradeFromError(status);
   const pollRef = useRef<(id: string) => void>(() => undefined);
   const finishedRef = useRef(false);
+  const editDeadlineRef = useRef<number | null>(null);
+  const autoRunRef = useRef(false);
+  const savePromptsRef = useRef<() => Promise<boolean>>(async () => false);
+  const [editSecondsLeft, setEditSecondsLeft] = useState<number | null>(null);
+  const EDIT_CAP_MS = 5 * 60 * 1000;
 
   function finishOnboarding() {
     finishedRef.current = true;
     clearOnboardingSnap();
   }
+
+  // Five-minute prompt edit window — then run (activation: edit 5 min, not 50).
+  useEffect(() => {
+    if (step !== 2 || prompts.length === 0) {
+      if (step !== 2) {
+        editDeadlineRef.current = null;
+        setEditSecondsLeft(null);
+        autoRunRef.current = false;
+      }
+      return;
+    }
+    if (editDeadlineRef.current == null) {
+      editDeadlineRef.current = Date.now() + EDIT_CAP_MS;
+    }
+    const tick = () => {
+      const deadline = editDeadlineRef.current;
+      if (deadline == null) return;
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setEditSecondsLeft(left);
+      if (left <= 0 && !autoRunRef.current && !pending) {
+        autoRunRef.current = true;
+        void savePromptsRef.current().then((ok) => {
+          if (!ok) autoRunRef.current = false;
+        });
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, prompts.length, pending]);
 
   function applyApproval(state?: string | null) {
     if (state === "approved") setApproved(true);
@@ -174,6 +213,7 @@ export function OnboardingFlow({
       if (cancelled) return;
       if (startFresh) {
         clearOnboardingSnap();
+        setFields({ ...emptyBrandFields, ...initialFields });
         setRestored(true);
         return;
       }
@@ -307,12 +347,12 @@ export function OnboardingFlow({
 
   async function savePrompts() {
     if (!brandId) {
-      return;
+      return false;
     }
     const check = validatePromptSet(prompts, fields.name, { maxCount: promptCap });
     if (!check.ok) {
       setStatus(check.error);
-      return;
+      return false;
     }
     setPending(true);
     setStatus(null);
@@ -325,14 +365,16 @@ export function OnboardingFlow({
       const data = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setStatus(data.error ?? "Could not save prompts.");
-        return;
+        return false;
       }
       setStep(3);
       await startRun(brandId);
+      return true;
     } finally {
       setPending(false);
     }
   }
+  savePromptsRef.current = () => savePrompts();
 
   async function startRun(id: string) {
     const response = await fetch(`/api/brands/${id}/runs`, { method: "POST" });
@@ -494,6 +536,13 @@ export function OnboardingFlow({
               ? "Generated from the writer. Edit before you run."
               : `Template pack. ${promptSetHint(promptCap)} Edit before you run.`}
           </p>
+          {editSecondsLeft != null ? (
+            <p className="mt-2 text-xs text-cb-muted">
+              {editSecondsLeft > 0
+                ? `Edit window: ${Math.floor(editSecondsLeft / 60)}:${String(editSecondsLeft % 60).padStart(2, "0")} — then we run.`
+                : "Time’s up — starting the run…"}
+            </p>
+          ) : null}
           {source === "template" ? (
             <p className="mt-3 rounded-cb-card border border-cb-line bg-cb-surface px-3 py-2 text-sm text-cb-ink">
               Your prompts are ready. Edit any question before you run.
@@ -530,6 +579,7 @@ export function OnboardingFlow({
                 brandName={fields.name}
                 mixTarget={promptCap < 20 ? 1 : 4}
                 onChange={setPrompts}
+                readOnly={editSecondsLeft === 0 || pending}
               />
             )}
           </div>
@@ -652,6 +702,11 @@ export function OnboardingFlow({
             </p>
           )}
           {testMessage ? <p className="mt-3 text-sm text-cb-muted">{testMessage}</p> : null}
+          {reportReady && runId ? (
+            <div className="mt-6">
+              <ForwardablePrompt runId={runId} />
+            </div>
+          ) : null}
           {reportReady && !allowSend ? (
             <div className="mt-6">
               <UpgradePrompt

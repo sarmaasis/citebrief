@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { brandSiteLabel, extractFromAnswer } from "@/lib/extractor";
+import { brandSiteLabel, clipRawAnswer, extractFromAnswer, RAW_ANSWER_MAX_CHARS } from "@/lib/extractor";
 
 assert.equal(brandSiteLabel("https://canwechat.dev", "CanWeChat"), "canwechat.dev");
 assert.equal(brandSiteLabel("canwechat.dev/pricing", "CanWeChat"), "canwechat.dev");
 assert.equal(brandSiteLabel("https://www.canwechat.dev", "CanWeChat"), "canwechat.dev");
 assert.equal(brandSiteLabel(null, "CanWeChat"), "the CanWeChat site");
 assert.equal(brandSiteLabel("", "CanWeChat"), "the CanWeChat site");
+assert.equal(clipRawAnswer("x".repeat(RAW_ANSWER_MAX_CHARS + 10)).length, RAW_ANSWER_MAX_CHARS);
 
 const row = extractFromAnswer({
   brand: "Northstar",
@@ -30,6 +31,9 @@ if (!row.sentence.split(" ").length || row.sentence.split(" ").length > 22) {
 }
 assert.match(row.nextAction, /northstar\.app/);
 assert.doesNotMatch(row.nextAction, /\.example\b/);
+assert.deepEqual(row.competitorsNamed, row.othersNamed);
+assert.ok(row.competitorsNamed.includes("ClickUp") || row.competitorsNamed.includes("Asana"));
+assert.ok(["positive", "mixed", "negative", "n/a"].includes(row.sentiment));
 
 const canWe = extractFromAnswer({
   brand: "CanWeChat",

@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     siteUrl: body.siteUrl?.trim() || null,
     logoUrl: body.logoUrl?.trim() || null,
     vertical: body.vertical?.trim() || body.category?.trim() || null,
+    market: body.market?.trim() || "US",
     category: body.category?.trim() || null,
     buyer: body.buyer?.trim() || null,
     job: body.job?.trim() || null,

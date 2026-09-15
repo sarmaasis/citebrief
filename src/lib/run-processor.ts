@@ -23,6 +23,7 @@ import {
 } from "@/lib/engines";
 import { extractFromAnswer } from "@/lib/extractor";
 import { putReportObject, reportObjectKeys } from "@/lib/r2";
+import { clipRawAnswer } from "@/lib/extractor";
 import { writeReport, type PromptAgg } from "@/lib/report-writer";
 import { reportReadyEmail } from "@/emails";
 import { sendTransactionalEmail } from "@/lib/email";
@@ -262,6 +263,8 @@ export async function processRun(
       promptId: prompt.id,
       promptText: prompt.text,
       sortOrder: prompt.sortOrder,
+      intent: prompt.intent ?? prompt.mix,
+      branded: Boolean(prompt.branded),
       byEngine: {},
     });
   }
@@ -279,11 +282,14 @@ export async function processRun(
       citedUrls = [];
     }
     agg.byEngine[engineId] = {
-      mentioned: Boolean(row.mentioned),
-      recommended: Boolean(row.recommended),
-      whoWon: row.whoWon,
-      sentence: row.sentence,
-      nextAction: row.nextAction,
+            mentioned: Boolean(row.mentioned),
+            recommended: Boolean(row.recommended),
+            whoWon: row.whoWon,
+            sentence: row.sentence,
+            verbatim: row.verbatim,
+            position: row.position ?? row.rankInShortlist,
+            sentiment: row.sentiment,
+            nextAction: row.nextAction,
       citedUrls,
       citedBrandUrl: Boolean(row.citedBrandUrl),
       status: "complete",
@@ -372,13 +378,16 @@ export async function processRun(
             mentioned: extracted.mentioned,
             recommended: extracted.recommended,
             rankInShortlist: extracted.rankInShortlist,
+            position: extracted.position,
+            sentiment: extracted.sentiment,
             citedUrls: JSON.stringify(extracted.citedUrls),
             citedBrandUrl: extracted.citedBrandUrl,
             whoWon: extracted.whoWon,
             othersNamed: JSON.stringify(extracted.othersNamed),
             sentence: extracted.sentence,
+            verbatim: extracted.verbatim,
             nextAction: extracted.nextAction,
-            rawAnswer,
+            rawAnswer: clipRawAnswer(rawAnswer),
             gatewayRequestId,
             confidence,
             engineAt: new Date(),
@@ -393,6 +402,9 @@ export async function processRun(
             recommended: extracted.recommended,
             whoWon: extracted.whoWon,
             sentence: extracted.sentence,
+            verbatim: extracted.verbatim,
+            position: extracted.position,
+            sentiment: extracted.sentiment,
             nextAction: extracted.nextAction,
             citedUrls: extracted.citedUrls,
             status: "complete",
@@ -422,7 +434,7 @@ export async function processRun(
           engine: engine.id,
           mentioned: null,
           recommended: null,
-          status: "failed",
+          status: "unavailable",
           createdAt: new Date(),
         });
         const agg = aggs.get(prompt.id)!;
@@ -434,7 +446,7 @@ export async function processRun(
           nextAction: null,
           citedUrls: [],
           citedBrandUrl: false,
-          status: "failed",
+          status: "unavailable",
         };
       }
     }
@@ -483,16 +495,19 @@ export async function processRun(
           citedUrls = [];
         }
         agg.byEngine[engineId] = {
-          mentioned: Boolean(row.mentioned),
-          recommended: Boolean(row.recommended),
-          whoWon: row.whoWon,
-          sentence: row.sentence,
-          nextAction: row.nextAction,
+            mentioned: Boolean(row.mentioned),
+            recommended: Boolean(row.recommended),
+            whoWon: row.whoWon,
+            sentence: row.sentence,
+            verbatim: row.verbatim,
+            position: row.position ?? row.rankInShortlist,
+            sentiment: row.sentiment,
+            nextAction: row.nextAction,
           citedUrls,
           citedBrandUrl: Boolean(row.citedBrandUrl),
           status: "complete",
         };
-      } else if (row.status === "failed") {
+      } else if (row.status === "failed" || row.status === "unavailable") {
         agg.byEngine[engineId] = {
           mentioned: false,
           recommended: false,
@@ -501,7 +516,7 @@ export async function processRun(
           nextAction: null,
           citedUrls: [],
           citedBrandUrl: false,
-          status: "failed",
+          status: "unavailable",
         };
       }
     }
@@ -545,6 +560,7 @@ export async function processRun(
     failedEngines,
     accentColor: kit?.accentColor || undefined,
     logoUrl: kit?.logoUrl || undefined,
+    market: bundle.brand.market,
     trend: await reportTrend(db, bundle.brand.id),
   });
 
@@ -883,13 +899,16 @@ export async function retryFailedEngine(
         mentioned: extracted.mentioned,
         recommended: extracted.recommended,
         rankInShortlist: extracted.rankInShortlist,
+        position: extracted.position,
+        sentiment: extracted.sentiment,
         citedUrls: JSON.stringify(extracted.citedUrls),
         citedBrandUrl: extracted.citedBrandUrl,
         whoWon: extracted.whoWon,
         othersNamed: JSON.stringify(extracted.othersNamed),
         sentence: extracted.sentence,
+        verbatim: extracted.verbatim,
         nextAction: extracted.nextAction,
-        rawAnswer,
+        rawAnswer: clipRawAnswer(rawAnswer),
         gatewayRequestId,
         confidence,
         engineAt: new Date(),
@@ -922,6 +941,8 @@ export async function retryFailedEngine(
       promptId: prompt.id,
       promptText: prompt.text,
       sortOrder: prompt.sortOrder,
+      intent: prompt.intent ?? prompt.mix,
+      branded: Boolean(prompt.branded),
       byEngine: {},
     });
   }
@@ -941,6 +962,9 @@ export async function retryFailedEngine(
       recommended: Boolean(row.recommended),
       whoWon: row.whoWon,
       sentence: row.sentence,
+      verbatim: row.verbatim,
+      position: row.position ?? row.rankInShortlist,
+      sentiment: row.sentiment,
       nextAction: row.nextAction,
       citedUrls,
       status: row.status || "complete",
@@ -992,6 +1016,7 @@ export async function retryFailedEngine(
     failedEngines,
     accentColor: kit?.accentColor || undefined,
     logoUrl: kit?.logoUrl || undefined,
+    market: bundle.brand.market,
     trend: await reportTrend(db, bundle.brand.id),
   });
 

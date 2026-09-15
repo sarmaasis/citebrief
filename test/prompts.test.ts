@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import {
+  brandedShareWarns,
   generatePromptPack,
   generatePromptsCta,
   inferMixFromText,
+  isScoreIntent,
   isVanityPrompt,
   mixCounts,
   mixIsLocked,
@@ -244,5 +246,27 @@ assert.equal(inferMixFromText("Comparison: Zendesk vs Freshdesk for agencies"), 
   assert.equal(vanityTrial.ok, false);
   if (!vanityTrial.ok) assert.match(vanityTrial.error, /SEO|buyer/i);
 }
+
+assert.equal(isScoreIntent("comparison"), true);
+assert.equal(isScoreIntent("job"), true);
+assert.equal(isScoreIntent("switch"), true);
+assert.equal(isScoreIntent("discovery"), false);
+assert.equal(isScoreIntent("incumbent"), false);
+assert.equal(
+  pack.every((prompt) => !/\bNorthstar\b/i.test(prompt.text)),
+  true,
+  "default pack must stay unbranded",
+);
+assert.equal(brandedShareWarns(pack, "Northstar"), false);
+assert.equal(
+  brandedShareWarns(
+    Array.from({ length: 5 }, (_, i) => ({
+      text: i < 2 ? `What is Northstar? ${i}` : `best tool ${i}`,
+      branded: i < 2,
+    })),
+    "Northstar",
+  ),
+  true,
+);
 
 console.log("prompts.test.ts ok");

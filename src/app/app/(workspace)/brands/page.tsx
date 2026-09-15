@@ -4,6 +4,7 @@ import { BrandScorecard } from "@/components/app/brand-scorecard";
 import { DataTable, Td, Th } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
 import { ListPager } from "@/components/app/list-pager";
+import { PageHeader } from "@/components/app/page-header";
 import { RiskPill } from "@/components/app/risk-pill";
 import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
@@ -112,29 +113,27 @@ export default async function BrandsPage({
 
   return (
     <div className="min-w-0">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Brands</h1>
-          <p className="mt-1 text-sm text-cb-muted">
-            Scorecards for client health and momentum. Duplicate a live client. Archive when a retainer ends.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {listTotal > 0 || snapshot.scorecards.length > 0 ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href={brandsHref({ table: !tableView })}>{tableView ? "Scorecards" : "Table"}</Link>
+      <PageHeader
+        title="Clients"
+        subtitle="Scorecards for client health and momentum. Duplicate a live client. Archive when a retainer ends."
+        actions={
+          <>
+            {listTotal > 0 || snapshot.scorecards.length > 0 ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={brandsHref({ table: !tableView })}>{tableView ? "Scorecards" : "Table"}</Link>
+              </Button>
+            ) : null}
+            {atCap || workspaceEmpty ? null : (
+              <Button asChild>
+                <Link href="/app/onboarding?new=1">Add a brand</Link>
+              </Button>
+            )}
+            <Button asChild variant="outline">
+              <Link href="/app?pitch=1">Pitch a domain</Link>
             </Button>
-          ) : null}
-          {atCap || workspaceEmpty ? null : (
-            <Button asChild>
-              <Link href="/app/onboarding?new=1">Add a brand</Link>
-            </Button>
-          )}
-          <Button asChild variant="outline">
-            <Link href="/app?pitch=1">Pitch a domain</Link>
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {atCap ? (
         <div className="mb-6 max-w-xl">
@@ -215,7 +214,7 @@ export default async function BrandsPage({
               <Th>Brand</Th>
               <Th>Risk</Th>
               <Th>Visibility</Th>
-              <Th>Site / vertical</Th>
+              <Th>Site / market</Th>
               <Th>Client owner</Th>
               <Th>
                 <span className="sr-only">Actions</span>
@@ -252,7 +251,7 @@ export default async function BrandsPage({
                   </Td>
                   <Td className="font-mono tabular-nums">{card?.visibilityScore ?? "—"}</Td>
                   <Td truncate className="text-cb-muted">
-                    {brand.siteUrl || brand.vertical || brand.category || "—"}
+                    {[brand.siteUrl || brand.vertical || brand.category, brand.market].filter(Boolean).join(" · ") || "—"}
                   </Td>
                   <Td truncate className="text-cb-muted">
                     {brand.clientOwner || brand.buyer || "—"}

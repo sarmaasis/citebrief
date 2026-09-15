@@ -184,9 +184,13 @@ export default async function ClientSharePage({ params }: { params: Promise<{ to
             <p className="mt-4 text-sm text-cb-text">{row.report.summary}</p>
             {kit?.footerText ? <p className="mt-8 text-xs text-cb-muted">{kit.footerText}</p> : null}
             <p className="mt-2 text-xs text-cb-muted">Prepared by {preparedBy}</p>
+            <p className="mt-6 text-xs text-cb-muted">Do not add these mentions to Search Console totals.</p>
           </div>
         )}
       </div>
+      <footer className="border-t border-cb-line px-4 py-4 text-center text-xs text-cb-muted sm:px-6">
+        Do not add these mentions to Search Console totals.
+      </footer>
     </main>
   );
 }

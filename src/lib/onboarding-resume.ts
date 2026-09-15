@@ -65,6 +65,7 @@ export function serializeOnboardingResume(bundle: {
     logoUrl: string | null;
     category: string | null;
     vertical: string | null;
+    market?: string | null;
     buyer: string | null;
     job: string | null;
     incumbent: string | null;
@@ -91,6 +92,7 @@ export function serializeOnboardingResume(bundle: {
       logoUrl: brand.logoUrl ?? "",
       category: brand.category ?? "",
       vertical: brand.vertical ?? "",
+      market: brand.market ?? "US",
       buyer: brand.buyer ?? "",
       job: brand.job ?? "",
       incumbent: brand.incumbent ?? "",

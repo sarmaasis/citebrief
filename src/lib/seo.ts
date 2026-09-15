@@ -53,7 +53,7 @@ export const PAGE_COPY = {
   pricing: {
     path: "/pricing" as const,
     title: "AI-search visibility pricing",
-    description: `Starter $${PLANS.starter.amountUsd}, Growth $${PLANS.agency.amountUsd}, Agency $${PLANS.studio.amountUsd}. Growth includes ${PLANS.agency.brands * PLANS.agency.prompts} tracked questions for teams; Agency includes ${PLANS.studio.brands * PLANS.studio.prompts} tracked questions and white-label delivery. Enterprise from $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}.`,
+    description: `Starter $${PLANS.starter.amountUsd}, Teams $${PLANS.agency.amountUsd}, Scale $${PLANS.studio.amountUsd}. Teams includes ${PLANS.agency.brands * PLANS.agency.prompts} tracked questions; Scale includes ${PLANS.studio.brands * PLANS.studio.prompts} tracked questions and white-label delivery. Enterprise from $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}.`,
   },
   report: {
     path: "/report" as const,
@@ -258,10 +258,10 @@ function softwareApplicationNode() {
     featureList: [
       "White-label Friday PDF reports",
       `Buyer questions across ${PUBLIC_ENGINES_PHRASE}`,
-      `Weekly reports for ${SEO_PLAN_OFFERS[1].brands * PLANS.agency.prompts} Growth tracked questions`,
+      `Weekly reports for ${SEO_PLAN_OFFERS[1].brands * PLANS.agency.prompts} Teams tracked questions`,
       "Private client links",
       "Recommended next actions on each report",
-      "Growth command center with competitor intelligence and opportunity queue",
+      "Teams command center with competitor intelligence and opportunity queue",
     ],
     offers: SEO_PLAN_OFFERS.map((plan) => ({
       "@type": "Offer",

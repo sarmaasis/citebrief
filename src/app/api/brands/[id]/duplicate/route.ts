@@ -1,4 +1,5 @@
 import { brands, competitors, prompts } from "@/db/schema";
+import { isBrandedPrompt, MIXES, promptIntent, type PromptMix } from "@/lib/prompts";
 import { assertBrandCap, capDenialFromError } from "@/lib/usage";
 import { getAppContext } from "@/lib/session";
 import { jsonError, jsonOk } from "@/server/json";
@@ -7,6 +8,10 @@ import { getBrandBundle, getWorkspaceBrand } from "@/server/workspace-data";
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+function asPromptMix(value: string): PromptMix {
+  return (MIXES as readonly string[]).includes(value) ? (value as PromptMix) : "discovery";
+}
 
 export async function POST(_request: Request, context: RouteContext) {
   const ctx = await getAppContext();
@@ -36,6 +41,7 @@ export async function POST(_request: Request, context: RouteContext) {
     siteUrl: source.siteUrl,
     logoUrl: source.logoUrl,
     vertical: source.vertical,
+    market: source.market,
     category: source.category,
     buyer: source.buyer,
     job: source.job,
@@ -65,6 +71,8 @@ export async function POST(_request: Request, context: RouteContext) {
         brandId: newId,
         text: row.text,
         mix: row.mix,
+        intent: promptIntent(row.text, asPromptMix(row.mix)),
+        branded: isBrandedPrompt(row.text, source.name),
         sortOrder: row.sortOrder,
         createdAt: now,
         updatedAt: now,

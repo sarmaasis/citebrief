@@ -21,16 +21,16 @@ import { isEngineApiConfigured, usesDeterministicStub } from "@/lib/engine-adapt
 
 assert.equal(PLANS.starter.amountUsd, 79);
 assert.equal(PLANS.agency.amountUsd, 249);
-assert.equal(PLANS.studio.amountUsd, 599);
+assert.equal(PLANS.studio.amountUsd, 499);
 assert.equal(PLANS.enterprise.amountUsd, 1499);
 assert.equal(PLANS.starter.brands, 2);
-assert.equal(PLANS.agency.brands, 5);
-assert.equal(PLANS.studio.brands, 20);
+assert.equal(PLANS.agency.brands, 8);
+assert.equal(PLANS.studio.brands, 15);
 assert.equal(PLANS.starter.seats, 1);
-assert.equal(PLANS.agency.seats, 3);
-assert.equal(PLANS.studio.seats, 10);
-assert.equal(planSeatCap("agency"), 3);
-assert.equal(planSeatCap("studio"), 10);
+assert.equal(PLANS.agency.seats, 5);
+assert.equal(PLANS.studio.seats, 8);
+assert.equal(planSeatCap("agency"), 5);
+assert.equal(planSeatCap("studio"), 8);
 assert.equal(planSeatCap("starter"), 1);
 
 assert.equal(EXTRA_BRAND_USD.agency, 29);
@@ -125,12 +125,12 @@ assert.notEqual(promptHash("a"), promptHash("b"));
 function wouldRejectInvite(members: number, pending: number, plan: string) {
   return members + pending >= planSeatCap(plan);
 }
-assert.equal(planSeatCap("agency", 1), 4);
-assert.equal(wouldRejectInvite(3, 0, "agency"), true);
-assert.equal(wouldRejectInvite(2, 0, "agency"), false);
-assert.equal(wouldRejectInvite(2, 1, "agency"), true);
-assert.equal(wouldRejectInvite(10, 0, "studio"), true);
-assert.equal(wouldRejectInvite(9, 0, "studio"), false);
+assert.equal(planSeatCap("agency", 1), 6);
+assert.equal(wouldRejectInvite(5, 0, "agency"), true);
+assert.equal(wouldRejectInvite(4, 0, "agency"), false);
+assert.equal(wouldRejectInvite(4, 1, "agency"), true);
+assert.equal(wouldRejectInvite(8, 0, "studio"), true);
+assert.equal(wouldRejectInvite(7, 0, "studio"), false);
 
 // seatsUsed mirrors invite POST occupancy: members + pending invites
 function seatsUsed(members: number, pending: number) {

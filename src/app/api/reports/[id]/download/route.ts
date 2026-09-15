@@ -1,10 +1,11 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq } from "drizzle-orm";
 import { getReportObject } from "@/lib/r2";
+import { clientBriefFilename } from "@/lib/report-writer";
 import { getAppContext } from "@/lib/session";
 import { pdfRetentionExpired } from "@/lib/entitlements";
 import { getWorkspaceSubscription } from "@/lib/usage";
-import { brands, reports } from "@/db/schema";
+import { brandKits, brands, reports, workspaces } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,17 @@ export async function GET(request: Request, context: RouteContext) {
   const format = url.searchParams.get("format") === "html" ? "html" : "pdf";
 
   const [row] = await ctx.db
-    .select({ report: reports, workspaceId: brands.workspaceId, brandName: brands.name })
+    .select({
+      report: reports,
+      workspaceId: brands.workspaceId,
+      brandName: brands.name,
+      agencyName: brandKits.preparedBy,
+      workspaceName: workspaces.name,
+    })
     .from(reports)
     .innerJoin(brands, eq(brands.id, reports.brandId))
+    .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
+    .leftJoin(brandKits, eq(brandKits.workspaceId, brands.workspaceId))
     .where(and(eq(reports.id, id), eq(brands.workspaceId, ctx.workspace.id)))
     .limit(1);
 
@@ -46,7 +55,11 @@ export async function GET(request: Request, context: RouteContext) {
     return new Response("Report file missing.", { status: 404 });
   }
 
-  const filename = `${row.brandName.replace(/\s+/g, "-").toLowerCase()}-citebrief.${format === "html" ? "html" : "pdf"}`;
+  const agency = row.agencyName || row.workspaceName || "Agency";
+  const filename =
+    format === "html"
+      ? `${row.brandName.replace(/\s+/g, "-").toLowerCase()}-brief.html`
+      : clientBriefFilename(agency, row.brandName);
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
   return new Response(copy, {

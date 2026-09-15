@@ -4,7 +4,7 @@ import { brands, competitors, prompts, runs, workspaces } from "@/db/schema";
 import { BRAND_KIND, PITCH_TTL_MS } from "@/lib/brand-kind";
 import { formatWeekOf } from "@/lib/friday";
 import { scheduledEngineStatus } from "@/lib/engines";
-import { generatePromptPack } from "@/lib/prompts";
+import { generatePromptPack, isBrandedPrompt, promptIntent } from "@/lib/prompts";
 import { resolveRunEngines } from "@/lib/plan-engines";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getAppContext } from "@/lib/session";
@@ -71,6 +71,7 @@ export async function POST(request: Request) {
     workspaceId: ctx.workspace.id,
     name,
     siteUrl: parsed.siteUrl,
+    market: body.market?.trim() || "US",
     category: body.category?.trim() || "software",
     buyer: body.buyer?.trim() || "buyers",
     incumbent: competitorNames[0] || null,
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
       brand: name,
       category: body.category?.trim() || "software",
       buyer: body.buyer?.trim() || "buyers",
+      market: body.market?.trim() || "US",
       incumbent: competitorNames[0] || "the incumbent",
       competitors: competitorNames,
     },
@@ -107,6 +109,8 @@ export async function POST(request: Request) {
       brandId,
       text: draft.text,
       mix: draft.mix,
+      intent: promptIntent(draft.text, draft.mix),
+      branded: isBrandedPrompt(draft.text, name),
       sortOrder: index + 1,
       createdAt: now,
       updatedAt: now,

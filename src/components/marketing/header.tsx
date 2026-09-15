@@ -15,7 +15,8 @@ export async function MarketingHeader() {
   const primary = marketingPrimaryCta({
     signedIn: auth.signedIn,
     appHref: auth.appHref,
-    signedOutLabel: "Send a Friday report",
+    signedOutLabel: "Send a domain",
+    signedOutHref: "/#send-domain",
   });
 
   return (

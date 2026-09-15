@@ -10,6 +10,11 @@ export type AuditEngineRow = {
   promptText: string;
   engine: string;
   mentioned: boolean | null;
+  recommended?: boolean | null;
+  position?: number | null;
+  sentiment?: string | null;
+  whoWon?: string | null;
+  verbatim?: string | null;
   createdAt: string | null;
   citedUrls: string[];
   citedBrandUrl?: boolean | null;
@@ -121,7 +126,17 @@ export function SourcesDrawer({
                         )}
                         <p className="mt-2 text-xs text-cb-muted">
                           Brand page: {row.citedBrandUrl ? "hit" : "miss"}
+                          {row.position ? ` · Position ${row.position}` : ""}
+                          {row.sentiment ? ` · ${row.sentiment}` : ""}
                         </p>
+                        {row.whoWon ? (
+                          <p className="mt-1 text-xs text-cb-muted">Currently winning: {row.whoWon}</p>
+                        ) : null}
+                        {row.verbatim ? (
+                          <blockquote className="mt-2 border-l-2 border-cb-line pl-3 text-xs text-cb-muted">
+                            “{row.verbatim}”
+                          </blockquote>
+                        ) : null}
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <Button
                             type="button"

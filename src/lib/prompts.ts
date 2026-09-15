@@ -45,6 +45,8 @@ export type PromptDraft = {
   id?: string;
   text: string;
   mix: PromptMix;
+  intent?: PromptMix;
+  branded?: boolean;
   sortOrder: number;
 };
 
@@ -73,6 +75,8 @@ export function normalizePromptDraft(draft: PromptDraft): PromptDraft {
     ...draft,
     id: draft.id,
     mix: inferred ?? draft.mix,
+    intent: inferred ?? draft.intent ?? draft.mix,
+    branded: draft.branded ?? isBrandedPrompt(stripMixLabelPrefix(draft.text), undefined),
     text: stripMixLabelPrefix(draft.text),
   };
 }
@@ -87,6 +91,7 @@ export type PromptPackInput = {
   buyer: string;
   job?: string;
   vertical?: string;
+  market?: string;
   incumbent: string;
   competitors: string[];
   constraint?: string;
@@ -152,6 +157,34 @@ export function mixCounts(prompts: { mix: string }[]): Record<PromptMix, number>
 export function mixIsLocked(prompts: { mix: string }[]): boolean {
   const counts = mixCounts(prompts);
   return MIXES.every((mix) => counts[mix] === MIX_TARGET) && prompts.length === PROMPT_COUNT;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function isBrandedPrompt(text: string, brand?: string) {
+  const names = [brand].filter((value): value is string => Boolean(value?.trim()));
+  return names.some((name) => new RegExp(`\\b${escapeRegExp(name)}\\b`, "i").test(text));
+}
+
+/** Page-1 score uses comparison / job / switch only. Discovery is shown; branded is appendix. */
+export function isScoreIntent(intent: string | null | undefined): boolean {
+  return intent === "comparison" || intent === "job" || intent === "switch";
+}
+
+export function brandedShare(prompts: { branded?: boolean; text?: string }[], brand?: string): number {
+  if (!prompts.length) return 0;
+  const branded = prompts.filter((p) => p.branded || (p.text ? isBrandedPrompt(p.text, brand) : false)).length;
+  return branded / prompts.length;
+}
+
+export function brandedShareWarns(prompts: { branded?: boolean; text?: string }[], brand?: string): boolean {
+  return brandedShare(prompts, brand) > 0.2;
+}
+
+export function promptIntent(text: string, fallback: PromptMix): PromptMix {
+  return inferMixFromText(text) ?? fallback;
 }
 
 export function validatePromptSet(
@@ -317,6 +350,7 @@ export function generatePromptPack(input: PromptPackInput, options?: PromptCount
   const buyer = slot(input.buyer, "teams");
   const job = lowerPhrase(slot(input.job, "the work"));
   const vertical = input.vertical ? lowerPhrase(slot(input.vertical, buyer)) : "";
+  const market = cleanBusinessText(input.market || "US");
   const incumbent = slot(input.incumbent, "the incumbent");
   const constraint = constraintPhrase(lowerPhrase(slot(input.constraint, "fast setup")));
   const buyerLabel = buyerContext(buyer);
@@ -326,40 +360,42 @@ export function generatePromptPack(input: PromptPackInput, options?: PromptCount
   const compB = comps[1] || comps[0] || "another rival";
   const count = Math.max(1, options?.count ?? PROMPT_COUNT);
 
+  // Default pack is unbranded buyer questions — never insert the client name (PAIN §5).
+  void brand;
   const lines: Array<{ mix: PromptMix; text: string }> = [
-    { mix: "discovery", text: `best ${category} platforms for ${buyerLabel} in ${PROMPT_YEAR}` },
-    { mix: "discovery", text: `top ${category} vendors for ${verticalLabel} in ${PROMPT_YEAR}` },
-    { mix: "discovery", text: `which ${category} tool should ${buyerLabel} use to ${job}` },
-    { mix: "discovery", text: `best ${category} options ${constraint} in ${PROMPT_YEAR}` },
-    { mix: "comparison", text: `${brand} vs ${comp} for ${buyerLabel}` },
-    { mix: "comparison", text: `${comp} vs ${brand} for teams that need to ${job}` },
-    { mix: "comparison", text: `${incumbent} alternatives for ${buyerLabel} in ${PROMPT_YEAR}` },
-    { mix: "comparison", text: `best ${category} tools compared to ${incumbent}` },
-    { mix: "job", text: `which ${category} tool can help ${buyerLabel} ${job}` },
-    { mix: "job", text: `affordable ${category} software for ${buyerLabel} ${constraint}` },
-    { mix: "job", text: `${category} tool for ${buyerLabel} that need to ${job}` },
-    { mix: "job", text: `${category} tools for ${buyerLabel} that connect to existing workflows` },
-    { mix: "switch", text: `is ${incumbent} still worth it for ${buyerLabel} in ${PROMPT_YEAR}` },
-    { mix: "switch", text: `problems with ${incumbent} for ${buyerLabel}` },
-    { mix: "switch", text: `when should ${buyerLabel} switch from ${incumbent}` },
-    { mix: "switch", text: `${incumbent} vs modern ${category} alternatives in ${PROMPT_YEAR}` },
-    { mix: "incumbent", text: `${incumbent} alternatives for teams that need to ${job}` },
-    { mix: "incumbent", text: `who is better than ${incumbent} for ${verticalLabel}` },
-    { mix: "incumbent", text: `${compB} vs ${incumbent} vs ${brand} for ${buyerLabel}` },
-    { mix: "incumbent", text: `recommend ${articleFor(category)} ${category} tool instead of ${incumbent}` },
+    { mix: "discovery", text: `What ${category} should a ${buyerLabel} in ${market} look at first` },
+    { mix: "discovery", text: `How do ${buyerLabel} usually choose a ${category}` },
+    { mix: "discovery", text: `What should I know before I hire a ${category}` },
+    { mix: "discovery", text: `Best ${category} options ${constraint} in ${PROMPT_YEAR}` },
+    { mix: "comparison", text: `Best ${category} for ${buyerLabel} in ${market}` },
+    { mix: "comparison", text: `${comp} vs ${compB} vs other ${category} options` },
+    { mix: "comparison", text: `Which ${category} is worth it if budget is tight` },
+    { mix: "comparison", text: `Who is a good alternative to ${comp}` },
+    { mix: "job", text: `Who should I hire to ${job} in ${market}` },
+    { mix: "job", text: `Best ${category} if I need to ${job} this quarter` },
+    { mix: "job", text: `${category} for a team that already has ${incumbent}` },
+    { mix: "job", text: `Who actually does ${job}, not just talks about it` },
+    { mix: "switch", text: `I am unhappy with ${comp}. What are my options` },
+    { mix: "switch", text: `Reasons teams leave ${comp}` },
+    { mix: "switch", text: `What to switch to if ${comp} is too expensive` },
+    { mix: "switch", text: `When should ${buyerLabel} leave ${incumbent}` },
+    { mix: "incumbent", text: `${incumbent} alternatives for teams in ${market} that need to ${job}` },
+    { mix: "incumbent", text: `Who is better than ${incumbent} for ${verticalLabel}` },
+    { mix: "incumbent", text: `${compB} vs ${incumbent} for ${buyerLabel}` },
+    { mix: "incumbent", text: `Recommend ${articleFor(category)} ${category} tool instead of ${incumbent}` },
   ];
 
   if (count > PROMPT_COUNT) {
     lines.push(
-      { mix: "discovery", text: `best ${category} shortlist for ${buyerLabel} this quarter` },
-      { mix: "discovery", text: `which ${category} vendors are trusted by ${verticalLabel} teams` },
-      { mix: "comparison", text: `${brand} vs ${compB} for ${job}` },
-      { mix: "comparison", text: `${comp} vs ${incumbent} vs ${brand} for ${buyerLabel}` },
+      { mix: "discovery", text: `Best ${category} shortlist for ${buyerLabel} this quarter` },
+      { mix: "discovery", text: `Which ${category} vendors are trusted by ${verticalLabel} teams` },
+      { mix: "comparison", text: `Compare the top ${category} for ${job}` },
+      { mix: "comparison", text: `${comp} vs ${incumbent} for ${buyerLabel}` },
       { mix: "job", text: `${category} that can ${job} ${constraint}` },
       { mix: "job", text: `${category} for ${buyerLabel} who need faster onboarding` },
-      { mix: "switch", text: `why do ${buyerLabel} leave ${incumbent}` },
-      { mix: "switch", text: `switching from ${incumbent} to ${brand} for ${job}` },
-      { mix: "incumbent", text: `replace ${incumbent} for ${buyerLabel}` },
+      { mix: "switch", text: `Why do ${buyerLabel} leave ${incumbent}` },
+      { mix: "switch", text: `Switching from ${incumbent} when ${job} matters more` },
+      { mix: "incumbent", text: `Replace ${incumbent} for ${buyerLabel} in ${market}` },
       { mix: "incumbent", text: `${incumbent} replacement for ${job} ${constraint}` },
     );
   }
@@ -373,6 +409,8 @@ export function generatePromptPack(input: PromptPackInput, options?: PromptCount
     normalizePromptDraft({
       text: ensureQuestion(line.text),
       mix: line.mix,
+      intent: line.mix,
+      branded: isBrandedPrompt(line.text, brand),
       sortOrder: index + 1,
     }),
   );
@@ -406,6 +444,7 @@ export async function generatePromptPackMaybeLlm(
     const buyer = buyerContext(slot(input.buyer, "teams"));
     const job = lowerPhrase(slot(input.job, "the job"));
     const brand = slot(input.brand, "the brand");
+    const market = cleanBusinessText(input.market || "US");
     const incumbent = slot(input.incumbent, "the incumbent");
     const competitors = input.competitors.map((name) => cleanBusinessText(name)).filter(Boolean).join(", ");
     const constraint = slot(input.constraint, "fast setup");
@@ -416,6 +455,7 @@ Create a ${count}-prompt set of high-intent buyer questions a real prospect woul
 Category: ${category}
 Buyer: ${buyer}
 Job-to-be-done: ${job}
+Market: ${market}
 Brand: ${brand}
 Incumbent: ${incumbent}
 Competitors: ${competitors}
@@ -430,7 +470,8 @@ Quality bar:
 - Ask for products, vendors, tools, alternatives, comparisons, switching advice, or shortlists.
 - Do not ask broad education questions like "what are the key features".
 - Do not use brand vanity prompts such as "does ChatGPT mention X".
-- Use the brand only in credible comparison or replacement questions.
+- Do NOT put the client brand name in any question. Competitors and category only (unbranded pack).
+- Include the market when it changes buyer context or vendor availability.
 - Include the year on every question that uses "best" or "top".
 - Keep each question under 140 characters.
 - Do not prefix a question with Discovery, Comparison, Job, Switch, Incumbent, or markdown.
@@ -547,6 +588,8 @@ export function parseNumberedPrompts(content: string, count = PROMPT_COUNT): Pro
     return normalizePromptDraft({
       text: line,
       mix: inferred ?? positionFallback[index]?.mix ?? MIXES[index % MIXES.length],
+      intent: inferred ?? positionFallback[index]?.mix ?? MIXES[index % MIXES.length],
+      branded: isBrandedPrompt(line, "brand"),
       sortOrder: index + 1,
     });
   });

@@ -217,6 +217,7 @@ export async function buildDashboardSnapshot(
           id: row.brand.id,
           name: row.brand.name,
           siteUrl: "siteUrl" in row.brand ? (row.brand.siteUrl as string | null) : null,
+          market: "market" in row.brand ? (row.brand.market as string | null) : null,
           clientOwner: row.brand.clientOwner,
         },
       },

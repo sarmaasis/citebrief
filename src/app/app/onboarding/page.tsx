@@ -9,10 +9,25 @@ import { getAppContext } from "@/lib/session";
 import { countActiveBrands, getWorkspaceSubscription } from "@/lib/usage";
 import { getBrandBundle, listWorkspaceBrands } from "@/server/workspace-data";
 
+function domainSeed(raw?: string) {
+  if (!raw?.trim()) return {};
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const host = url.hostname.replace(/^www\./i, "");
+    const slug = host.split(".")[0] || host;
+    return {
+      name: slug.charAt(0).toUpperCase() + slug.slice(1),
+      siteUrl: `https://${host}`,
+    };
+  } catch {
+    return { siteUrl: raw };
+  }
+}
+
 export default async function OnboardingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ brandId?: string; new?: string }>;
+  searchParams: Promise<{ brandId?: string; new?: string; siteUrl?: string; competitors?: string; market?: string }>;
 }) {
   const params = await searchParams;
   const ctx = await getAppContext();
@@ -66,6 +81,11 @@ export default async function OnboardingPage({
       resume={resume}
       startFresh={startFresh}
       promptCap={ent.promptCap}
+      initialFields={{
+        ...domainSeed(params.siteUrl),
+        ...("competitors" in params && params.competitors ? { competitors: params.competitors } : {}),
+        ...("market" in params && params.market ? { market: params.market } : {}),
+      }}
     />
   );
 }

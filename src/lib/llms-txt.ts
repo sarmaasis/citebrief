@@ -86,7 +86,7 @@ export function buildLlmsFullTxt(): string {
     "",
     `- Starter: $${PLANS.starter.amountUsd}/mo · ${PLANS.starter.brands} brands · monthly cadence`,
     `- ${PLANS.agency.name} (recommended): $${PLANS.agency.amountUsd}/mo · ${PLANS.agency.brands} brands · weekly Friday · command center`,
-    `- ${PLANS.studio.name}: $${PLANS.studio.amountUsd}/mo · ${PLANS.studio.brands} brands · custom sender · bulk send · Perplexity`,
+    `- ${PLANS.studio.name}: $${PLANS.studio.amountUsd}/mo · ${PLANS.studio.brands} brands · custom sender · bulk send · portfolio export`,
     `- Enterprise: from $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract (no self-serve checkout)`,
     `- Annual: 10 months prepaid (2 months free) when annual Dodo products are configured`,
     `- Extra brand $${EXTRA_BRAND_USD.agency}/mo · extra seat $${SEAT_OVERAGE_USD}/mo · extra run $${EXTRA_RUN_USD.agency} one-time · see /pricing`,

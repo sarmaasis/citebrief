@@ -2,25 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ListChecks, Settings, Tag, TrendingUp } from "lucide-react";
+import { Home, ListChecks, Settings, Tag } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/app", label: "Overview", icon: Home, match: (path: string) => path === "/app" },
-  { href: "/app/brands", label: "Brands", icon: Tag, match: (path: string) => path.startsWith("/app/brands") },
+  { href: "/app", label: "Home", icon: Home, match: (path: string) => path === "/app" },
+  { href: "/app/brands", label: "Clients", icon: Tag, match: (path: string) => path.startsWith("/app/brands") },
   {
     href: "/app/reports",
-    label: "Reports",
+    label: "Briefs",
     icon: ListChecks,
     match: (path: string) => path === "/app/reports" || path.startsWith("/app/reports"),
-  },
-  {
-    href: "/app/insights",
-    label: "Insights",
-    icon: TrendingUp,
-    match: (path: string) =>
-      path.startsWith("/app/insights") || path.startsWith("/app/opportunities") || path.startsWith("/app/risks"),
   },
   {
     href: "/app/settings",

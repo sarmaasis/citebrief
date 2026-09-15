@@ -41,6 +41,7 @@ export async function POST(request: Request, context: RouteContext) {
     buyer: bundle.brand.buyer || "teams",
     job: bundle.brand.job || undefined,
     vertical: bundle.brand.vertical || undefined,
+    market: bundle.brand.market || "US",
     incumbent: bundle.brand.incumbent || "the incumbent",
     competitors: bundle.competitors.map((row) => row.name),
     constraint: bundle.brand.constraintNote || undefined,

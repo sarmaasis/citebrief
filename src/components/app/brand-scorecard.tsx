@@ -26,6 +26,7 @@ export function BrandScorecard({ card }: { card: ScorecardMetrics }) {
           </Link>
           <p className="mt-1 truncate text-xs text-cb-muted">
             {card.siteUrl || "No site"}
+            {card.market ? ` · ${card.market}` : ""}
             {card.clientOwner ? ` · ${card.clientOwner}` : ""}
           </p>
         </div>
@@ -44,19 +45,19 @@ export function BrandScorecard({ card }: { card: ScorecardMetrics }) {
 
       <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
         <Stat
-          label="Mention / citation"
+          label="Presence / citation"
           value={`${card.mentionShare ?? "—"}% / ${card.citationShare ?? "—"}%`}
         />
         <Stat
-          label="Competitor gap"
+          label="Prominence gap"
           value={
             card.competitorGap != null
               ? `${card.competitorGap}%${card.competitorLeader ? ` · ${card.competitorLeader}` : ""}`
               : "Even"
           }
         />
-        <Stat label="Winning / losing" value={`${card.winningPrompts} / ${card.losingPrompts}`} />
-        <Stat label="Open opportunities" value={String(card.openOpportunities)} />
+        <Stat label="Prompts won / lost" value={`${card.winningPrompts} / ${card.losingPrompts}`} />
+        <Stat label="Portrayal actions" value={String(card.openOpportunities)} />
         <Stat
           label="Last run"
           value={

@@ -70,15 +70,28 @@ function signupCopy(
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; plan?: string; interval?: string }>;
+  searchParams: Promise<{
+    invite?: string;
+    plan?: string;
+    interval?: string;
+    email?: string;
+    domain?: string;
+    competitors?: string;
+    market?: string;
+  }>;
 }) {
   const params = await searchParams;
   const invite = params.invite?.trim() || null;
   const { planId, interval } = invite ? { planId: null, interval: "monthly" as const } : readPlanAndInterval(params);
+  const onboarding = new URLSearchParams({ new: "1" });
+  if (params.domain) onboarding.set("siteUrl", params.domain);
+  if (params.competitors) onboarding.set("competitors", params.competitors);
+  if (params.market) onboarding.set("market", params.market);
+  const nextPath = params.domain ? `/app/onboarding?${onboarding.toString()}` : postAuthPath({ inviteToken: invite, plan: planId, interval });
   const auth = await getMarketingAuth();
   if (auth.signedIn) {
     if (invite) redirect(`/invite/${invite}`);
-    redirect(postAuthPath({ plan: planId, interval }));
+    redirect(nextPath);
   }
   const copy = signupCopy(planId, interval, invite);
 
@@ -101,7 +114,8 @@ export default async function SignupPage({
         <AuthForm
           mode="signup"
           inviteToken={invite}
-          nextPath={postAuthPath({ inviteToken: invite, plan: planId, interval })}
+          initialEmail={params.email ?? ""}
+          nextPath={nextPath}
         />
       </div>
       {!invite ? (
