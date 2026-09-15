@@ -85,12 +85,8 @@ export default async function BrandsPage({
 
   if (!sqlPage) {
     const source = allRows ?? [];
-    filteredRows =
-      showAgencyViews && savedView !== "all" ? source.filter((brand) => matchesView(brand.id, savedView)) : source;
-    filteredScorecards =
-      showAgencyViews && savedView !== "all"
-        ? snapshot.scorecards.filter((card) => matchesView(card.brandId, savedView))
-        : snapshot.scorecards;
+    filteredRows = source.filter((brand) => matchesView(brand.id, savedView));
+    filteredScorecards = snapshot.scorecards.filter((card) => matchesView(card.brandId, savedView));
     listTotal = tableView || includeArchived ? filteredRows.length : filteredScorecards.length;
     filteredRows = filteredRows.slice(pageInfo.offset, pageInfo.offset + pageInfo.pageSize);
     filteredScorecards = filteredScorecards.slice(pageInfo.offset, pageInfo.offset + pageInfo.pageSize);
