@@ -32,6 +32,26 @@ import { workspaceEntitlements } from "@/lib/entitlements";
 import { getWorkspaceSubscription, refundFailedRunAttempt, settleBillableExtraRun, shouldSettleBillableExtra } from "@/lib/usage";
 import { hydrateGatewayRunBudget, resetGatewayRunBudget } from "@/lib/ai-gateway";
 
+const LLM_PROMPT_CONCURRENCY = 6;
+const AIO_PROMPT_CONCURRENCY = 2;
+
+async function mapWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<void>,
+) {
+  const concurrency = Math.max(1, Math.min(limit, items.length || 1));
+  let next = 0;
+  const workers = Array.from({ length: concurrency }, async () => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      await worker(items[index]!, index);
+    }
+  });
+  await Promise.all(workers);
+}
+
 /** Idempotency key for one Gateway cell. Never re-fetch when this is already complete. */
 export function runCellKey(promptId: string, engine: string) {
   return `${promptId}|${engine}`;
@@ -265,94 +285,106 @@ export async function processRun(
       .where(eq(runs.id, runId));
 
     try {
-      for (const prompt of promptRows) {
+      const pendingPrompts = promptRows.filter((prompt) => !completeKeys.has(runCellKey(prompt.id, engine.id)));
+      const cellFailures: unknown[] = [];
+      const concurrency = engine.id === "aio" ? AIO_PROMPT_CONCURRENCY : LLM_PROMPT_CONCURRENCY;
+
+      await mapWithConcurrency(pendingPrompts, concurrency, async (prompt) => {
         const key = runCellKey(prompt.id, engine.id);
-        if (completeKeys.has(key)) continue;
+        if (completeKeys.has(key)) return;
 
-        // Metered full runs must not read D1 engine_cache (cache hits were still debiting).
-        // Still write on success so free Retry can reuse a good answer if useful.
-        const result = await queryEngine({
-          engine: engine.id,
-          prompt: prompt.text,
-          brand: bundle.brand.name,
-          competitors: competitorNames,
-          buyer: bundle.brand.buyer,
-          env,
-          db,
-          metadata: {
-            workspace_id: bundle.workspace.id,
-            brand_id: bundle.brand.id,
-            run_id: runId,
-            plan: planId,
-            cache_policy: "fresh",
-            max_gateway_requests: maxGatewayRequests,
-          },
-        });
-        const rawAnswer = result.rawAnswer;
-        const gatewayRequestId = result.gatewayRequestId ?? null;
-        const confidence = result.confidence ?? (result.stubbed ? "low" : "medium");
-        const extracted = extractFromAnswer({
-          brand: bundle.brand.name,
-          competitors: competitorNames,
-          prompt: prompt.text,
-          engine: engine.id,
-          rawAnswer,
-          incumbent: bundle.brand.incumbent,
-          category: bundle.brand.category || bundle.brand.vertical,
-          siteUrl: bundle.brand.siteUrl,
-        });
-        await writeEngineCache(db, {
-          engine: engine.id,
-          promptText: prompt.text,
-          rawAnswer,
-          extracted,
-        });
+        try {
+          // Metered full runs must not read D1 engine_cache (cache hits were still debiting).
+          // Still write on success so free Retry can reuse a good answer if useful.
+          const result = await queryEngine({
+            engine: engine.id,
+            prompt: prompt.text,
+            brand: bundle.brand.name,
+            competitors: competitorNames,
+            buyer: bundle.brand.buyer,
+            env,
+            db,
+            metadata: {
+              workspace_id: bundle.workspace.id,
+              brand_id: bundle.brand.id,
+              run_id: runId,
+              plan: planId,
+              cache_policy: "fresh",
+              max_gateway_requests: maxGatewayRequests,
+            },
+          });
+          const rawAnswer = result.rawAnswer;
+          const gatewayRequestId = result.gatewayRequestId ?? null;
+          const confidence = result.confidence ?? (result.stubbed ? "low" : "medium");
+          const extracted = extractFromAnswer({
+            brand: bundle.brand.name,
+            competitors: competitorNames,
+            prompt: prompt.text,
+            engine: engine.id,
+            rawAnswer,
+            incumbent: bundle.brand.incumbent,
+            category: bundle.brand.category || bundle.brand.vertical,
+            siteUrl: bundle.brand.siteUrl,
+          });
+          await writeEngineCache(db, {
+            engine: engine.id,
+            promptText: prompt.text,
+            rawAnswer,
+            extracted,
+          });
 
-        // Drop a prior failed stub for this cell so we don't keep ghosts.
-        await db
-          .delete(runRows)
-          .where(
-            and(
-              eq(runRows.runId, runId),
-              eq(runRows.promptId, prompt.id),
-              eq(runRows.engine, engine.id),
-              eq(runRows.status, "failed"),
-            ),
-          );
+          // Drop a prior failed stub for this cell so we don't keep ghosts.
+          await db
+            .delete(runRows)
+            .where(
+              and(
+                eq(runRows.runId, runId),
+                eq(runRows.promptId, prompt.id),
+                eq(runRows.engine, engine.id),
+                eq(runRows.status, "failed"),
+              ),
+            );
 
-        await db.insert(runRows).values({
-          id: crypto.randomUUID(),
-          runId,
-          promptId: prompt.id,
-          engine: engine.id,
-          mentioned: extracted.mentioned,
-          recommended: extracted.recommended,
-          rankInShortlist: extracted.rankInShortlist,
-          citedUrls: JSON.stringify(extracted.citedUrls),
-          citedBrandUrl: extracted.citedBrandUrl,
-          whoWon: extracted.whoWon,
-          othersNamed: JSON.stringify(extracted.othersNamed),
-          sentence: extracted.sentence,
-          nextAction: extracted.nextAction,
-          rawAnswer,
-          gatewayRequestId,
-          confidence,
-          engineAt: new Date(),
-          status: "complete",
-          createdAt: new Date(),
-        });
-        completeKeys.add(key);
+          await db.insert(runRows).values({
+            id: crypto.randomUUID(),
+            runId,
+            promptId: prompt.id,
+            engine: engine.id,
+            mentioned: extracted.mentioned,
+            recommended: extracted.recommended,
+            rankInShortlist: extracted.rankInShortlist,
+            citedUrls: JSON.stringify(extracted.citedUrls),
+            citedBrandUrl: extracted.citedBrandUrl,
+            whoWon: extracted.whoWon,
+            othersNamed: JSON.stringify(extracted.othersNamed),
+            sentence: extracted.sentence,
+            nextAction: extracted.nextAction,
+            rawAnswer,
+            gatewayRequestId,
+            confidence,
+            engineAt: new Date(),
+            status: "complete",
+            createdAt: new Date(),
+          });
+          completeKeys.add(key);
 
-        const agg = aggs.get(prompt.id)!;
-        agg.byEngine[engine.id] = {
-          mentioned: extracted.mentioned,
-          recommended: extracted.recommended,
-          whoWon: extracted.whoWon,
-          sentence: extracted.sentence,
-          nextAction: extracted.nextAction,
-          citedUrls: extracted.citedUrls,
-          status: "complete",
-        };
+          const agg = aggs.get(prompt.id)!;
+          agg.byEngine[engine.id] = {
+            mentioned: extracted.mentioned,
+            recommended: extracted.recommended,
+            whoWon: extracted.whoWon,
+            sentence: extracted.sentence,
+            nextAction: extracted.nextAction,
+            citedUrls: extracted.citedUrls,
+            status: "complete",
+          };
+        } catch (error) {
+          cellFailures.push(error);
+        }
+      });
+
+      if (cellFailures.length > 0) {
+        throw cellFailures[0];
       }
       engines[engine.id] = "complete";
     } catch (error) {

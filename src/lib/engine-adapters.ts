@@ -317,7 +317,7 @@ async function aioHtmlFromResponse(response: Response, label: string): Promise<s
  */
 async function queryAio(input: EngineQueryInput, env: CloudflareEnv): Promise<string> {
   const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(input.prompt)}&hl=en&gl=us`;
-  const gotoOptions = { waitUntil: "networkidle0", timeout: 45000 };
+  const gotoOptions = { waitUntil: "domcontentloaded", timeout: 15000 };
 
   if (env.BROWSER?.quickAction) {
     const response = await env.BROWSER.quickAction("content", { url: searchUrl, gotoOptions });
