@@ -11,7 +11,6 @@ import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { buildDashboardSnapshot, buildEngineBreakdown } from "@/server/dashboard-data";
-import { listWorkspaceBrands } from "@/server/workspace-data";
 
 export default async function CompetitorsPage({
   searchParams,
@@ -27,7 +26,8 @@ export default async function CompetitorsPage({
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   const modules = dashboardModulesForPlan(ent);
-  const brands = await listWorkspaceBrands(ctx);
+  const snapshot = await buildDashboardSnapshot(ctx, ent, { includeRechecks: false });
+  const brands = snapshot.rows.map((row) => ({ id: row.brand.id, name: row.brand.name }));
   if (brands.length === 0) {
     return (
       <div>
@@ -43,7 +43,6 @@ export default async function CompetitorsPage({
     );
   }
 
-  const snapshot = await buildDashboardSnapshot(ctx, ent);
   const brandId = params.brandId || brands[0]?.id;
   const byPrompt = params.tab === "prompts";
   const engineRows =

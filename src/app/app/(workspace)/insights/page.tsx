@@ -57,7 +57,7 @@ export default async function InsightsPage({
   const filters = pageFilters(params);
   const [{ rows: allRows }, snapshot] = await Promise.all([
     loadCommandRows(ctx, ent.allowsWeeklyCadence),
-    buildDashboardSnapshot(ctx, ent),
+    buildDashboardSnapshot(ctx, ent, { includeRechecks: false }),
   ]);
   if (allRows.length === 0) {
     return (

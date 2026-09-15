@@ -53,6 +53,7 @@ export default async function BrandsPage({
   ]);
   const snapshot = await buildDashboardSnapshot(ctx, ent, {
     brandIds: paged?.rows.map((brand) => brand.id),
+    includeRechecks: false,
   });
   const scoreById = new Map(snapshot.scorecards.map((card) => [card.brandId, card]));
   const commandById = new Map(snapshot.rows.map((row) => [row.brand.id, row]));

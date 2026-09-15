@@ -62,18 +62,23 @@ export async function loadOpportunityStatuses(ctx: AppContext) {
 export async function buildDashboardSnapshot(
   ctx: AppContext,
   ent: WorkspaceEntitlements,
-  opts?: { view?: AgencySavedView; brandIds?: string[] },
+  opts?: { view?: AgencySavedView; brandIds?: string[]; includeRechecks?: boolean },
 ) {
   const { rows, minutesSavedPerReport, planned } = await loadCommandRows(
     ctx,
     ent.allowsWeeklyCadence,
     opts?.brandIds,
   );
-  const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
+  const [[workspace], statusMap, sub] = await Promise.all([
+    ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1),
+    loadOpportunityStatuses(ctx),
+    opts?.includeRechecks === false ? Promise.resolve(null) : getWorkspaceSubscription(ctx.db, ctx.workspace.id),
+  ]);
   const timezone = workspace?.timezone || "America/New_York";
-  const statusMap = await loadOpportunityStatuses(ctx);
-  const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
-  const rechecksUsed = ent.paid ? await countMonthlyRechecksUsed(ctx.db, ctx.workspace.id, sub?.plan) : 0;
+  const rechecksUsed =
+    ent.paid && opts?.includeRechecks !== false
+      ? await countMonthlyRechecksUsed(ctx.db, ctx.workspace.id, sub?.plan)
+      : 0;
   const enginesMonitored = enginesForEnt(ent);
   const view = opts?.view ?? "all";
 
@@ -103,8 +108,9 @@ export async function buildDashboardSnapshot(
     whoWon: string | null;
   }> = [];
 
-  if (runIds.length > 0) {
-    const signalRows = await ctx.db
+  const [signalRows, prevSignalRows] = await Promise.all([
+    runIds.length > 0
+      ? ctx.db
       .select({
         runId: runRows.runId,
         promptId: runRows.promptId,
@@ -121,8 +127,23 @@ export async function buildDashboardSnapshot(
       .from(runRows)
       .innerJoin(runs, eq(runs.id, runRows.runId))
       .innerJoin(prompts, eq(prompts.id, runRows.promptId))
-      .where(inArray(runRows.runId, runIds));
+          .where(inArray(runRows.runId, runIds))
+      : Promise.resolve([]),
+    previousRunIds.length > 0
+      ? ctx.db
+          .select({
+            whoWon: runRows.whoWon,
+            brandId: runs.brandId,
+            brandName: brands.name,
+          })
+          .from(runRows)
+          .innerJoin(runs, eq(runs.id, runRows.runId))
+          .innerJoin(brands, eq(brands.id, runs.brandId))
+          .where(inArray(runRows.runId, previousRunIds))
+      : Promise.resolve([]),
+  ]);
 
+  if (signalRows.length > 0) {
     const brandName = new Map(rows.map((row) => [row.brand.id, row.brand.name]));
     for (const row of signalRows) {
       const cite = citationByBrand.get(row.brandId) ?? { cited: 0, total: 0 };
@@ -159,17 +180,7 @@ export async function buildDashboardSnapshot(
     }
   }
 
-  if (previousRunIds.length > 0) {
-    const prevSignalRows = await ctx.db
-      .select({
-        whoWon: runRows.whoWon,
-        brandId: runs.brandId,
-        brandName: brands.name,
-      })
-      .from(runRows)
-      .innerJoin(runs, eq(runs.id, runRows.runId))
-      .innerJoin(brands, eq(brands.id, runs.brandId))
-      .where(inArray(runRows.runId, previousRunIds));
+  if (prevSignalRows.length > 0) {
     for (const row of prevSignalRows) {
       previousCompetitorRows.push({
         brandId: row.brandId,
@@ -316,20 +327,15 @@ export async function buildPromptPerformance(
     .from(reports)
     .where(eq(reports.brandId, brandId))
     .orderBy(desc(reports.createdAt))
-    .limit(6);
+    .limit(2);
   const latest = reportList[0];
   const previous = reportList[1];
   if (!latest) return [];
 
-  const historyRuns = reportList.slice().reverse();
-  const historyRowSets = await Promise.all(
-    historyRuns.map((report) => ctx.db.select().from(runRows).where(eq(runRows.runId, report.runId))),
-  );
-
   const [latestRows, previousRows, promptRows] = await Promise.all([
-    Promise.resolve(historyRowSets[historyRowSets.length - 1] ?? []),
+    ctx.db.select().from(runRows).where(eq(runRows.runId, latest.runId)),
     previous
-      ? Promise.resolve(historyRowSets[historyRowSets.length - 2] ?? [])
+      ? ctx.db.select().from(runRows).where(eq(runRows.runId, previous.runId))
       : Promise.resolve([] as (typeof runRows.$inferSelect)[]),
     ctx.db.select().from(prompts).where(eq(prompts.brandId, brandId)),
   ]);
@@ -341,6 +347,7 @@ export async function buildPromptPerformance(
   }
 
   const historyScoreByPrompt = new Map<string, number[]>();
+  const historyRowSets = previous ? [previousRows, latestRows] : [latestRows];
   for (const rows of historyRowSets) {
     const byPrompt = new Map<string, { mentioned: boolean; recommended: boolean }>();
     for (const row of rows) {
@@ -662,20 +669,34 @@ export async function buildClientReportingCenter(
   if (!dashboardModulesForPlan(ent).clientReportingCenter) return [];
 
   const { rows } = await loadCommandRows(ctx, ent.allowsWeeklyCadence);
-  const statusMap = await loadOpportunityStatuses(ctx);
+  const brandIds = rows.map((row) => row.brand.id);
+  const [statusMap, reportRows] = await Promise.all([
+    loadOpportunityStatuses(ctx),
+    brandIds.length
+      ? ctx.db
+          .select({
+            report: reports,
+            periodStart: runs.periodStart,
+            brandId: reports.brandId,
+          })
+          .from(reports)
+          .innerJoin(runs, eq(runs.id, reports.runId))
+          .where(inArray(reports.brandId, brandIds))
+          .orderBy(desc(reports.createdAt))
+      : Promise.resolve([]),
+  ]);
+  const reportsByBrand = new Map<string, typeof reportRows>();
+  for (const row of reportRows) {
+    const list = reportsByBrand.get(row.brandId) ?? [];
+    if (list.length < 2) {
+      list.push(row);
+      reportsByBrand.set(row.brandId, list);
+    }
+  }
   const out: ClientReportingSummary[] = [];
 
   for (const row of rows) {
-    const reportList = await ctx.db
-      .select({
-        report: reports,
-        periodStart: runs.periodStart,
-      })
-      .from(reports)
-      .innerJoin(runs, eq(runs.id, reports.runId))
-      .where(eq(reports.brandId, row.brand.id))
-      .orderBy(desc(reports.createdAt))
-      .limit(2);
+    const reportList = reportsByBrand.get(row.brand.id) ?? [];
 
     const latest = reportList[0];
     const previous = reportList[1];
