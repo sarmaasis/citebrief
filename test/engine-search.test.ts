@@ -31,7 +31,7 @@ assert.doesNotMatch(JSON.stringify(chatgpt.body), /web_search_preview/);
 
 const gemini = buildEngineSearchRequest("gemini", "agencies", "best crm for agencies");
 assert.equal(gemini.provider, "google");
-assert.match(gemini.path, /gemini-3\.6-flash:generateContent/);
+assert.match(gemini.path, /gemini-2\.5-flash:generateContent/);
 assert.deepEqual(gemini.body.tools, [{ google_search: {} }]);
 assert.ok(googleSearchRequested(gemini.body));
 assert.ok(GEMINI_MAX_OUTPUT_TOKENS >= 4096);
@@ -44,7 +44,7 @@ assert.notEqual(
   SHORTLIST_MAX_OUTPUT_TOKENS,
 );
 assert.deepEqual((gemini.body.generationConfig as { thinkingConfig?: unknown }).thinkingConfig, {
-  thinkingLevel: "minimal",
+  thinkingBudget: 0,
 });
 
 const claude = buildEngineSearchRequest("claude", "agencies", "best crm for agencies");
@@ -163,7 +163,7 @@ const geminiMaxTokensFixture = {
     candidatesTokenCount: 700,
     totalTokenCount: 2040,
   },
-  modelVersion: "gemini-3.6-flash",
+  modelVersion: "gemini-2.5-flash",
 };
 
 assert.equal(responseUsedWebSearch("google", geminiMaxTokensFixture), false);
