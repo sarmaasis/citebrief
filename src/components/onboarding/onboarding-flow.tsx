@@ -380,7 +380,7 @@ export function OnboardingFlow({
       setReportReady(data.status === "complete" || data.status === "partial");
       if (data.status !== "complete" && data.status !== "partial" && data.status !== "failed") {
         setRetryQueued(engine);
-        poll(runId);
+        pollRef.current(runId);
       } else {
         setRetryQueued(null);
       }
