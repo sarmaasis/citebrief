@@ -124,21 +124,11 @@ export async function createDodoCheckout(args: {
     });
   }
 
-  const annualId = interval === "annual" ? dodoAnnualProductId(args.env, args.plan) : null;
-  if (interval === "annual" && !annualId) {
-    return {
-      mode: "unavailable",
-      message:
-        "Annual billing is not configured yet (missing Dodo annual product IDs). Use monthly, or contact support.",
-    };
+  const resolved = resolveDodoPlanProductId(args.env, args.plan, interval);
+  if (!resolved.ok) {
+    return { mode: "unavailable", message: resolved.message };
   }
-  const productId = annualId || dodoProductId(args.env, args.plan);
-  if (!productId) {
-    return {
-      mode: "unavailable",
-      message: ENTERPRISE_CONTACT_SALES_MESSAGE,
-    };
-  }
+  const productId = resolved.productId;
   const returnUrl = `${args.returnUrl}${successPath}`;
   const metadata = {
     workspace_id: args.workspaceId,
@@ -323,8 +313,51 @@ export function resolvePlanFromDodoProductId(
 }
 
 /**
+ * Product cart for checkout / changePlan. Annual requires a distinct env product id
+ * that maps back to the same plan (guards swapped Agency/Studio annual IDs).
+ */
+export function resolveDodoPlanProductId(
+  env: CloudflareEnv,
+  plan: PlanId,
+  interval: "monthly" | "annual",
+): { ok: true; productId: string } | { ok: false; message: string } {
+  if (interval === "annual") {
+    const annualId = dodoAnnualProductId(env, plan);
+    if (!annualId) {
+      return {
+        ok: false,
+        message:
+          "Annual billing is not configured yet (missing Dodo annual product IDs). Use monthly, or contact support.",
+      };
+    }
+    const mapped = resolvePlanFromDodoProductId(env, annualId);
+    if (!mapped || mapped.plan !== plan || mapped.interval !== "annual") {
+      return {
+        ok: false,
+        message: `Misconfigured Dodo annual product for ${plan}. Check DODO_PRODUCT_${plan.toUpperCase()}_ANNUAL.`,
+      };
+    }
+    return { ok: true, productId: annualId };
+  }
+  const productId = dodoProductId(env, plan);
+  if (!productId) {
+    return { ok: false, message: ENTERPRISE_CONTACT_SALES_MESSAGE };
+  }
+  const mapped = resolvePlanFromDodoProductId(env, productId);
+  // Stub fallbacks (citebrief_{plan}) always map; live env must not collide across plans.
+  if (mapped && mapped.plan !== plan) {
+    return {
+      ok: false,
+      message: `Misconfigured Dodo product for ${plan}. Check DODO_PRODUCT_${plan.toUpperCase()}.`,
+    };
+  }
+  return { ok: true, productId };
+}
+
+/**
  * Mid-period plan/interval switch via Dodo changePlan (prorates unused prepaid time).
  * Prefer this over a new checkout so annual prepaid is not orphaned.
+ * Always request payment link when a charge is due — never silently apply via saved card.
  */
 export async function changeDodoSubscriptionPlan(args: {
   env: CloudflareEnv;
@@ -345,18 +378,11 @@ export async function changeDodoSubscriptionPlan(args: {
     });
   }
 
-  const annualId = interval === "annual" ? dodoAnnualProductId(args.env, args.plan) : null;
-  if (interval === "annual" && !annualId) {
-    return {
-      mode: "unavailable",
-      message:
-        "Annual billing is not configured yet (missing Dodo annual product IDs). Use monthly, or contact support.",
-    };
+  const resolved = resolveDodoPlanProductId(args.env, args.plan, interval);
+  if (!resolved.ok) {
+    return { mode: "unavailable", message: resolved.message };
   }
-  const productId = annualId || dodoProductId(args.env, args.plan);
-  if (!productId) {
-    return { mode: "unavailable", message: ENTERPRISE_CONTACT_SALES_MESSAGE };
-  }
+  const productId = resolved.productId;
 
   const metadata = {
     workspace_id: args.workspaceId,
@@ -366,8 +392,8 @@ export async function changeDodoSubscriptionPlan(args: {
 
   try {
     const client = createDodoClient(args.env);
-    // Keep subscription metadata in sync so later webhooks resolve the new plan/interval.
-    await client.subscriptions.update(args.subscriptionId, { metadata });
+    // Do not update subscription metadata before payment — abandoned links must not
+    // leave plan=studio on an Agency sub. Metadata rides on the changePlan payment.
     const changed = await client.subscriptions.changePlan(args.subscriptionId, {
       product_id: productId,
       quantity: 1,
@@ -379,26 +405,18 @@ export async function changeDodoSubscriptionPlan(args: {
       metadata,
     });
     if (changed.payment_link) {
+      // Charge due: customer must confirm on checkout. Plan stays until paid.
       return { mode: "redirect", url: changed.payment_link };
+    }
+    // Net $0 / credit: Dodo applied immediately; sync subscription metadata now.
+    try {
+      await client.subscriptions.update(args.subscriptionId, { metadata });
+    } catch (metaError) {
+      console.info("[dodo] changePlan metadata sync failed", metaError);
     }
     return { mode: "redirect", url: `${args.returnUrl}${successPath}` };
   } catch (error) {
-    console.info("[dodo] changePlan failed; trying without payment link", error);
-  }
-
-  try {
-    const client = createDodoClient(args.env);
-    await client.subscriptions.update(args.subscriptionId, { metadata });
-    await client.subscriptions.changePlan(args.subscriptionId, {
-      product_id: productId,
-      quantity: 1,
-      proration_billing_mode: "prorated_immediately",
-      on_payment_failure: "prevent_change",
-      effective_at: "immediately",
-      metadata,
-    });
-    return { mode: "redirect", url: `${args.returnUrl}${successPath}` };
-  } catch (error) {
+    // No silent fallback without payment link — that skipped checkout on upgrades.
     console.info("[dodo] changePlan error", error);
     return {
       mode: "unavailable",

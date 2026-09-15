@@ -16,7 +16,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { requireOwner } from "@/lib/permissions";
 import { getAppContext } from "@/lib/session";
-import { planChangeMeteringPatch, countMonthlyRechecksUsed } from "@/lib/usage";
+import { planChangeMeteringPatch } from "@/lib/usage";
 import { jsonError, jsonOk } from "@/server/json";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { subscriptions } from "@/db/schema";
@@ -134,23 +134,10 @@ export async function GET(request: Request) {
       previousInterval: existing?.billingInterval,
       previousPeriodEnd: existing?.currentPeriodEnd ?? null,
     });
-    const planChanging = Boolean(existing && existing.plan !== plan);
-    let monthlyRechecksUsed: number | undefined;
-    let extraRunCredits: number | undefined;
-    if (planChanging && existing) {
-      monthlyRechecksUsed = await countMonthlyRechecksUsed(
-        ctx.db,
-        ctx.workspace.id,
-        existing.plan,
-        existing.planMeteringSince ?? null,
-      );
-      extraRunCredits = existing.extraRunCredits || 0;
-    }
+    // Reset metering window only — do not convert unused monthly rechecks into credits.
     const metering = planChangeMeteringPatch({
       previousPlan: existing?.plan,
       nextPlan: plan,
-      monthlyRechecksUsed,
-      extraRunCredits,
     });
     if (!existing) {
       await ctx.db.insert(subscriptions).values({

@@ -21,7 +21,6 @@ import {
   bumpExtraBrands,
   bumpExtraRunCredits,
   bumpExtraSeats,
-  countMonthlyRechecksUsed,
   planChangeMeteringPatch,
   setPremiumEnginePack,
 } from "@/lib/usage";
@@ -131,15 +130,18 @@ export async function applyDodoWebhookPayload(
   const data = (event.data || event.payload || {}) as Record<string, unknown>;
   const metadata = (data.metadata || {}) as Record<string, unknown>;
   const workspaceId = String(metadata.workspace_id || data.workspace_id || "");
+  // Product id is source of truth (metadata can be stale from a prior abandoned switch).
   const productHint = env
     ? resolvePlanFromDodoProductId(env, data.product_id ? String(data.product_id) : null)
     : null;
-  const plan =
-    parsePlanId(String(metadata.plan || data.plan || "")) || productHint?.plan || "agency";
+  const metaPlan = parsePlanId(String(metadata.plan || data.plan || ""));
+  const plan = productHint?.plan || metaPlan || "agency";
   const intervalRaw = metadata.interval ?? data.interval;
-  const interval = intervalRaw
-    ? parseBillingInterval(String(intervalRaw))
-    : productHint?.interval ?? "monthly";
+  const interval = productHint
+    ? productHint.interval
+    : intervalRaw
+      ? parseBillingInterval(String(intervalRaw))
+      : "monthly";
   const addon = String(metadata.addon || "");
   const dodoCustomerId = data.customer_id ? String(data.customer_id) : null;
   const dodoSubscriptionId = data.subscription_id ? String(data.subscription_id) : null;
@@ -217,27 +219,11 @@ export async function applyDodoWebhookPayload(
           ? true
           : (sub?.cancelAtPeriodEnd ?? false);
 
-    let metering: ReturnType<typeof planChangeMeteringPatch> = null;
-    if (confirmsPaid && !isAddon) {
-      const planChanging = Boolean(sub && parsePlanId(sub.plan) !== parsePlanId(nextPlan));
-      let monthlyRechecksUsed: number | undefined;
-      let extraRunCredits: number | undefined;
-      if (planChanging && sub) {
-        monthlyRechecksUsed = await countMonthlyRechecksUsed(
-          db,
-          workspaceId,
-          sub.plan,
-          sub.planMeteringSince ?? null,
-        );
-        extraRunCredits = sub.extraRunCredits || 0;
-      }
-      metering = planChangeMeteringPatch({
-        previousPlan: sub?.plan,
-        nextPlan,
-        monthlyRechecksUsed,
-        extraRunCredits,
-      });
-    }
+    // Reset metering window only — never mint extra_run_credits from unused monthly pools.
+    const metering =
+      confirmsPaid && !isAddon
+        ? planChangeMeteringPatch({ previousPlan: sub?.plan, nextPlan })
+        : null;
 
     if (sub) {
       await db
@@ -281,7 +267,7 @@ export async function applyDodoWebhookPayload(
       extraBrands: sub?.extraBrands,
       extraSeats: sub?.extraSeats,
       extraRuns: sub?.extraRuns,
-      extraRunCredits: metering?.extraRunCredits ?? sub?.extraRunCredits,
+      extraRunCredits: sub?.extraRunCredits,
       billingInterval: nextBillingInterval,
       premiumEnginePack: sub?.premiumEnginePack,
     }).promptCap;

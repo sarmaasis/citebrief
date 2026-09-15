@@ -5,6 +5,8 @@ import {
   dodoEventConfirmsPaidPlan,
   dodoEventIsPaymentFailure,
   parseDodoTimestamp,
+  resolveDodoPlanProductId,
+  resolvePlanFromDodoProductId,
   resolveSubscriptionPeriodEnd,
   resolveWebhookSubscriptionPlan,
   shouldIgnoreFailedPlanSwitch,
@@ -151,5 +153,58 @@ const stubSwitch = stubPaidSubscriptionPatch({
 assert.equal(stubSwitch.billingInterval, "monthly");
 assert.equal(stubSwitch.plan, "studio");
 assert.equal(stubSwitch.currentPeriodEnd.toISOString(), prepaidEnd.toISOString());
+
+// --- Product id selection (Studio annual changePlan / checkout) ---
+const productEnv = {
+  DODO_PRODUCT_AGENCY: "prod_agency_mo",
+  DODO_PRODUCT_STUDIO: "prod_studio_mo",
+  DODO_PRODUCT_AGENCY_ANNUAL: "prod_agency_yr",
+  DODO_PRODUCT_STUDIO_ANNUAL: "prod_studio_yr",
+} as CloudflareEnv;
+
+{
+  const studioAnnual = resolveDodoPlanProductId(productEnv, "studio", "annual");
+  assert.equal(studioAnnual.ok, true);
+  if (studioAnnual.ok) assert.equal(studioAnnual.productId, "prod_studio_yr");
+  assert.deepEqual(resolvePlanFromDodoProductId(productEnv, "prod_studio_yr"), {
+    plan: "studio",
+    interval: "annual",
+  });
+}
+
+{
+  const agencyAnnual = resolveDodoPlanProductId(productEnv, "agency", "annual");
+  assert.equal(agencyAnnual.ok, true);
+  if (agencyAnnual.ok) assert.equal(agencyAnnual.productId, "prod_agency_yr");
+}
+
+// Swapped / colliding annual IDs must fail closed (not send Agency cart for Studio).
+{
+  const swapped = {
+    ...productEnv,
+    DODO_PRODUCT_STUDIO_ANNUAL: "prod_agency_yr",
+  } as CloudflareEnv;
+  const bad = resolveDodoPlanProductId(swapped, "studio", "annual");
+  assert.equal(bad.ok, false);
+}
+
+// Missing annual id → unavailable (do not silently fall back to monthly).
+{
+  const noAnnual = {
+    DODO_PRODUCT_STUDIO: "prod_studio_mo",
+  } as CloudflareEnv;
+  const missing = resolveDodoPlanProductId(noAnnual, "studio", "annual");
+  assert.equal(missing.ok, false);
+}
+
+// Webhook guard: product id wins over stale metadata (abandoned Studio switch left metadata).
+{
+  const fromProduct = resolvePlanFromDodoProductId(productEnv, "prod_agency_yr");
+  assert.deepEqual(fromProduct, { plan: "agency", interval: "annual" });
+  // Simulate resolver preference used in dodo-hono: productHint || metaPlan
+  const metaPlan = "studio";
+  const plan = fromProduct?.plan || metaPlan;
+  assert.equal(plan, "agency");
+}
 
 console.log("dodo-period.test.ts ok");

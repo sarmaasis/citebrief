@@ -129,12 +129,12 @@ export function BillingPanel({
   const showUpgradeToAgency = isPaid && selectedPlan === "starter";
   const selectedName = PLANS[selectedPlan].name;
 
-  async function checkout(plan: PlanId) {
+  async function checkout(plan: PlanId, intervalOverride?: "monthly" | "annual") {
     if (!canManage) return;
     setBusy(plan);
     setMessage(null);
     try {
-      const interval = annual ? "annual" : "monthly";
+      const interval = intervalOverride ?? (annual ? "annual" : "monthly");
       const response = await fetch(`/api/checkout?plan=${plan}&interval=${interval}&redirect=0`);
       const data = (await response.json()) as {
         url?: string;
@@ -150,7 +150,7 @@ export function BillingPanel({
       if (data.mode === "stub") {
         setMessage(
           data.paid
-            ? `Test checkout activated ${PLANS[plan].name}${annual ? " annual" : ""}.`
+            ? `Test checkout activated ${PLANS[plan].name}${interval === "annual" ? " annual" : ""}.`
             : "Test checkout did not activate a paid plan. Try Billing again.",
         );
         if (data.paid) {
@@ -436,7 +436,7 @@ export function BillingPanel({
                 disabled={busy !== null || (isPaid && selectedPlan === "agency" && usage.billingInterval === "annual")}
                 onClick={() => {
                   setAnnual(true);
-                  void checkout("agency");
+                  void checkout("agency", "annual");
                 }}
               >
                 {busy === "agency" && annual ? "Starting…" : `Get Agency annual · $${planAnnualAmountUsd("agency").toLocaleString("en-US")}`}

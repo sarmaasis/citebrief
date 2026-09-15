@@ -474,26 +474,49 @@ function assertAllowedFree(decision: ReturnType<typeof decidePaidRunCap>) {
     previousPlan: "agency",
     nextPlan: "starter",
     now,
-    monthlyRechecksUsed: 3,
-    extraRunCredits: 1,
   });
   assert.ok(patch);
   assert.equal(patch?.planMeteringSince.toISOString(), now.toISOString());
   assert.equal(patch?.extraRuns, 0);
-  // Agency 10 − 3 used = 7 unused → carried onto existing 1 prepaid credit.
-  assert.equal(patch?.extraRunCredits, 8);
+  // Unused monthly rechecks must NOT become prepaid credits (would stack on rapid switches).
+  assert.equal("extraRunCredits" in (patch ?? {}), false);
+}
+
+{
+  const patch = planChangeMeteringPatch({
+    previousPlan: "agency",
+    nextPlan: "studio",
+  });
+  assert.ok(patch);
+  // Bought prepaid credits stay on the row; patch does not rewrite them.
+  assert.equal("extraRunCredits" in patch, false);
+}
+
+{
+  // Rapid Agency↔Studio flips must not compound: each switch resets window only.
+  let credits = 5; // bought prepaid (simulated; patch never touches this)
+  for (const [from, to] of [
+    ["agency", "studio"],
+    ["studio", "agency"],
+    ["agency", "studio"],
+  ] as const) {
+    const patch = planChangeMeteringPatch({
+      previousPlan: from,
+      nextPlan: to,
+    });
+    assert.ok(patch);
+    assert.equal("extraRunCredits" in patch, false);
+  }
+  assert.equal(credits, 5);
 }
 
 {
   const patch = planChangeMeteringPatch({
     previousPlan: "agency",
     nextPlan: "starter",
-    monthlyRechecksUsed: 10,
-    extraRunCredits: 2,
   });
   assert.ok(patch);
-  // No unused monthly rechecks → do not rewrite extraRunCredits.
-  assert.equal(patch?.extraRunCredits, undefined);
+  assert.equal("extraRunCredits" in patch, false);
 }
 
 {
@@ -503,7 +526,7 @@ function assertAllowedFree(decision: ReturnType<typeof decidePaidRunCap>) {
     now: new Date("2026-09-15T12:00:00.000Z"),
   });
   assert.ok(patch);
-  assert.equal(patch?.extraRunCredits, undefined);
+  assert.equal("extraRunCredits" in patch, false);
 }
 
 {
