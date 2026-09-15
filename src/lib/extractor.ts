@@ -13,8 +13,6 @@ export type ExtractedRow = {
   citedBrandUrl: boolean;
   whoWon: string;
   othersNamed: string[];
-  /** Alias of othersNamed for export / product schema. */
-  competitorsNamed: string[];
   sentence: string;
   verbatim: string;
   nextAction: string;
@@ -172,7 +170,6 @@ export function extractFromAnswer(args: {
     citedBrandUrl,
     whoWon,
     othersNamed: namedOthers,
-    competitorsNamed: namedOthers,
     sentence,
     verbatim: evidenceSentence(rawAnswer, args.brand, args.competitors),
     nextAction,

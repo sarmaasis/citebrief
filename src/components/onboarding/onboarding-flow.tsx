@@ -99,34 +99,11 @@ export function OnboardingFlow({
   const brandUpgrade = brandCapUpgradeFromError(status);
   const pollRef = useRef<(id: string) => void>(() => undefined);
   const finishedRef = useRef(false);
-  const savePromptsRef = useRef<() => Promise<boolean>>(async () => false);
-  const [editLocked, setEditLocked] = useState(false);
-  const EDIT_CAP_MS = 5 * 60 * 1000;
 
   function finishOnboarding() {
     finishedRef.current = true;
     clearOnboardingSnap();
   }
-
-  // Keep latest savePrompts for the edit-cap timeout (no ref writes during render).
-  useEffect(() => {
-    savePromptsRef.current = () => savePrompts();
-  });
-
-  // Five-minute edit window, then run. ponytail: one timeout, no countdown tick.
-  useEffect(() => {
-    if (step !== 2 || prompts.length === 0) return;
-    const unlock = window.setTimeout(() => setEditLocked(false), 0);
-    const run = window.setTimeout(() => {
-      setEditLocked(true);
-      void savePromptsRef.current();
-    }, EDIT_CAP_MS);
-    return () => {
-      window.clearTimeout(unlock);
-      window.clearTimeout(run);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- savePrompts via ref
-  }, [step, prompts.length]);
 
   function applyApproval(state?: string | null) {
     if (state === "approved") setApproved(true);
@@ -334,12 +311,12 @@ export function OnboardingFlow({
 
   async function savePrompts() {
     if (!brandId) {
-      return false;
+      return;
     }
     const check = validatePromptSet(prompts, fields.name, { maxCount: promptCap });
     if (!check.ok) {
       setStatus(check.error);
-      return false;
+      return;
     }
     setPending(true);
     setStatus(null);
@@ -352,11 +329,10 @@ export function OnboardingFlow({
       const data = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setStatus(data.error ?? "Could not save prompts.");
-        return false;
+        return;
       }
       setStep(3);
       await startRun(brandId);
-      return true;
     } finally {
       setPending(false);
     }
@@ -522,9 +498,6 @@ export function OnboardingFlow({
               ? "Generated from the writer. Edit before you run."
               : `Template pack. ${promptSetHint(promptCap)} Edit before you run.`}
           </p>
-          <p className="mt-2 text-xs text-cb-muted">
-            {editLocked ? "Time’s up — starting the run…" : "Edit for up to 5 minutes — then we run."}
-          </p>
           {source === "template" ? (
             <p className="mt-3 rounded-cb-card border border-cb-line bg-cb-surface px-3 py-2 text-sm text-cb-ink">
               Your prompts are ready. Edit any question before you run.
@@ -561,7 +534,6 @@ export function OnboardingFlow({
                 brandName={fields.name}
                 mixTarget={promptCap < 20 ? 1 : 4}
                 onChange={setPrompts}
-                readOnly={editLocked || pending}
               />
             )}
           </div>

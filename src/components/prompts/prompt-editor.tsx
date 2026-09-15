@@ -30,26 +30,22 @@ export function PromptEditor({
   brandName,
   mixTarget = 4,
   onChange,
-  readOnly = false,
 }: {
   prompts: PromptDraft[];
   brandName?: string;
   mixTarget?: number;
   onChange: (next: PromptDraft[]) => void;
-  readOnly?: boolean;
 }) {
   function update(index: number, patch: Partial<PromptDraft>) {
-    if (readOnly) return;
     onChange(prompts.map((prompt, i) => (i === index ? { ...prompt, ...patch } : prompt)));
   }
 
   useEffect(() => {
-    if (readOnly) return;
     const cleaned = normalizePromptDrafts(prompts);
     if (cleaned.some((prompt, index) => prompt.text !== prompts[index]?.text)) {
       onChange(cleaned);
     }
-  }, [onChange, prompts, readOnly]);
+  }, [onChange, prompts]);
 
   return (
     <div className="space-y-3">
@@ -76,7 +72,6 @@ export function PromptEditor({
                     aria-label={`Mix for question ${index + 1}`}
                     className="h-8 w-auto px-2 text-xs"
                     value={prompt.mix}
-                    disabled={readOnly}
                     onChange={(event) => update(index, { mix: event.target.value as PromptMix })}
                   >
                     {MIXES.map((mix) => (
@@ -90,8 +85,6 @@ export function PromptEditor({
               <Input
                 aria-label={`Buyer question ${index + 1}`}
                 value={prompt.text}
-                readOnly={readOnly}
-                disabled={readOnly}
                 onChange={(event) => update(index, { text: event.target.value })}
               />
               {vanity ? <p className="mt-2 text-xs text-cb-danger">{vanity}</p> : null}

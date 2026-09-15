@@ -23,7 +23,6 @@ export type PromptAgg = {
         nextAction: string | null;
         citedUrls: string[];
         citedBrandUrl?: boolean;
-        competitorsNamed?: string[];
         status: string;
       }
     >

@@ -31,8 +31,7 @@ if (!row.sentence.split(" ").length || row.sentence.split(" ").length > 22) {
 }
 assert.match(row.nextAction, /northstar\.app/);
 assert.doesNotMatch(row.nextAction, /\.example\b/);
-assert.deepEqual(row.competitorsNamed, row.othersNamed);
-assert.ok(row.competitorsNamed.includes("ClickUp") || row.competitorsNamed.includes("Asana"));
+assert.ok(row.othersNamed.includes("ClickUp") || row.othersNamed.includes("Asana"));
 assert.ok(["positive", "mixed", "negative", "n/a"].includes(row.sentiment));
 
 const canWe = extractFromAnswer({
