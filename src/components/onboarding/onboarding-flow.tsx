@@ -107,6 +107,48 @@ export function OnboardingFlow({
     else if (state === "needs_review") setApproved(false);
   }
 
+  // Keep poll off the render path (Date.now + ref writes trip react-hooks/purity).
+  useEffect(() => {
+    let pollStart = 0;
+    pollRef.current = (id: string) => {
+      void (async () => {
+        if (!pollStart) pollStart = Date.now();
+        const elapsed = Date.now() - pollStart;
+        const response = await fetch(`/api/runs/${id}`);
+        const data = (await response.json()) as {
+          status?: string;
+          engines?: Record<string, EngineState>;
+          reportId?: string | null;
+          scoreMentioned?: number | null;
+          approvalState?: string | null;
+          error?: string;
+        };
+        if (!response.ok) {
+          setStatus(data.error ?? "Could not load run status.");
+          return;
+        }
+        setRunStatus(data.status ?? "queued");
+        setEngines(data.engines ?? null);
+        if (data.reportId) setReportId(data.reportId);
+        if (typeof data.scoreMentioned === "number") setScoreMentioned(data.scoreMentioned);
+        if (data.approvalState === "approved") setApproved(true);
+        else if (data.approvalState === "needs_review") setApproved(false);
+        if (data.status === "complete" || data.status === "partial") {
+          setReportReady(true);
+          setRetryQueued(null);
+          return;
+        }
+        if (data.status === "failed") {
+          setRetryQueued(null);
+          return;
+        }
+        // ponytail: simple back-off; replace with exponential if runs routinely exceed 5 min
+        const delay = elapsed < 30_000 ? 1200 : elapsed < 120_000 ? 4000 : 10_000;
+        window.setTimeout(() => pollRef.current(id), delay);
+      })();
+    };
+  }, []);
+
   function applyResume(next: OnboardingResume, snap?: OnboardingSnap | null) {
     const sameSnap = snap?.brandId === next.brandId ? snap : null;
     setBrandId(next.brandId);
@@ -305,45 +347,8 @@ export function OnboardingFlow({
     }
     setRunId(data.runId);
     if (data.engines) setEngines(data.engines);
-    poll(data.runId);
+    pollRef.current(data.runId);
   }
-
-  const pollStartRef = useRef<number>(0);
-  async function poll(id: string) {
-    if (!pollStartRef.current) pollStartRef.current = Date.now();
-    const elapsed = Date.now() - pollStartRef.current;
-    const response = await fetch(`/api/runs/${id}`);
-    const data = (await response.json()) as {
-      status?: string;
-      engines?: Record<string, EngineState>;
-      reportId?: string | null;
-      scoreMentioned?: number | null;
-      approvalState?: string | null;
-      error?: string;
-    };
-    if (!response.ok) {
-      setStatus(data.error ?? "Could not load run status.");
-      return;
-    }
-    setRunStatus(data.status ?? "queued");
-    setEngines(data.engines ?? null);
-    if (data.reportId) setReportId(data.reportId);
-    if (typeof data.scoreMentioned === "number") setScoreMentioned(data.scoreMentioned);
-    applyApproval(data.approvalState);
-    if (data.status === "complete" || data.status === "partial") {
-      setReportReady(true);
-      setRetryQueued(null);
-      return;
-    }
-    if (data.status === "failed") {
-      setRetryQueued(null);
-      return;
-    }
-    // ponytail: simple back-off; replace with exponential if runs routinely exceed 5 min
-    const delay = elapsed < 30_000 ? 1200 : elapsed < 120_000 ? 4000 : 10_000;
-    window.setTimeout(() => void poll(id), delay);
-  }
-  pollRef.current = poll;
 
   async function retryEngine(engine: string) {
     if (!runId) return;

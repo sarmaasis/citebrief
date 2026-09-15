@@ -33,11 +33,8 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   ]);
   const ent = workspaceEntitlements(sub);
   const loadRecheckHint = ent.paid || ent.trialing;
-  const trialDaysLeft = ent.trialing && sub?.trialEndsAt
-    ? Math.max(0, Math.ceil((new Date(sub.trialEndsAt).getTime() - Date.now()) / 86_400_000))
-    : null;
   const trialHint = ent.trialing
-    ? `Trial · ${trialDaysLeft != null ? `${trialDaysLeft}d left` : `${ent.trialRunCap} report`}`
+    ? `Trial · ${ent.trialRunCap} report · ${ent.trialBrandCap} brand`
     : null;
 
   return (
