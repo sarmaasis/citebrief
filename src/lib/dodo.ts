@@ -1,6 +1,12 @@
 import DodoPayments from "dodopayments";
 import { createCheckoutSession } from "@dodopayments/core";
-import { ENTERPRISE_CONTACT_SALES_MESSAGE, isStubSecret, type PlanId, PLANS } from "@/lib/billing";
+import {
+  ENTERPRISE_CONTACT_SALES_MESSAGE,
+  isStubSecret,
+  parsePlanId,
+  type PlanId,
+  PLANS,
+} from "@/lib/billing";
 import { isProductionRuntime } from "@/lib/runtime-env";
 
 export const DODO_UNAVAILABLE_MESSAGE = "Billing is not configured. Try again later or contact support.";
@@ -259,6 +265,58 @@ export function dodoCurrentPeriodEnd(
   if (fromDodo) return fromDodo;
   const periodMs = (fallbackInterval === "annual" ? 365 : 30) * 24 * 60 * 60 * 1000;
   return new Date(Date.now() + periodMs);
+}
+
+/** Confirmed payment / active subscription — only then may paid plan change. */
+export function dodoEventConfirmsPaidPlan(eventType: string): boolean {
+  const t = eventType.toLowerCase();
+  if (t.includes("failed") || t.includes("past_due")) return false;
+  if (t.includes("cancelled") || t.includes("canceled")) return false;
+  return (
+    t.includes("succeeded") ||
+    t.includes("renewed") ||
+    t.includes("subscription.active") ||
+    t.endsWith(".active") ||
+    t.includes(".active")
+  );
+}
+
+export function dodoEventIsPaymentFailure(eventType: string): boolean {
+  const t = eventType.toLowerCase();
+  return t.includes("failed") || t.includes("past_due");
+}
+
+/**
+ * Declined checkout for a *different* plan than the current row must not mutate
+ * the subscription (Agency stays Agency; trial stays trialing).
+ */
+export function shouldIgnoreFailedPlanSwitch(args: {
+  eventType: string;
+  requestedPlan: PlanId;
+  existingPlan: string | null | undefined;
+  existingStatus: string | null | undefined;
+  isAddon?: boolean;
+}): boolean {
+  if (args.isAddon) return false;
+  if (!dodoEventIsPaymentFailure(args.eventType)) return false;
+  const existing = parsePlanId(args.existingPlan);
+  if (!existing) return false;
+  if (existing !== args.requestedPlan) return true;
+  return args.existingStatus === "trialing" || args.existingStatus === "none";
+}
+
+/** Plan to persist: change only after confirmed payment (addons never change plan). */
+export function resolveWebhookSubscriptionPlan(args: {
+  eventType: string;
+  requestedPlan: PlanId;
+  existingPlan: string | null | undefined;
+  isAddon?: boolean;
+}): PlanId {
+  if (args.isAddon) {
+    return parsePlanId(args.existingPlan) ?? args.requestedPlan;
+  }
+  if (dodoEventConfirmsPaidPlan(args.eventType)) return args.requestedPlan;
+  return parsePlanId(args.existingPlan) ?? args.requestedPlan;
 }
 
 

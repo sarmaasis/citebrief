@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { dodoCurrentPeriodEnd, parseDodoTimestamp } from "@/lib/dodo";
+import {
+  dodoCurrentPeriodEnd,
+  dodoEventConfirmsPaidPlan,
+  dodoEventIsPaymentFailure,
+  parseDodoTimestamp,
+  resolveWebhookSubscriptionPlan,
+  shouldIgnoreFailedPlanSwitch,
+} from "@/lib/dodo";
 
 const iso = "2026-10-15T12:00:00.000Z";
 const fromString = parseDodoTimestamp(iso);
@@ -31,5 +38,65 @@ const inferredAnnual = dodoCurrentPeriodEnd({ next_billing_date: null }, "annual
 const annualMs = 365 * 24 * 60 * 60 * 1000;
 assert.ok(inferredAnnual.getTime() >= before + annualMs - 5);
 assert.ok(inferredAnnual.getTime() <= after + annualMs + 5);
+
+assert.equal(dodoEventConfirmsPaidPlan("payment.succeeded"), true);
+assert.equal(dodoEventConfirmsPaidPlan("subscription.active"), true);
+assert.equal(dodoEventConfirmsPaidPlan("subscription.renewed"), true);
+assert.equal(dodoEventConfirmsPaidPlan("subscription.failed"), false);
+assert.equal(dodoEventConfirmsPaidPlan("payment.failed"), false);
+assert.equal(dodoEventConfirmsPaidPlan("subscription.past_due"), false);
+assert.equal(dodoEventIsPaymentFailure("subscription.failed"), true);
+assert.equal(dodoEventIsPaymentFailure("subscription.active"), false);
+
+// Agency → Starter declined: keep Agency.
+assert.equal(
+  resolveWebhookSubscriptionPlan({
+    eventType: "payment.failed",
+    requestedPlan: "starter",
+    existingPlan: "agency",
+  }),
+  "agency",
+);
+assert.equal(
+  shouldIgnoreFailedPlanSwitch({
+    eventType: "payment.failed",
+    requestedPlan: "starter",
+    existingPlan: "agency",
+    existingStatus: "active",
+  }),
+  true,
+);
+
+// Same-plan renewal failure: apply past_due path (do not ignore).
+assert.equal(
+  shouldIgnoreFailedPlanSwitch({
+    eventType: "subscription.failed",
+    requestedPlan: "agency",
+    existingPlan: "agency",
+    existingStatus: "active",
+  }),
+  false,
+);
+
+// Confirmed payment may switch plan.
+assert.equal(
+  resolveWebhookSubscriptionPlan({
+    eventType: "subscription.active",
+    requestedPlan: "starter",
+    existingPlan: "agency",
+  }),
+  "starter",
+);
+
+// Trial declined charge: ignore (stay trialing).
+assert.equal(
+  shouldIgnoreFailedPlanSwitch({
+    eventType: "payment.failed",
+    requestedPlan: "agency",
+    existingPlan: "agency",
+    existingStatus: "trialing",
+  }),
+  true,
+);
 
 console.log("dodo-period.test.ts ok");

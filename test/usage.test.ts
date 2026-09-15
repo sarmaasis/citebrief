@@ -470,14 +470,40 @@ function assertAllowedFree(decision: ReturnType<typeof decidePaidRunCap>) {
 
 {
   const now = new Date("2026-09-15T12:00:00.000Z");
-  const down = planChangeMeteringPatch({
-    previousPlan: "studio",
-    nextPlan: "agency",
+  const patch = planChangeMeteringPatch({
+    previousPlan: "agency",
+    nextPlan: "starter",
     now,
+    monthlyRechecksUsed: 3,
+    extraRunCredits: 1,
   });
-  assert.ok(down);
-  assert.equal(down?.planMeteringSince.toISOString(), now.toISOString());
-  assert.equal(down?.extraRuns, 0);
+  assert.ok(patch);
+  assert.equal(patch?.planMeteringSince.toISOString(), now.toISOString());
+  assert.equal(patch?.extraRuns, 0);
+  // Agency 10 − 3 used = 7 unused → carried onto existing 1 prepaid credit.
+  assert.equal(patch?.extraRunCredits, 8);
+}
+
+{
+  const patch = planChangeMeteringPatch({
+    previousPlan: "agency",
+    nextPlan: "starter",
+    monthlyRechecksUsed: 10,
+    extraRunCredits: 2,
+  });
+  assert.ok(patch);
+  // No unused monthly rechecks → do not rewrite extraRunCredits.
+  assert.equal(patch?.extraRunCredits, undefined);
+}
+
+{
+  const patch = planChangeMeteringPatch({
+    previousPlan: "starter",
+    nextPlan: "agency",
+    now: new Date("2026-09-15T12:00:00.000Z"),
+  });
+  assert.ok(patch);
+  assert.equal(patch?.extraRunCredits, undefined);
 }
 
 {

@@ -4,7 +4,14 @@ import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db";
 import { subscriptions, webhookEvents, workspaces, workspaceMembers, users } from "@/db/schema";
 import { parseBillingInterval, parsePlanId } from "@/lib/billing";
-import { dodoCurrentPeriodEnd, dodoProductId } from "@/lib/dodo";
+import {
+  dodoCurrentPeriodEnd,
+  dodoEventConfirmsPaidPlan,
+  dodoEventIsPaymentFailure,
+  dodoProductId,
+  resolveWebhookSubscriptionPlan,
+  shouldIgnoreFailedPlanSwitch,
+} from "@/lib/dodo";
 import { dunningEmail } from "@/emails";
 import { sendTransactionalEmail } from "@/lib/email";
 import { workspaceEntitlements } from "@/lib/entitlements";
@@ -13,6 +20,7 @@ import {
   bumpExtraBrands,
   bumpExtraRunCredits,
   bumpExtraSeats,
+  countMonthlyRechecksUsed,
   planChangeMeteringPatch,
   setPremiumEnginePack,
 } from "@/lib/usage";
@@ -135,44 +143,62 @@ export async function applyDodoWebhookPayload(
   if (workspaceId) {
     const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1);
     const prevPromptCap = workspaceEntitlements(sub).promptCap;
+    const isAddon = Boolean(addon);
+    const confirmsPaid = dodoEventConfirmsPaidPlan(eventType);
+
+    // Declined switch checkout must not rewrite plan/status (e.g. Agency → Starter fail).
+    if (
+      shouldIgnoreFailedPlanSwitch({
+        eventType,
+        requestedPlan: plan,
+        existingPlan: sub?.plan,
+        existingStatus: sub?.status,
+        isAddon,
+      })
+    ) {
+      await db.update(webhookEvents).set({ processedAt: new Date() }).where(eq(webhookEvents.eventId, eventId));
+      return { ok: true, duplicate: false, eventId, eventType, ignored: "failed_plan_switch" };
+    }
 
     const statusFromType = (): string => {
       if (eventType.includes("cancelled") || eventType.includes("canceled")) return "cancelled";
-      if (eventType.includes("failed") || eventType.includes("past_due")) return "past_due";
-      if (
-        eventType.includes("active") ||
-        eventType.includes("renewed") ||
-        eventType.includes("succeeded") ||
-        eventType.includes("subscription.active")
-      ) {
-        return "active";
-      }
+      if (dodoEventIsPaymentFailure(eventType)) return "past_due";
+      if (confirmsPaid) return "active";
       return sub?.status || "active";
     };
 
-    if (addon === "extra_brand" && (eventType.includes("succeeded") || eventType.includes("active"))) {
+    if (addon === "extra_brand" && confirmsPaid) {
       await bumpExtraBrands(db, workspaceId, 1);
     }
-    if (addon === "extra_seat" && (eventType.includes("succeeded") || eventType.includes("active"))) {
+    if (addon === "extra_seat" && confirmsPaid) {
       await bumpExtraSeats(db, workspaceId, 1);
     }
-    if (addon === "extra_run" && (eventType.includes("succeeded") || eventType.includes("active"))) {
+    if (addon === "extra_run" && confirmsPaid) {
       await bumpExtraRunCredits(db, workspaceId, 1);
     }
-    if (addon === "premium_engine_pack" && (eventType.includes("succeeded") || eventType.includes("active"))) {
+    if (addon === "premium_engine_pack" && confirmsPaid) {
       await setPremiumEnginePack(db, workspaceId, true);
     }
 
-    const nextInterval = addon ? (sub?.billingInterval === "annual" ? "annual" : interval) : interval;
+    const nextPlan = resolveWebhookSubscriptionPlan({
+      eventType,
+      requestedPlan: plan,
+      existingPlan: sub?.plan,
+      isAddon,
+    });
+    const nextInterval = isAddon
+      ? parseBillingInterval(sub?.billingInterval)
+      : confirmsPaid || !sub
+        ? interval
+        : parseBillingInterval(sub.billingInterval);
     // Dodo Subscription.next_billing_date is the end of the current period.
     // Addon payments keep the existing period; infer only when Dodo omits the field.
-    const periodEnd = addon && sub?.currentPeriodEnd
+    const periodEnd = isAddon && sub?.currentPeriodEnd
       ? sub.currentPeriodEnd
       : dodoCurrentPeriodEnd(data, nextInterval);
 
-    const nextPlan = addon && sub ? sub.plan : plan;
-    const nextStatus = addon && sub?.status === "active" ? sub.status : statusFromType();
-    const nextBillingInterval = addon && sub ? sub.billingInterval : interval;
+    const nextStatus = isAddon && sub?.status === "active" ? sub.status : statusFromType();
+    const nextBillingInterval = isAddon && sub ? sub.billingInterval : nextInterval;
     const nextCancelAtPeriodEnd =
       cancelAtNext !== undefined
         ? cancelAtNext
@@ -180,10 +206,27 @@ export async function applyDodoWebhookPayload(
           ? true
           : (sub?.cancelAtPeriodEnd ?? false);
 
-    const metering = planChangeMeteringPatch({
-      previousPlan: sub?.plan,
-      nextPlan,
-    });
+    let metering: ReturnType<typeof planChangeMeteringPatch> = null;
+    if (confirmsPaid && !isAddon) {
+      const planChanging = Boolean(sub && parsePlanId(sub.plan) !== parsePlanId(nextPlan));
+      let monthlyRechecksUsed: number | undefined;
+      let extraRunCredits: number | undefined;
+      if (planChanging && sub) {
+        monthlyRechecksUsed = await countMonthlyRechecksUsed(
+          db,
+          workspaceId,
+          sub.plan,
+          sub.planMeteringSince ?? null,
+        );
+        extraRunCredits = sub.extraRunCredits || 0;
+      }
+      metering = planChangeMeteringPatch({
+        previousPlan: sub?.plan,
+        nextPlan,
+        monthlyRechecksUsed,
+        extraRunCredits,
+      });
+    }
 
     if (sub) {
       await db
@@ -200,7 +243,7 @@ export async function applyDodoWebhookPayload(
           updatedAt: new Date(),
         })
         .where(eq(subscriptions.id, sub.id));
-    } else {
+    } else if (confirmsPaid || !dodoEventIsPaymentFailure(eventType)) {
       await db.insert(subscriptions).values({
         id: crypto.randomUUID(),
         workspaceId,
@@ -227,7 +270,7 @@ export async function applyDodoWebhookPayload(
       extraBrands: sub?.extraBrands,
       extraSeats: sub?.extraSeats,
       extraRuns: sub?.extraRuns,
-      extraRunCredits: sub?.extraRunCredits,
+      extraRunCredits: metering?.extraRunCredits ?? sub?.extraRunCredits,
       billingInterval: nextBillingInterval,
       premiumEnginePack: sub?.premiumEnginePack,
     }).promptCap;

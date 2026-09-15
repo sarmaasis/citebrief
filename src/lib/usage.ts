@@ -75,16 +75,33 @@ export function meteringWindowStart(
 /**
  * When the paid plan id changes, reset the metering window and clear the period
  * extraRuns counter so UI does not show stale “extra at $9” from the prior plan.
+ * Pass monthlyRechecksUsed + extraRunCredits to carry unused monthly rechecks into
+ * prepaid extra_run_credits (fresh window must not wipe the prior unused pool).
  */
 export function planChangeMeteringPatch(args: {
   previousPlan: string | null | undefined;
   nextPlan: string | null | undefined;
   now?: Date;
-}): { planMeteringSince: Date; extraRuns: 0 } | null {
+  monthlyRechecksUsed?: number;
+  extraRunCredits?: number;
+}): { planMeteringSince: Date; extraRuns: 0; extraRunCredits?: number } | null {
   const prev = parsePlanId(args.previousPlan);
   const next = parsePlanId(args.nextPlan);
   if (!next || prev === next) return null;
-  return { planMeteringSince: args.now ?? new Date(), extraRuns: 0 };
+  const patch: { planMeteringSince: Date; extraRuns: 0; extraRunCredits?: number } = {
+    planMeteringSince: args.now ?? new Date(),
+    extraRuns: 0,
+  };
+  if (prev && args.monthlyRechecksUsed !== undefined && args.extraRunCredits !== undefined) {
+    const remaining = Math.max(
+      0,
+      planMonthlyRecheckCredits(prev) - Math.max(0, args.monthlyRechecksUsed),
+    );
+    if (remaining > 0) {
+      patch.extraRunCredits = Math.max(0, args.extraRunCredits) + remaining;
+    }
+  }
+  return patch;
 }
 
 /**

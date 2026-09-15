@@ -16,12 +16,20 @@ CF_EMAIL_FROM=CiteBrief <auth@getcitebrief.com>
 DODO_PAYMENTS_API_KEY=stub
 DODO_PAYMENTS_WEBHOOK_KEY=stub
 DODO_PAYMENTS_ENVIRONMENT=test_mode
-# Optional product IDs from the Dodo dashboard (fallback: citebrief_{plan})
+# Optional product IDs from the Dodo dashboard (fallback: citebrief_{plan} / citebrief_extra_*)
 DODO_PRODUCT_STARTER=
 DODO_PRODUCT_AGENCY=
 DODO_PRODUCT_STUDIO=
+DODO_PRODUCT_ENTERPRISE=
 DODO_PRODUCT_EXTRA_BRAND=
 DODO_PRODUCT_EXTRA_RUN=
+DODO_PRODUCT_EXTRA_SEAT=
+DODO_PRODUCT_PREMIUM_ENGINE=
+# Annual = 10 months prepaid; required for interval=annual checkout
+DODO_PRODUCT_STARTER_ANNUAL=
+DODO_PRODUCT_AGENCY_ANNUAL=
+DODO_PRODUCT_STUDIO_ANNUAL=
+DODO_PRODUCT_ENTERPRISE_ANNUAL=
 
 # Internal workers / cron (required outside development)
 INTERNAL_PROCESS_SECRET=stub
