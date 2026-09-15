@@ -494,7 +494,6 @@ function assertAllowedFree(decision: ReturnType<typeof decidePaidRunCap>) {
 
 {
   // Rapid Agency↔Studio flips must not compound: each switch resets window only.
-  let credits = 5; // bought prepaid (simulated; patch never touches this)
   for (const [from, to] of [
     ["agency", "studio"],
     ["studio", "agency"],
