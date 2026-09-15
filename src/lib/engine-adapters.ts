@@ -80,7 +80,8 @@ function pick<T>(items: T[], seed: number, salt: number): T {
 
 function aioConfigured(env?: CloudflareEnv) {
   if (!env) return false;
-  if (env.BROWSER) return true;
+  // Must match queryAio: binding only counts if Quick Actions exist.
+  if (typeof env.BROWSER?.quickAction === "function") return true;
   const account = env.CF_ACCOUNT_ID || process.env.CF_ACCOUNT_ID;
   const token = env.CF_API_TOKEN || process.env.CF_API_TOKEN;
   return Boolean(account && token && !isStubSecret(account) && !isStubSecret(token));
@@ -286,12 +287,46 @@ async function queryGrok(input: EngineQueryInput) {
   });
 }
 
-/** AI Overviews: Cloudflare Browser Rendering only. Not AI Gateway. */
+function htmlToAioText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 8000);
+}
+
+async function aioHtmlFromResponse(response: Response, label: string): Promise<string> {
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`${label} ${response.status}: ${detail.slice(0, 400)}`);
+  }
+  const data = (await response.json()) as { result?: string; success?: boolean };
+  if (data.success === false) {
+    throw new Error(`${label} unsuccessful response`);
+  }
+  const text = htmlToAioText(data.result || "");
+  if (!text) throw new Error(`${label} returned empty content`);
+  return text;
+}
+
+/**
+ * AI Overviews: Browser Run binding first (prod Worker has `BROWSER`), REST token fallback.
+ * Not AI Gateway. aioConfigured() must match this path or live runs throw.
+ */
 async function queryAio(input: EngineQueryInput, env: CloudflareEnv): Promise<string> {
   const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(input.prompt)}&hl=en&gl=us`;
+  const gotoOptions = { waitUntil: "networkidle0", timeout: 45000 };
+
+  if (env.BROWSER?.quickAction) {
+    const response = await env.BROWSER.quickAction("content", { url: searchUrl, gotoOptions });
+    const text = await aioHtmlFromResponse(response, "AIO browser binding");
+    return `Google AI Overviews / SERP extract for: ${input.prompt}\n${text}`;
+  }
+
   const account = env.CF_ACCOUNT_ID || process.env.CF_ACCOUNT_ID;
   const token = env.CF_API_TOKEN || process.env.CF_API_TOKEN;
-
   if (account && token && !isStubSecret(account) && !isStubSecret(token)) {
     const response = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${account}/browser-rendering/content`,
@@ -301,27 +336,14 @@ async function queryAio(input: EngineQueryInput, env: CloudflareEnv): Promise<st
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url: searchUrl, gotoOptions: { waitUntil: "networkidle0", timeout: 45000 } }),
+        body: JSON.stringify({ url: searchUrl, gotoOptions }),
       },
     );
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`AIO browser ${response.status}: ${detail.slice(0, 400)}`);
-    }
-    const data = (await response.json()) as { result?: string; success?: boolean };
-    const html = data.result || "";
-    const text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 8000);
-    if (!text) throw new Error("AIO browser returned empty content");
+    const text = await aioHtmlFromResponse(response, "AIO browser REST");
     return `Google AI Overviews / SERP extract for: ${input.prompt}\n${text}`;
   }
 
-  throw new Error("AIO browser binding not configured");
+  throw new Error("AIO not configured (need BROWSER binding or CF_ACCOUNT_ID + CF_API_TOKEN)");
 }
 
 async function liveAnswer(

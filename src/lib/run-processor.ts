@@ -268,7 +268,10 @@ export async function processRun(
       }
       engines[engine.id] = "complete";
     } catch (error) {
-      console.error(`[run-processor] engine ${engine.id} failed`, error);
+      console.error(
+        `[run-processor] engine ${engine.id} failed`,
+        error instanceof Error ? error.message : error,
+      );
       engines[engine.id] = "failed";
       for (const prompt of promptRows) {
         await db.insert(runRows).values({

@@ -101,6 +101,16 @@ assert.equal(isEngineApiConfigured("chatgpt", undefined), true);
 assert.equal(isEngineApiConfigured("aio", undefined), false);
 assert.equal(usesDeterministicStub("chatgpt", undefined), false);
 assert.equal(usesDeterministicStub("aio", undefined), true);
+assert.equal(
+  isEngineApiConfigured("aio", {
+    BROWSER: { quickAction: async () => new Response("{}") },
+  } as unknown as CloudflareEnv),
+  true,
+);
+assert.equal(
+  isEngineApiConfigured("aio", { BROWSER: {} } as unknown as CloudflareEnv),
+  false,
+);
 if (prevAccount === undefined) delete process.env.CF_ACCOUNT_ID;
 else process.env.CF_ACCOUNT_ID = prevAccount;
 if (prevGw === undefined) delete process.env.AI_GATEWAY_ID;

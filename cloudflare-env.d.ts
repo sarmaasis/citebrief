@@ -11,8 +11,16 @@ interface CloudflareEnv {
   AI?: {
     run(model: string, input: unknown, options?: unknown): Promise<unknown>;
   };
-  /** Optional Cloudflare Browser Rendering binding for AI Overviews. */
-  BROWSER?: Fetcher;
+  /** Browser Run binding for AI Overviews (`wrangler.jsonc` browser.binding). */
+  BROWSER?: Fetcher & {
+    quickAction(
+      action: "content",
+      options: {
+        url: string;
+        gotoOptions?: { waitUntil?: string; timeout?: number };
+      },
+    ): Promise<Response>;
+  };
   /** Cloudflare Email Service send binding (`wrangler.jsonc` send_email.name = EMAIL). */
   EMAIL?: {
     send(message: {
