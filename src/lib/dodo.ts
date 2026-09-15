@@ -267,6 +267,32 @@ export function dodoCurrentPeriodEnd(
   return new Date(Date.now() + periodMs);
 }
 
+/**
+ * Prefer Dodo's next_billing_date. If omitted while leaving prepaid annual,
+ * keep the prior paid-through date instead of inventing now+30 (would discard prepaid).
+ */
+export function resolveSubscriptionPeriodEnd(args: {
+  data: Record<string, unknown>;
+  nextInterval: string;
+  previousInterval?: string | null;
+  previousPeriodEnd?: Date | null;
+  isAddon?: boolean;
+}): Date {
+  if (args.isAddon && args.previousPeriodEnd) return args.previousPeriodEnd;
+  const fromDodo = parseDodoTimestamp(args.data.next_billing_date);
+  if (fromDodo) return fromDodo;
+  const inferred = dodoCurrentPeriodEnd(args.data, args.nextInterval);
+  if (
+    args.previousInterval === "annual" &&
+    args.nextInterval !== "annual" &&
+    args.previousPeriodEnd &&
+    args.previousPeriodEnd.getTime() > inferred.getTime()
+  ) {
+    return args.previousPeriodEnd;
+  }
+  return inferred;
+}
+
 /** Confirmed payment / active subscription — only then may paid plan change. */
 export function dodoEventConfirmsPaidPlan(eventType: string): boolean {
   const t = eventType.toLowerCase();
@@ -275,10 +301,111 @@ export function dodoEventConfirmsPaidPlan(eventType: string): boolean {
   return (
     t.includes("succeeded") ||
     t.includes("renewed") ||
+    t.includes("plan_changed") ||
     t.includes("subscription.active") ||
     t.endsWith(".active") ||
     t.includes(".active")
   );
+}
+
+/** Map a Dodo product id back to our plan + interval (checkout / changePlan webhooks). */
+export function resolvePlanFromDodoProductId(
+  env: CloudflareEnv,
+  productId: string | null | undefined,
+): { plan: PlanId; interval: "monthly" | "annual" } | null {
+  if (!productId) return null;
+  const plans: PlanId[] = ["starter", "agency", "studio", "enterprise"];
+  for (const plan of plans) {
+    if (dodoAnnualProductId(env, plan) === productId) return { plan, interval: "annual" };
+    if (dodoProductId(env, plan) === productId) return { plan, interval: "monthly" };
+  }
+  return null;
+}
+
+/**
+ * Mid-period plan/interval switch via Dodo changePlan (prorates unused prepaid time).
+ * Prefer this over a new checkout so annual prepaid is not orphaned.
+ */
+export async function changeDodoSubscriptionPlan(args: {
+  env: CloudflareEnv;
+  subscriptionId: string;
+  plan: PlanId;
+  interval: "monthly" | "annual";
+  workspaceId: string;
+  returnUrl: string;
+}): Promise<DodoCheckoutResult> {
+  const interval = args.interval === "annual" ? "annual" : "monthly";
+  const successPath = `/app/billing/success?plan=${args.plan}${interval === "annual" ? "&interval=annual" : ""}`;
+  const stubUrl = `${args.returnUrl}${successPath}&stub=1`;
+
+  if (isStubSecret(args.env.DODO_PAYMENTS_API_KEY) || !args.subscriptionId) {
+    return checkoutStubOrUnavailable(args.env, {
+      url: stubUrl,
+      message: "Dodo API key or subscription id missing. Using stub plan-change success URL.",
+    });
+  }
+
+  const annualId = interval === "annual" ? dodoAnnualProductId(args.env, args.plan) : null;
+  if (interval === "annual" && !annualId) {
+    return {
+      mode: "unavailable",
+      message:
+        "Annual billing is not configured yet (missing Dodo annual product IDs). Use monthly, or contact support.",
+    };
+  }
+  const productId = annualId || dodoProductId(args.env, args.plan);
+  if (!productId) {
+    return { mode: "unavailable", message: ENTERPRISE_CONTACT_SALES_MESSAGE };
+  }
+
+  const metadata = {
+    workspace_id: args.workspaceId,
+    plan: args.plan,
+    interval,
+  };
+
+  try {
+    const client = createDodoClient(args.env);
+    // Keep subscription metadata in sync so later webhooks resolve the new plan/interval.
+    await client.subscriptions.update(args.subscriptionId, { metadata });
+    const changed = await client.subscriptions.changePlan(args.subscriptionId, {
+      product_id: productId,
+      quantity: 1,
+      // Credits unused prepaid time (e.g. mid-term annual) against the new plan charge.
+      proration_billing_mode: "prorated_immediately",
+      on_payment_failure: "prevent_change",
+      effective_at: "immediately",
+      collect_via_payment_link: true,
+      metadata,
+    });
+    if (changed.payment_link) {
+      return { mode: "redirect", url: changed.payment_link };
+    }
+    return { mode: "redirect", url: `${args.returnUrl}${successPath}` };
+  } catch (error) {
+    console.info("[dodo] changePlan failed; trying without payment link", error);
+  }
+
+  try {
+    const client = createDodoClient(args.env);
+    await client.subscriptions.update(args.subscriptionId, { metadata });
+    await client.subscriptions.changePlan(args.subscriptionId, {
+      product_id: productId,
+      quantity: 1,
+      proration_billing_mode: "prorated_immediately",
+      on_payment_failure: "prevent_change",
+      effective_at: "immediately",
+      metadata,
+    });
+    return { mode: "redirect", url: `${args.returnUrl}${successPath}` };
+  } catch (error) {
+    console.info("[dodo] changePlan error", error);
+    return {
+      mode: "unavailable",
+      message:
+        "Could not change plan with proration. Open the billing portal or contact support — do not start a second checkout (that would discard prepaid time).",
+    };
+  }
 }
 
 export function dodoEventIsPaymentFailure(eventType: string): boolean {

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { opportunityPlans, workspaces } from "@/db/schema";
 import {
@@ -22,7 +23,8 @@ import type { WorkspaceEntitlements } from "@/lib/entitlements";
 import type { AppContext } from "@/lib/session";
 import { listHomeRows, withSendOverdue } from "@/server/workspace-data";
 
-export async function loadCommandRows(ctx: AppContext, weekly: boolean, brandIds?: string[]) {
+/** Request-scoped: home + dashboard builders both call this. */
+export const loadCommandRows = cache(async (ctx: AppContext, weekly: boolean, brandIds?: string[]) => {
   const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
   const rows = withSendOverdue(await listHomeRows(ctx, brandIds), {
     timezone: workspace?.timezone || "America/New_York",
@@ -35,7 +37,7 @@ export async function loadCommandRows(ctx: AppContext, weekly: boolean, brandIds
     .where(eq(opportunityPlans.workspaceId, ctx.workspace.id));
   const planned = new Set(plans.map((plan) => `${plan.brandId}:${plan.opportunityKey}`));
   return { rows, minutesSavedPerReport, planned, timezone: workspace?.timezone || "America/New_York" };
-}
+});
 
 export function serializeCommandRow(
   row: Awaited<ReturnType<typeof loadCommandRows>>["rows"][number],

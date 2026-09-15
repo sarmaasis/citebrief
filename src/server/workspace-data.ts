@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { brands, competitors, prompts, reports, runRows, runs } from "@/db/schema";
 import { competitorSignalsFromRows } from "@/lib/command-center";
@@ -125,7 +126,7 @@ export async function getBrandBundle(ctx: AppContext, brandId: string) {
   };
 }
 
-export async function listHomeRows(ctx: AppContext, brandIds?: string[]) {
+export const listHomeRows = cache(async (ctx: AppContext, brandIds?: string[]) => {
   if (brandIds && brandIds.length === 0) return [];
 
   const active = await ctx.db
@@ -142,9 +143,25 @@ export async function listHomeRows(ctx: AppContext, brandIds?: string[]) {
 
   const activeIds = active.map((brand) => brand.id);
 
-  // Batched reads (Studio 25 brands ≈ 3 queries, not 75).
-  const [allRuns, allReports, promptIdRows] = await Promise.all([
-    ctx.db.select().from(runs).where(inArray(runs.brandId, activeIds)).orderBy(desc(runs.createdAt)),
+  // Latest run + top-2 reports per brand (not full history — that was a D1 scan on every /app load).
+  const latestRunTs = ctx.db
+    .select({
+      brandId: runs.brandId,
+      maxCreated: sql`max(${runs.createdAt})`.as("max_created"),
+    })
+    .from(runs)
+    .where(inArray(runs.brandId, activeIds))
+    .groupBy(runs.brandId)
+    .as("latest_run_ts");
+
+  const [latestRunRows, allReports, promptIdRows] = await Promise.all([
+    ctx.db
+      .select({ run: runs })
+      .from(runs)
+      .innerJoin(
+        latestRunTs,
+        and(eq(runs.brandId, latestRunTs.brandId), eq(runs.createdAt, latestRunTs.maxCreated)),
+      ),
     ctx.db
       .select()
       .from(reports)
@@ -156,6 +173,7 @@ export async function listHomeRows(ctx: AppContext, brandIds?: string[]) {
       .where(and(inArray(prompts.brandId, activeIds), isNull(prompts.archivedAt))),
   ]);
 
+  const allRuns = latestRunRows.map((row) => row.run);
   const latestRunByBrand = indexLatestByBrandId(allRuns);
   const reportsByBrand = indexTopNByBrandId(allReports, 2);
 
@@ -220,7 +238,7 @@ export async function listHomeRows(ctx: AppContext, brandIds?: string[]) {
         };
     return { ...row, ...signals };
   });
-}
+});
 
 export function withSendOverdue<
   T extends {

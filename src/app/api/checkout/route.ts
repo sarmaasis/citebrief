@@ -1,13 +1,14 @@
 import { eq } from "drizzle-orm";
 import {
   ENTERPRISE_CONTACT_SALES_MESSAGE,
+  isStubSecret,
   parseBillingInterval,
   parsePlanId,
   selfServeEnterpriseCheckoutDenied,
   shouldWriteStubPaidSubscription,
   stubPaidSubscriptionPatch,
 } from "@/lib/billing";
-import { createDodoCheckout } from "@/lib/dodo";
+import { changeDodoSubscriptionPlan, createDodoCheckout } from "@/lib/dodo";
 import { isPaidActive, workspaceEntitlements } from "@/lib/entitlements";
 import { topUpWorkspaceBrandPrompts } from "@/lib/prompt-topup";
 import { isProductionRuntime } from "@/lib/runtime-env";
@@ -58,15 +59,48 @@ export async function GET(request: Request) {
   const limited = await consumeRouteRateLimit(request, env, RATE_LIMITS.billing, ctx.workspace.id);
   if (limited) return limited;
   const origin = env.BETTER_AUTH_URL || url.origin;
-  const checkout = await createDodoCheckout({
-    env,
-    plan,
-    interval,
-    workspaceId: ctx.workspace.id,
-    customerEmail: ctx.user.email,
-    customerName: ctx.user.name,
-    returnUrl: origin.replace(/\/$/, ""),
-  });
+  const returnUrl = origin.replace(/\/$/, "");
+  const planOrIntervalChanging = Boolean(
+    existing &&
+      (existing.plan !== plan || parseBillingInterval(existing.billingInterval) !== interval),
+  );
+  // Live paid without a Dodo sub id: refuse a second checkout (would orphan prepaid).
+  if (
+    existing &&
+    isPaidActive(existing) &&
+    planOrIntervalChanging &&
+    !isStubSecret(env.DODO_PAYMENTS_API_KEY) &&
+    !existing.dodoSubscriptionId
+  ) {
+    return jsonError(
+      "Cannot switch plan safely: missing Dodo subscription id. Use the billing portal or contact support so prepaid time is not discarded.",
+      409,
+    );
+  }
+  // Paid sub with a Dodo id: changePlan (prorates unused prepaid) — never a second checkout.
+  const switchingPaid =
+    Boolean(existing?.dodoSubscriptionId) &&
+    isPaidActive(existing) &&
+    !isStubSecret(env.DODO_PAYMENTS_API_KEY) &&
+    planOrIntervalChanging;
+  const checkout = switchingPaid
+    ? await changeDodoSubscriptionPlan({
+        env,
+        subscriptionId: existing!.dodoSubscriptionId!,
+        plan,
+        interval,
+        workspaceId: ctx.workspace.id,
+        returnUrl,
+      })
+    : await createDodoCheckout({
+        env,
+        plan,
+        interval,
+        workspaceId: ctx.workspace.id,
+        customerEmail: ctx.user.email,
+        customerName: ctx.user.name,
+        returnUrl,
+      });
 
   if (checkout.mode === "unavailable") {
     return jsonError(checkout.message, plan === "enterprise" ? 403 : 503);
@@ -83,7 +117,7 @@ export async function GET(request: Request) {
     targetType: "plan",
     targetId: plan,
     request,
-    metadata: { interval, mode: checkout.mode },
+    metadata: { interval, mode: checkout.mode, via: switchingPaid ? "change_plan" : "checkout" },
   });
 
   const persistStubPaid = shouldWriteStubPaidSubscription({
@@ -94,7 +128,12 @@ export async function GET(request: Request) {
 
   if (persistStubPaid) {
     const prevPromptCap = workspaceEntitlements(existing).promptCap;
-    const patch = stubPaidSubscriptionPatch({ plan, interval });
+    const patch = stubPaidSubscriptionPatch({
+      plan,
+      interval,
+      previousInterval: existing?.billingInterval,
+      previousPeriodEnd: existing?.currentPeriodEnd ?? null,
+    });
     const planChanging = Boolean(existing && existing.plan !== plan);
     let monthlyRechecksUsed: number | undefined;
     let extraRunCredits: number | undefined;

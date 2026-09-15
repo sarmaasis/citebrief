@@ -9,7 +9,6 @@ import { actAsCookieName, parseActAsCookieValue, readActAsFromRequest } from "@/
 import { isVerifiedAuthUser } from "@/lib/auth-access";
 import { parseWorkspaceRole, type WorkspaceRole } from "@/lib/permissions";
 import { isForbiddenProductionSecret, isProductionRuntime } from "@/lib/runtime-env";
-import { countActiveBrands } from "@/lib/usage";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
 
 export type AppUser = {
@@ -60,13 +59,14 @@ async function resolveActAsWorkspaceId(requestHeaders: Headers, env: CloudflareE
 
 export type MarketingAuth = {
   signedIn: boolean;
-  /** Workspace home, or onboarding when the user has no active brand. */
+  /** Signed-in CTA target (workspace home; empty state covers onboarding). */
   appHref: "/app" | "/app/onboarding";
 };
 
 /**
- * Request-scoped session for marketing chrome. Reads the Better Auth cookie
- * (path `/`, same origin as `/app`) without requiring a workspace membership.
+ * Request-scoped session for marketing chrome. Cookie/session only — no D1
+ * membership/brand lookups (those were doubling marketing TTFB). `/app` empty
+ * state already steers brandless workspaces to onboarding.
  */
 export const getMarketingAuth = cache(async (): Promise<MarketingAuth> => {
   try {
@@ -74,34 +74,19 @@ export const getMarketingAuth = cache(async (): Promise<MarketingAuth> => {
     if (!session?.user?.id || !session.user.email || !isVerifiedAuthUser(session.user)) {
       return { signedIn: false, appHref: "/app" };
     }
-
-    try {
-      const db = await getDb();
-      const [row] = await db
-        .select({ workspaceId: workspaceMembers.workspaceId })
-        .from(workspaceMembers)
-        .where(eq(workspaceMembers.userId, session.user.id))
-        .orderBy(desc(workspaceMembers.createdAt))
-        .limit(1);
-      if (!row) {
-        return { signedIn: true, appHref: "/app/onboarding" };
-      }
-      const brands = await countActiveBrands(db, row.workspaceId);
-      return { signedIn: true, appHref: brands === 0 ? "/app/onboarding" : "/app" };
-    } catch {
-      return { signedIn: true, appHref: "/app" };
-    }
+    return { signedIn: true, appHref: "/app" };
   } catch {
     return { signedIn: false, appHref: "/app" };
   }
 });
 
-async function getAuthSession() {
+/** One Better Auth session read per request (layout + pages share this). */
+const getAuthSession = cache(async () => {
   const auth = await initAuth();
   return auth.api.getSession({
     headers: await headers(),
   });
-}
+});
 
 /** Unverified cookie: send the user to `/verify`, not `/app`. */
 export const getUnverifiedSessionEmail = cache(async (): Promise<string | null> => {
@@ -116,7 +101,8 @@ export const getUnverifiedSessionEmail = cache(async (): Promise<string | null> 
   }
 });
 
-export async function getAppContext(): Promise<AppContext | null> {
+/** Request-scoped: workspace layout + page both call this; must not double-hit D1/auth. */
+export const getAppContext = cache(async (): Promise<AppContext | null> => {
   try {
     const requestHeaders = await headers();
     const session = await getAuthSession();
@@ -191,7 +177,7 @@ export async function getAppContext(): Promise<AppContext | null> {
   } catch {
     return null;
   }
-}
+});
 
 export async function requireAppContext(): Promise<AppContext> {
   const ctx = await getAppContext();

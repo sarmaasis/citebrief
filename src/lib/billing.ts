@@ -243,14 +243,27 @@ export function stubPaidSubscriptionPatch(args: {
   plan: PlanId;
   interval: "monthly" | "annual";
   now?: Date;
+  /** Prior interval — used to preserve prepaid annual paid-through date. */
+  previousInterval?: string | null;
+  previousPeriodEnd?: Date | null;
 }) {
   const now = args.now ?? new Date();
   const days = args.interval === "annual" ? 365 : 30;
+  let currentPeriodEnd = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+  // Stub has no Dodo proration: keep remaining annual paid-through when leaving annual mid-term.
+  if (
+    args.previousInterval === "annual" &&
+    args.interval !== "annual" &&
+    args.previousPeriodEnd &&
+    args.previousPeriodEnd.getTime() > now.getTime()
+  ) {
+    currentPeriodEnd = args.previousPeriodEnd;
+  }
   return {
     plan: args.plan,
     status: "active" as const,
     billingInterval: args.interval,
-    currentPeriodEnd: new Date(now.getTime() + days * 24 * 60 * 60 * 1000),
+    currentPeriodEnd,
     trialEndsAt: null,
     cancelAtPeriodEnd: false,
   };

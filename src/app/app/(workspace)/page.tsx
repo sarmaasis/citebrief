@@ -9,7 +9,7 @@ import { ScoreChange } from "@/components/app/score-change";
 import { Button } from "@/components/ui/button";
 import { workspaces } from "@/db/schema";
 import { PIPELINE_LABEL, averageNamedScore, pipelineStage, weeklyAction } from "@/lib/command-center";
-import { parseAgencySavedView } from "@/lib/dashboard-metrics";
+import { movementLabel, parseAgencySavedView } from "@/lib/dashboard-metrics";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -39,11 +39,16 @@ export default async function AppHomePage({
 
   if (!ent.allowsCommandCenter) {
     const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
-    const rows = withSendOverdue(await listHomeRows(ctx), {
-      timezone: workspace?.timezone || "America/New_York",
-      weekly: ent.allowsWeeklyCadence,
-    });
-    const dash = await buildDashboardSnapshot(ctx, ent);
+    // listHomeRows is request-cached; buildDashboardSnapshot reuses it via loadCommandRows.
+    const [rows, dash] = await Promise.all([
+      listHomeRows(ctx).then((homeRows) =>
+        withSendOverdue(homeRows, {
+          timezone: workspace?.timezone || "America/New_York",
+          weekly: ent.allowsWeeklyCadence,
+        }),
+      ),
+      buildDashboardSnapshot(ctx, ent),
+    ]);
     return (
       <LightHome
         rows={rows}
@@ -55,8 +60,9 @@ export default async function AppHomePage({
     );
   }
 
+  // Command center snapshot is enough for Overview — skip the heavier dashboard builder
+  // (second listHomeRows + full runRows join) that only fed duplicate table/overview fields.
   const snapshot = await buildCommandCenterSnapshot(ctx, ent, {}, { view: savedView });
-  const dash = await buildDashboardSnapshot(ctx, ent, { view: savedView });
   if (snapshot.unfilteredCount === 0) {
     return (
       <div>
@@ -78,12 +84,17 @@ export default async function AppHomePage({
 
   const onlyBrand = snapshot.unfilteredCount === 1 && snapshot.rows.length === 1 ? snapshot.rows[0] : null;
   const firstBrandNeedsSetup = Boolean(onlyBrand && !onlyBrand.latestReport);
-  const nextAction = dash.overview.suggestedNextAction ?? snapshot.actions[0] ?? null;
-  const ov = dash.overview;
+  const nextAction = snapshot.actions[0] ?? null;
   const canAddBrand = snapshot.unfilteredCount < ent.brandLimit;
   const namedAvg = snapshot.kpis.portfolioVisibility;
   const namedTotal =
-    dash.rows.find((row) => row.latestReport?.scoreTotal)?.latestReport?.scoreTotal ?? 20;
+    snapshot.rows.find((row) => row.latestReport?.scoreTotal)?.latestReport?.scoreTotal ?? 20;
+  const deltas = snapshot.rows
+    .map((row) => row.mentionedDelta)
+    .filter((d): d is number => d != null);
+  const movement =
+    deltas.length === 0 ? null : Math.round((deltas.reduce((a, b) => a + b, 0) / deltas.length) * 10) / 10;
+  const portfolioMovement = movementLabel(movement);
 
   return (
     <div className="min-w-0">
@@ -92,7 +103,7 @@ export default async function AppHomePage({
           <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
           <p className="mt-1 text-sm text-cb-muted">
             Are we improving, who is winning, what changed, and what to do next.
-            {ov.movementLabel !== "unknown" ? ` Portfolio is ${ov.movementLabel}.` : ""}
+            {portfolioMovement !== "unknown" ? ` Portfolio is ${portfolioMovement}.` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -166,7 +177,7 @@ export default async function AppHomePage({
             Brand scorecards
           </Link>
         </div>
-        {dash.rows.length === 0 ? (
+        {snapshot.rows.length === 0 ? (
           <p className="text-sm text-cb-muted">No clients in this saved view.</p>
         ) : (
           <DataTable minWidth="900px">
@@ -184,7 +195,7 @@ export default async function AppHomePage({
               </tr>
             </thead>
             <tbody>
-              {dash.rows.map((row) => (
+              {snapshot.rows.map((row) => (
                 <tr key={row.brand.id} className="h-12 border-b border-cb-line last:border-0">
                   <Td>
                     <Link href={`/app/brands/${row.brand.id}`} className="font-medium text-cb-text hover:text-cb-accent">

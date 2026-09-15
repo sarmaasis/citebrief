@@ -5,10 +5,11 @@ import type { Database } from "@/db";
 import { subscriptions, webhookEvents, workspaces, workspaceMembers, users } from "@/db/schema";
 import { parseBillingInterval, parsePlanId } from "@/lib/billing";
 import {
-  dodoCurrentPeriodEnd,
   dodoEventConfirmsPaidPlan,
   dodoEventIsPaymentFailure,
   dodoProductId,
+  resolvePlanFromDodoProductId,
+  resolveSubscriptionPeriodEnd,
   resolveWebhookSubscriptionPlan,
   shouldIgnoreFailedPlanSwitch,
 } from "@/lib/dodo";
@@ -130,8 +131,15 @@ export async function applyDodoWebhookPayload(
   const data = (event.data || event.payload || {}) as Record<string, unknown>;
   const metadata = (data.metadata || {}) as Record<string, unknown>;
   const workspaceId = String(metadata.workspace_id || data.workspace_id || "");
-  const plan = parsePlanId(String(metadata.plan || data.plan || "agency")) || "agency";
-  const interval = parseBillingInterval(String(metadata.interval || data.interval || ""));
+  const productHint = env
+    ? resolvePlanFromDodoProductId(env, data.product_id ? String(data.product_id) : null)
+    : null;
+  const plan =
+    parsePlanId(String(metadata.plan || data.plan || "")) || productHint?.plan || "agency";
+  const intervalRaw = metadata.interval ?? data.interval;
+  const interval = intervalRaw
+    ? parseBillingInterval(String(intervalRaw))
+    : productHint?.interval ?? "monthly";
   const addon = String(metadata.addon || "");
   const dodoCustomerId = data.customer_id ? String(data.customer_id) : null;
   const dodoSubscriptionId = data.subscription_id ? String(data.subscription_id) : null;
@@ -191,11 +199,14 @@ export async function applyDodoWebhookPayload(
       : confirmsPaid || !sub
         ? interval
         : parseBillingInterval(sub.billingInterval);
-    // Dodo Subscription.next_billing_date is the end of the current period.
-    // Addon payments keep the existing period; infer only when Dodo omits the field.
-    const periodEnd = isAddon && sub?.currentPeriodEnd
-      ? sub.currentPeriodEnd
-      : dodoCurrentPeriodEnd(data, nextInterval);
+    // Trust Dodo next_billing_date; if omitted leaving annual, keep prepaid paid-through.
+    const periodEnd = resolveSubscriptionPeriodEnd({
+      data,
+      nextInterval,
+      previousInterval: sub?.billingInterval,
+      previousPeriodEnd: sub?.currentPeriodEnd ?? null,
+      isAddon,
+    });
 
     const nextStatus = isAddon && sub?.status === "active" ? sub.status : statusFromType();
     const nextBillingInterval = isAddon && sub ? sub.billingInterval : nextInterval;
