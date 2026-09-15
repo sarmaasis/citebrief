@@ -8,17 +8,13 @@ Light app. Desktop-first 1280+. Sidebar 240px persistent. Main content `min-w-0`
 ┌─────────────┬──────────────────────────────────────┐
 │ Sidebar     │ Top bar                              │
 │ 240px       │ Menu · Brand switcher · Recheck hint │
-│ Logo        │ Run now · User                       │
+│ Logo        │ User                                 │
 │ Overview    ├──────────────────────────────────────┤
 │ Brands      │ Main (24–32px padding, min-w-0)      │
-│ Prompts     │ Primary action always top-right      │
-│ Competitors │ Upgrade locks open as Dialog         │
-│ Opportunities│                                     │
-│ Risks       │                                      │
-│ Reports     │                                      │
-│ Activity    │                                      │
+│ Reports     │ Primary action on the page (Run now  │
+│ Insights    │ lives on the brand page)             │
 │ Settings    │                                      │
-│ ─────────   │                                      │
+│ ─────────   │ Upgrade locks open as Dialog         │
 │ Workspace   │                                      │
 │ Avatar      │                                      │
 └─────────────┴──────────────────────────────────────┘
@@ -27,17 +23,19 @@ Toasts: bottom, 3s, single stack
 
 ## Components
 
-- Sidebar nav (Lucide 16–18, 1.5 stroke)
-- Top bar: brand switcher, recheck credit hint (paid/trial), **Run now**, user menu
+- Sidebar nav (Lucide 16–18, 1.5 stroke): Overview · Brands · Reports · Insights · Settings
+- Top bar: brand switcher, recheck credit hint (paid/trial), user menu. Chrome only.
+- NativeSelect: h-9, rounded-cb-control, appearance-none + chevron
 - UpgradeDialog for Extra run / brand cap (never inline inside tables)
-- OpportunityStatusControl (open → dismissed) on Overview + Opportunities
+- OpportunityStatusControl on Opportunities
 - AgencySavedViews on Overview (`?view=`) and Brands (`?saved=`)
-- Overview saved views filter KPIs, pipeline strip, this week’s actions, ROI, portfolio table, opportunities, and risks together
 - ClientReportingCenter on Reports
 - DataTable wrapper: overflow-x-auto, truncated cells
 - Status pills: Named / Missing / Running / Failed
 - LockedModule for Agency-gated pages on trial/Starter
 - EmptyState: one line + CTA
+
+Prompts, Competitors, and Activity stay as URLs. They are not sidebar destinations. Activity is linked from Settings.
 
 ## Empty / locked states
 
@@ -61,6 +59,6 @@ Toasts: bottom, 3s, single stack
 
 ## Copy examples (no em dashes)
 
-- Nav: **Overview** · **Brands** · **Prompts** · **Competitors** · **Opportunities** · **Risks** · **Reports** · **Activity** · **Settings**
-- Top action: **Run now**
+- Nav: **Overview** · **Brands** · **Reports** · **Insights** · **Settings**
+- Brand page action: **Run now**
 - Recheck hint: **2 monthly rechecks included** / **Trial · 1 report · 1 brand**

@@ -1,4 +1,6 @@
-# Opportunities `/app/opportunities`
+# Opportunities `/app/insights#opportunities`
+
+Canonical route is Insights. `/app/opportunities` redirects here.
 
 Action queue from stored Friday reports. Agency unlocks full multi-client queue with status workflow.
 

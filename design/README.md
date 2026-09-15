@@ -22,8 +22,8 @@ Local design deliverable pack for CiteBrief (PRODUCT.md §18–§20). Paper + in
 | `screens/app-home.md` | `/app` Overview + saved views |
 | `screens/app-brands.md` | `/app/brands` scorecards + saved filters |
 | `screens/app-competitors.md` | `/app/competitors` leaderboard / by-prompt / engines |
-| `screens/app-opportunities.md` | `/app/opportunities` status workflow |
-| `screens/app-risks.md` | `/app/risks` |
+| `screens/app-opportunities.md` | `/app/insights#opportunities` (redirect from `/app/opportunities`) |
+| `screens/app-risks.md` | `/app/insights#risks` (redirect from `/app/risks`) |
 | `screens/app-reports.md` | `/app/reports` pipeline + client reporting center |
 | `screens/app-prompts.md` | `/app/prompts` |
 | `screens/app-activity.md` | `/app/activity` |

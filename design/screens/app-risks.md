@@ -1,4 +1,6 @@
-# Risks `/app/risks`
+# Risks `/app/insights#risks`
+
+Canonical route is Insights. `/app/risks` redirects here.
 
 Agency portfolio risk rollups from stored reports.
 

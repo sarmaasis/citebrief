@@ -2,13 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-import { Menu } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { ChevronDown, Menu } from "lucide-react";
 import { UserMenu } from "@/components/app/user-menu";
-import { UpgradeDialog } from "@/components/billing/upgrade-prompt";
-import { upgradeCopyForCapCode } from "@/lib/upgrade-copy";
-import { Button } from "@/components/ui/button";
-import { NativeSelect } from "@/components/ui/native-select";
+import { cn } from "@/lib/utils";
 
 export function AppTopBar({
   userLabel,
@@ -27,46 +24,10 @@ export function AppTopBar({
   recheckHint?: string | null;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [code, setCode] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const [showRunUpgrade, setShowRunUpgrade] = useState(false);
   const current = brands.find((brand) => pathname.startsWith(`/app/brands/${brand.id}`)) ?? brands[0];
-  const hasBrand = Boolean(current);
-  const runUpgrade = upgradeCopyForCapCode(code, error);
-
-  async function runNow() {
-    if (!current) {
-      router.push("/app/onboarding");
-      return;
-    }
-    setError(null);
-    setCode(null);
-    setShowRunUpgrade(false);
-    setPending(true);
-    try {
-      const response = await fetch(`/api/brands/${current.id}/runs`, { method: "POST" });
-      const data = (await response.json()) as {
-        runId?: string;
-        error?: string;
-        extraRun?: boolean;
-        code?: string;
-      };
-      if (!response.ok || !data.runId) {
-        setError(data.error ?? "Could not queue the run.");
-        setCode(data.code ?? null);
-        if (response.status === 402) setShowRunUpgrade(true);
-        return;
-      }
-      router.push(`/app/brands/${current.id}/runs/${data.runId}`);
-    } finally {
-      setPending(false);
-    }
-  }
 
   return (
-    <header className="relative flex min-h-14 flex-wrap items-center justify-between gap-2 border-b border-cb-line bg-cb-bg px-4 py-2 sm:px-6">
+    <header className="relative z-20 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-cb-line bg-cb-bg px-4 py-2 sm:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-2 text-sm sm:gap-3">
         {onOpenNav ? (
           <button
@@ -78,35 +39,14 @@ export function AppTopBar({
             <Menu size={18} strokeWidth={1.5} />
           </button>
         ) : null}
-        {brands.length ? (
-          <label className="flex min-w-0 items-center gap-2 text-cb-muted">
-            <span className="sr-only">Switch brand</span>
-            <NativeSelect
-              className="h-9 w-full max-w-[220px] min-w-0"
-              value={current?.id}
-              onChange={(event) => router.push(`/app/brands/${event.target.value}`)}
-            >
-              {brands.map((brand) => (
-                <option key={brand.id} value={brand.id}>
-                  {brand.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </label>
-        ) : null}
+        {brands.length && current ? <BrandSwitcher brands={brands} currentId={current.id} /> : null}
         {recheckHint ? (
           <Link href="/app/settings/billing" className="hidden truncate text-xs text-cb-muted hover:text-cb-accent md:inline">
             {recheckHint}
           </Link>
         ) : null}
-        {error && !showRunUpgrade ? <span className="truncate text-xs text-cb-danger">{error}</span> : null}
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        {hasBrand ? (
-          <Button type="button" onClick={() => void runNow()} disabled={pending}>
-            {pending ? "Queuing…" : "Run now"}
-          </Button>
-        ) : null}
         {signedIn ? (
           <UserMenu userLabel={userLabel} roleLabel={roleLabel} />
         ) : (
@@ -115,13 +55,81 @@ export function AppTopBar({
           </Link>
         )}
       </div>
-      <UpgradeDialog
-        open={showRunUpgrade}
-        onOpenChange={setShowRunUpgrade}
-        title={runUpgrade.title}
-        body={error ?? runUpgrade.body}
-        cta={runUpgrade.cta}
-      />
     </header>
+  );
+}
+
+function BrandSwitcher({
+  brands,
+  currentId,
+}: {
+  brands: Array<{ id: string; name: string }>;
+  currentId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const current = brands.find((brand) => brand.id === currentId);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative min-w-0 max-w-[220px]" ref={rootRef}>
+      <button
+        type="button"
+        className="inline-flex h-9 w-full items-center justify-between gap-2 rounded-cb-control border border-cb-line bg-cb-surface px-3 text-sm text-cb-text"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-controls={menuId}
+        aria-label="Switch brand"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="truncate">{current?.name}</span>
+        <ChevronDown className="size-4 shrink-0 text-cb-muted" strokeWidth={1.5} aria-hidden="true" />
+      </button>
+      {open ? (
+        <div
+          id={menuId}
+          role="listbox"
+          className="absolute left-0 z-40 mt-2 max-h-80 w-56 overflow-y-auto rounded-cb-card border border-cb-line bg-cb-surface py-1 shadow-[var(--cb-shadow-menu)]"
+        >
+          {brands.map((brand) => (
+            <button
+              key={brand.id}
+              type="button"
+              role="option"
+              aria-selected={brand.id === currentId}
+              className={cn(
+                "block w-full truncate px-3 py-2 text-left text-sm",
+                brand.id === currentId
+                  ? "bg-cb-accent-subtle text-cb-accent"
+                  : "text-cb-text hover:bg-cb-accent-subtle",
+              )}
+              onClick={() => {
+                setOpen(false);
+                router.push(`/app/brands/${brand.id}`);
+              }}
+            >
+              {brand.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

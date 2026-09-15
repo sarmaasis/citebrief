@@ -40,7 +40,7 @@ export function WorkspaceChrome({
   }, [navOpen]);
 
   return (
-    <div className="flex min-h-screen bg-cb-bg">
+    <div className="flex h-svh overflow-hidden bg-cb-bg">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-cb-control focus:bg-cb-surface focus:px-3 focus:py-2 focus:text-sm"
@@ -59,7 +59,7 @@ export function WorkspaceChrome({
         className={
           navOpen
             ? "fixed inset-y-0 left-0 z-50 flex lg:static lg:z-0"
-            : "hidden lg:flex"
+            : "hidden h-full shrink-0 lg:flex"
         }
       >
         <AppSidebar
@@ -69,7 +69,7 @@ export function WorkspaceChrome({
           impersonating={impersonating}
         />
       </div>
-      <div className="relative flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <AppTopBar
           userLabel={userLabel}
           roleLabel={roleLabel}
@@ -78,7 +78,7 @@ export function WorkspaceChrome({
           onOpenNav={openNav}
           recheckHint={recheckHint}
         />
-        <main id="main" className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 sm:px-8 sm:py-8">
+        <main id="main" className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-8 sm:py-8">
           {children}
         </main>
       </div>

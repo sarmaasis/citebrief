@@ -16,13 +16,14 @@ import { isSendOverdue } from "@/lib/friday-tz";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { getBrandBundle, getBrandInsights } from "@/server/workspace-data";
+import { cn } from "@/lib/utils";
 
 export default async function BrandHomePage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ recheck?: string }>;
+  searchParams?: Promise<{ recheck?: string; tab?: string }>;
 }) {
   const ctx = await getAppContext();
   if (!ctx) {
@@ -37,6 +38,7 @@ export default async function BrandHomePage({
 
   const { brand, competitors, latestRun, latestReport, prompts } = bundle;
   const recheckPrompt = query.recheck ? prompts.find((prompt) => prompt.id === query.recheck) : null;
+  const competitorsTab = query.tab === "competitors";
   const insights = await getBrandInsights(ctx, id, brand.name);
   const friday = formatShortDate(nextFriday());
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
@@ -108,6 +110,67 @@ export default async function BrandHomePage({
         />
       </div>
 
+      <nav className="mb-8 flex flex-wrap gap-2" aria-label="Brand">
+        {[
+          { href: `/app/brands/${brand.id}`, label: "Overview", active: !competitorsTab },
+          { href: `/app/brands/${brand.id}/prompts`, label: "Prompts", active: false },
+          { href: `/app/brands/${brand.id}?tab=competitors`, label: "Competitors", active: competitorsTab },
+          { href: `/app/brands/${brand.id}/history`, label: "History", active: false },
+        ].map((item) => (
+          <Link
+            key={item.label}
+            href={item.href}
+            aria-current={item.active ? "page" : undefined}
+            className={cn(
+              "rounded-cb-control px-2.5 py-1 text-xs",
+              item.active
+                ? "bg-cb-accent-subtle text-cb-accent"
+                : "border border-cb-line text-cb-muted hover:border-cb-accent hover:text-cb-accent",
+            )}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+
+      {competitorsTab ? (
+        <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
+          <h2 className="text-sm font-medium">Competitors</h2>
+          {insights.competitorLeader ? (
+            <p className="mt-2 text-sm text-cb-muted">
+              {insights.competitorLeader} leads {insights.competitorLeadCount} buyer questions
+              {insights.competitorLeadShare != null
+                ? ` (${Math.round(insights.competitorLeadShare * 100)}%).`
+                : "."}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-cb-muted">
+              Leader stats appear after the first report.
+            </p>
+          )}
+          {competitors.length === 0 ? (
+            <p className="mt-4 text-sm text-cb-muted">
+              None yet.{" "}
+              <Link href={`/app/brands/${brand.id}/edit`} className="text-cb-accent">
+                Add competitors
+              </Link>
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-2 text-sm">
+              {competitors.map((row) => (
+                <li key={row.id} className="flex h-12 items-center justify-between border-b border-cb-line last:border-0">
+                  <span>{row.name}</span>
+                  {insights.competitorLeader &&
+                  row.name.toLowerCase() === insights.competitorLeader.toLowerCase() ? (
+                    <span className="text-xs text-cb-accent">Leading</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
+        <>
       {recheckPrompt ? (
         <div className="mb-8 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
           <p className="text-xs text-cb-muted">Recheck focus</p>
@@ -240,37 +303,23 @@ export default async function BrandHomePage({
         </dl>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="outline">
-          <Link href={`/app/brands/${brand.id}/prompts`}>
-            {prompts.length ? "Edit prompts" : `Generate ${promptCap} prompts`}
-          </Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href={`/app/prompts?brandId=${brand.id}`}>Prompt performance</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/app/competitors">Competitors</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href={`/app/brands/${brand.id}/history`}>History</Link>
-        </Button>
-        {runStatus ? (
-          <StatusPill
-            status={
-              runStatus === "complete"
-                ? "complete"
-                : runStatus === "partial"
-                  ? "partial"
-                  : runStatus === "failed"
-                    ? "failed"
-                    : "running"
-            }
-          >
-            {runStatus === "partial" ? "Shipped with gaps" : runStatus}
-          </StatusPill>
-        ) : null}
-      </div>
+      {runStatus ? (
+        <StatusPill
+          status={
+            runStatus === "complete"
+              ? "complete"
+              : runStatus === "partial"
+                ? "partial"
+                : runStatus === "failed"
+                  ? "failed"
+                  : "running"
+          }
+        >
+          {runStatus === "partial" ? "Shipped with gaps" : runStatus}
+        </StatusPill>
+      ) : null}
+        </>
+      )}
     </div>
   );
 }

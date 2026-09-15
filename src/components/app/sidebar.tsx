@@ -2,17 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  AlertTriangle,
-  ClipboardList,
-  Home,
-  ListChecks,
-  MessageSquareText,
-  Settings,
-  Swords,
-  Tag,
-  TrendingUp,
-} from "lucide-react";
+import { Home, ListChecks, Settings, Tag, TrendingUp } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
@@ -20,35 +10,17 @@ const nav = [
   { href: "/app", label: "Overview", icon: Home, match: (path: string) => path === "/app" },
   { href: "/app/brands", label: "Brands", icon: Tag, match: (path: string) => path.startsWith("/app/brands") },
   {
-    href: "/app/prompts",
-    label: "Prompts",
-    icon: MessageSquareText,
-    match: (path: string) => path.startsWith("/app/prompts"),
-  },
-  {
-    href: "/app/competitors",
-    label: "Competitors",
-    icon: Swords,
-    match: (path: string) => path.startsWith("/app/competitors"),
-  },
-  {
-    href: "/app/opportunities",
-    label: "Opportunities",
-    icon: TrendingUp,
-    match: (path: string) => path.startsWith("/app/opportunities"),
-  },
-  { href: "/app/risks", label: "Risks", icon: AlertTriangle, match: (path: string) => path.startsWith("/app/risks") },
-  {
     href: "/app/reports",
     label: "Reports",
     icon: ListChecks,
     match: (path: string) => path === "/app/reports" || path.startsWith("/app/reports"),
   },
   {
-    href: "/app/activity",
-    label: "Activity",
-    icon: ClipboardList,
-    match: (path: string) => path.startsWith("/app/activity"),
+    href: "/app/insights",
+    label: "Insights",
+    icon: TrendingUp,
+    match: (path: string) =>
+      path.startsWith("/app/insights") || path.startsWith("/app/opportunities") || path.startsWith("/app/risks"),
   },
   {
     href: "/app/settings",
