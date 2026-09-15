@@ -7,6 +7,7 @@ import { FormNoticeText, type FormNotice } from "@/components/ui/form-notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
+import { PLANS } from "@/lib/billing";
 import {
   CUSTOM_DOMAIN_DNS_STEPS,
   SYSTEM_DOMAIN_OPS_STEPS,
@@ -152,8 +153,8 @@ export function DomainsPanel({
           <StatusPill status="system" />
         </div>
         <p className="text-sm text-cb-muted">
-          Trial CC, Agency, Starter, auth, invites, and all CiteBrief-branded mail send from{" "}
-          <span className="font-medium text-cb-text">{SYSTEM_SENDER_DOMAIN}</span>. Studio uses this
+          Trial CC, {PLANS.agency.name}, Starter, auth, invites, and all CiteBrief-branded mail send from{" "}
+          <span className="font-medium text-cb-text">{SYSTEM_SENDER_DOMAIN}</span>. {PLANS.studio.name} uses this
           until a custom domain is verified.
         </p>
         <p className="font-mono text-sm text-cb-text">{initial.systemFrom}</p>
@@ -169,17 +170,17 @@ export function DomainsPanel({
 
       <section className="max-w-2xl space-y-4 rounded-cb-card border border-cb-line bg-cb-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-medium text-cb-text">Studio custom sender</h2>
+          <h2 className="text-sm font-medium text-cb-text">{PLANS.studio.name} custom sender</h2>
           <StatusPill status={initial.allowsCustomSender ? status : "system"} />
         </div>
         {!initial.allowsCustomSender ? (
           <div className="space-y-3">
             <p className="text-sm text-cb-muted">
-              Agency keeps white-label PDF and client links with the CiteBrief send path on{" "}
-              {SYSTEM_SENDER_DOMAIN}. Custom sender name and domain unlock on Studio.
+              {PLANS.agency.name} keeps white-label PDF and client links with the CiteBrief send path on{" "}
+              {SYSTEM_SENDER_DOMAIN}. Custom sender name and domain unlock on {PLANS.studio.name}.
             </p>
             <Button type="button" variant="outline" onClick={() => setShowUpgrade(true)}>
-              See Studio upgrade
+              See {PLANS.studio.name} upgrade
             </Button>
           </div>
         ) : (

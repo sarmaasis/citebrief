@@ -1,3 +1,4 @@
+import { GROWTH_PLUS_LABEL } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   if (!ent.allowsHistory && !ent.allowsCommandCenter) {
-    return jsonError("Action history requires Agency, Studio, or Enterprise.", 403);
+    return jsonError(`Action history requires ${GROWTH_PLUS_LABEL}.`, 403);
   }
 
   const limitRaw = Number(new URL(request.url).searchParams.get("limit") || "50");

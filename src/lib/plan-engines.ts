@@ -11,12 +11,12 @@ import {
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getWorkspaceSubscription } from "@/lib/usage";
 
-/** Trial default: ChatGPT + Gemini only. */
-export const TRIAL_DEFAULT_ENGINE_STRING = "chatgpt,gemini";
-/** Agency default: ChatGPT, Gemini, Grok, AIO — no Claude. */
+/** Trial default: same four public engines as paid Growth. */
+export const TRIAL_DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio";
+/** Growth default: ChatGPT, Gemini, Grok, AIO — no Claude. */
 export const DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio";
-/** Studio default: same coverage as Agency (includes Grok); Claude not selectable for now. */
-export const STUDIO_DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio";
+/** Agency default: Growth set + Perplexity. Claude not selectable. */
+export const STUDIO_DEFAULT_ENGINE_STRING = "chatgpt,gemini,grok,aio,perplexity";
 
 const KNOWN_IDS = new Set(ENGINES.map((engine) => engine.id));
 
@@ -43,9 +43,8 @@ export function parseRequestedEngines(value: string | null | undefined): string[
     .map((part) => part.trim().toLowerCase())
     .filter(Boolean);
   const migrated = tokens.flatMap((token) => {
-    // Legacy aliases: old "studio"/"perplexity" packs mapped to Claude+Grok; Claude is off.
-    if (token === "perplexity" || token === "studio") return ["grok"];
-    if (token === "-perplexity") return [];
+    // Legacy alias: old "studio" pack mapped to Claude+Grok; Claude is off.
+    if (token === "studio") return ["grok"];
     if (token === "-studio") return ["-grok"];
     return [token];
   });
@@ -69,7 +68,7 @@ export function validateDefaultEngines(
   for (const token of requested) {
     const id = token.startsWith("-") ? token.slice(1) : token;
     if (!KNOWN_IDS.has(id as EngineId)) {
-      return { ok: false, error: `Unknown engine "${id}". Use chatgpt, gemini, grok, aio.` };
+      return { ok: false, error: `Unknown engine "${id}". Use chatgpt, gemini, grok, aio, perplexity.` };
     }
     // Claude stays in the catalog for adapters/history but is not plan-selectable.
     if (isClaudeDisabled(id)) continue;

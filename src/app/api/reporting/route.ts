@@ -1,3 +1,4 @@
+import { GROWTH_PLUS_LABEL } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   const ent = workspaceEntitlements(sub);
 
   if (!ent.allowsEmailSend) {
-    return jsonError("Client reporting center requires Agency, Studio, or Enterprise.", 403);
+    return jsonError(`Client reporting center requires ${GROWTH_PLUS_LABEL}.`, 403);
   }
 
   const brandId = new URL(request.url).searchParams.get("brandId")?.trim() || null;

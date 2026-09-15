@@ -17,6 +17,7 @@ export const COGS_PER_PROMPT_USD: Record<EngineId, number> = {
   claude: 0.19,
   grok: 0.001,
   aio: 0.02,
+  perplexity: 0.005,
 };
 
 /** @deprecated Claude-weighted blend from $3.80/50. Prefer COGS_PER_PROMPT_USD. */

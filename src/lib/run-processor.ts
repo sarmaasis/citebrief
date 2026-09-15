@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "@/db";
 import {
   brandKits,
@@ -34,6 +34,24 @@ import { hydrateGatewayRunBudget, resetGatewayRunBudget } from "@/lib/ai-gateway
 
 const LLM_PROMPT_CONCURRENCY = 6;
 const AIO_PROMPT_CONCURRENCY = 2;
+
+async function reportTrend(db: Database, brandId: string) {
+  const history = await db
+    .select({
+      createdAt: reports.createdAt,
+      scoreMentioned: reports.scoreMentioned,
+      scoreRecommended: reports.scoreRecommended,
+    })
+    .from(reports)
+    .where(eq(reports.brandId, brandId))
+    .orderBy(desc(reports.createdAt))
+    .limit(8);
+  return [...history].reverse().map((row) => ({
+    period: row.createdAt.toISOString().slice(0, 10),
+    mentioned: row.scoreMentioned ?? 0,
+    recommended: row.scoreRecommended ?? undefined,
+  }));
+}
 
 async function mapWithConcurrency<T>(
   items: T[],
@@ -267,6 +285,7 @@ export async function processRun(
       sentence: row.sentence,
       nextAction: row.nextAction,
       citedUrls,
+      citedBrandUrl: Boolean(row.citedBrandUrl),
       status: "complete",
     };
   }
@@ -414,6 +433,7 @@ export async function processRun(
           sentence: null,
           nextAction: null,
           citedUrls: [],
+          citedBrandUrl: false,
           status: "failed",
         };
       }
@@ -469,6 +489,7 @@ export async function processRun(
           sentence: row.sentence,
           nextAction: row.nextAction,
           citedUrls,
+          citedBrandUrl: Boolean(row.citedBrandUrl),
           status: "complete",
         };
       } else if (row.status === "failed") {
@@ -479,6 +500,7 @@ export async function processRun(
           sentence: null,
           nextAction: null,
           citedUrls: [],
+          citedBrandUrl: false,
           status: "failed",
         };
       }
@@ -523,6 +545,7 @@ export async function processRun(
     failedEngines,
     accentColor: kit?.accentColor || undefined,
     logoUrl: kit?.logoUrl || undefined,
+    trend: await reportTrend(db, bundle.brand.id),
   });
 
   const ymd = (bundle.run.periodStart || new Date().toISOString().slice(0, 10)).slice(0, 10);
@@ -586,7 +609,7 @@ export async function processRun(
     await settleBillableExtraRun({ db, env, workspaceId: bundle.workspace.id, runId });
   }
 
-  if (options?.notifyEmail && ent.allowsEmailSend) {
+  if (options?.notifyEmail) {
     try {
       const origin = (env.BETTER_AUTH_URL || "").replace(/\/$/, "");
       const id = existing?.id ?? reportId;
@@ -969,6 +992,7 @@ export async function retryFailedEngine(
     failedEngines,
     accentColor: kit?.accentColor || undefined,
     logoUrl: kit?.logoUrl || undefined,
+    trend: await reportTrend(db, bundle.brand.id),
   });
 
   const ymd = (bundle.run.periodStart || new Date().toISOString().slice(0, 10)).slice(0, 10);

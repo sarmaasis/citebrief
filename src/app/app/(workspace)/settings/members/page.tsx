@@ -40,7 +40,7 @@ export default async function MembersPage() {
     <div>
       <h1 className="text-xl font-semibold tracking-tight">Members</h1>
       <p className="mt-3 text-sm text-cb-muted">
-        Invite account managers on Agency ({PLANS.agency.seats} seats) or Studio ({PLANS.studio.seats} seats). Owners
+        Invite account managers on {PLANS.agency.name} ({PLANS.agency.seats} seats) or {PLANS.studio.name} ({PLANS.studio.seats} seats). Owners
         invite, remove, and revoke pending invites.
       </p>
       <div className="mt-8">

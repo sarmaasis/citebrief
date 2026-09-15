@@ -40,6 +40,7 @@ const SYSTEM_HINTS: Record<EngineId, string> = {
   claude: "Anthropic Claude + web search",
   grok: "xAI Grok",
   aio: "Google AI Overviews browser",
+  perplexity: "Perplexity Sonar",
 };
 
 const USER_WRAPPER = (buyer: string, prompt: string) =>
@@ -63,6 +64,8 @@ const ENGINE_SYSTEM: Record<Exclude<EngineId, "aio">, string> = {
   claude:
     "You are a buying advisor. Use web search once. Return a ranked shortlist of at most five products and the source URLs. Under 180 words. No long quotes from pages.",
   grok: "You are a buying advisor. Return a ranked shortlist of products with brief reasons and URLs when known.",
+  perplexity:
+    "You are a buying advisor. Search the live web. Return a ranked shortlist of at most five products and the source URLs. Under 150 words.",
 };
 
 function hashSeed(input: string): number {
@@ -96,6 +99,7 @@ export function isEngineApiConfigured(engine: EngineId, env?: CloudflareEnv): bo
     case "gemini":
     case "claude":
     case "grok":
+    case "perplexity":
       return isAiGatewayConfigured(env);
     case "aio":
       return aioConfigured(env);
@@ -160,6 +164,7 @@ export const ENGINE_MODELS = {
   claude: "claude-sonnet-5",
   /** Chat-completions + live search. Newer Responses model IDs returned 0 tokens on this Gateway. */
   grok: "grok-4.3",
+  perplexity: "sonar",
 } as const;
 
 export const CLAUDE_MAX_TOKENS = 800;
@@ -168,7 +173,7 @@ export const SHORTLIST_MAX_OUTPUT_TOKENS = 700;
 export const GEMINI_MAX_OUTPUT_TOKENS = 4096;
 
 export type EngineSearchRequest = {
-  provider: "openai" | "google" | "anthropic" | "xai";
+  provider: "openai" | "google" | "anthropic" | "xai" | "perplexity";
   path: string;
   body: Record<string, unknown>;
   headers?: Record<string, string>;
@@ -243,6 +248,19 @@ export function buildEngineSearchRequest(
           ],
         },
       };
+    case "perplexity":
+      return {
+        provider: "perplexity",
+        path: "/chat/completions",
+        body: {
+          model: ENGINE_MODELS.perplexity,
+          max_tokens: SHORTLIST_MAX_OUTPUT_TOKENS,
+          messages: [
+            { role: "system", content: ENGINE_SYSTEM.perplexity },
+            { role: "user", content: user },
+          ],
+        },
+      };
     default:
       throw new Error(`Unknown LLM engine ${engine as string}`);
   }
@@ -287,6 +305,14 @@ async function queryGrok(input: EngineQueryInput) {
   });
 }
 
+async function queryPerplexity(input: EngineQueryInput) {
+  return queryViaGateway(
+    input,
+    buildEngineSearchRequest("perplexity", input.buyer || "a buyer", input.prompt),
+    { requireWebSearch: false },
+  );
+}
+
 function htmlToAioText(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -317,12 +343,21 @@ async function aioHtmlFromResponse(response: Response, label: string): Promise<s
  */
 async function queryAio(input: EngineQueryInput, env: CloudflareEnv): Promise<string> {
   const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(input.prompt)}&hl=en&gl=us`;
-  const gotoOptions = { waitUntil: "domcontentloaded", timeout: 15000 };
+  const gotoOptions = { waitUntil: "networkidle0", timeout: 25000 };
 
   if (env.BROWSER?.quickAction) {
-    const response = await env.BROWSER.quickAction("content", { url: searchUrl, gotoOptions });
-    const text = await aioHtmlFromResponse(response, "AIO browser binding");
-    return `Google AI Overviews / SERP extract for: ${input.prompt}\n${text}`;
+    try {
+      const response = await env.BROWSER.quickAction("content", { url: searchUrl, gotoOptions });
+      const text = await aioHtmlFromResponse(response, "AIO browser binding");
+      return `Google AI Overviews / SERP extract for: ${input.prompt}\n${text}`;
+    } catch {
+      const fallback = await env.BROWSER.quickAction("content", {
+        url: searchUrl,
+        gotoOptions: { waitUntil: "domcontentloaded", timeout: 20000 },
+      });
+      const text = await aioHtmlFromResponse(fallback, "AIO browser binding retry");
+      return `Google AI Overviews / SERP extract for: ${input.prompt}\n${text}`;
+    }
   }
 
   const account = env.CF_ACCOUNT_ID || process.env.CF_ACCOUNT_ID;
@@ -359,6 +394,8 @@ async function liveAnswer(
       return queryClaude(input);
     case "grok":
       return queryGrok(input);
+    case "perplexity":
+      return queryPerplexity(input);
     case "aio": {
       if (!env) throw new Error("env required for AIO");
       const text = await queryAio(input, env);

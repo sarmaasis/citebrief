@@ -16,6 +16,8 @@ import { isSendOverdue } from "@/lib/friday-tz";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
 import { getBrandBundle, getBrandInsights } from "@/server/workspace-data";
+import { isPitchExpired, isPitchBrand, isSampleBrand } from "@/lib/brand-kind";
+import { ConvertPitchButton } from "@/components/brands/convert-pitch-button";
 import { cn } from "@/lib/utils";
 
 export default async function BrandHomePage({
@@ -44,7 +46,6 @@ export default async function BrandHomePage({
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   const allowsWeekly = ent.allowsWeeklyCadence;
-  const allowsHistory = ent.allowsHistory;
   const promptCap = ent.promptCap;
   const score = latestReport?.scoreMentioned;
   const total = latestReport?.scoreTotal ?? promptCap;
@@ -97,18 +98,50 @@ export default async function BrandHomePage({
           brandId={brand.id}
           promptId={recheckPrompt?.id}
           label={recheckPrompt ? "Recheck" : "Run now"}
-          disabled={Boolean(brand.archivedAt) || prompts.length === 0}
+          disabled={Boolean(brand.archivedAt) || prompts.length === 0 || isSampleBrand(brand.kind) || (isPitchBrand(brand.kind) && Boolean(latestRun))}
           hint={
-            brand.archivedAt
-              ? "Restore this brand before you run."
-              : prompts.length === 0
-                ? `Generate ${promptCap} buyer questions before you run.`
-                : recheckPrompt
-                  ? "Runs all buyer questions for this brand; focuses the selected prompt after queueing."
-                  : null
+            isSampleBrand(brand.kind)
+              ? "Sample is read-only. Add your client to run."
+              : isPitchBrand(brand.kind) && latestRun
+                ? "Pitch audits are one-shot. Convert to keep tracking."
+              : brand.archivedAt
+                ? "Restore this brand before you run."
+                : prompts.length === 0
+                  ? `Generate ${promptCap} buyer questions before you run.`
+                  : recheckPrompt
+                    ? "Runs all buyer questions for this brand; focuses the selected prompt after queueing."
+                    : null
           }
         />
       </div>
+
+      {isSampleBrand(brand.kind) ? (
+        <div className="mb-8 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
+          <p className="text-xs text-cb-muted">Sample client</p>
+          <p className="mt-2 text-sm font-medium">Last Friday already shipped for Northstar.</p>
+          <p className="mt-1 text-sm text-cb-muted">Read-only. Run the same letter for a real retainer.</p>
+          <Link href="/app/onboarding?new=1" className="mt-3 inline-block text-sm text-cb-accent">
+            Run this for my client →
+          </Link>
+        </div>
+      ) : null}
+
+      {isPitchBrand(brand.kind) ? (
+        <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
+          <p className="text-xs text-cb-muted">Pitch audit</p>
+          <p className="mt-2 text-sm font-medium">
+            {isPitchExpired(brand.expiresAt) ? "This pitch expired." : "48-hour prospect PDF. Does not use a client slot."}
+          </p>
+          {brand.expiresAt && !isPitchExpired(brand.expiresAt) ? (
+            <p className="mt-1 text-sm text-cb-muted">
+              Expires {formatShortDate(brand.expiresAt instanceof Date ? brand.expiresAt : new Date(brand.expiresAt))}.
+            </p>
+          ) : null}
+          <div className="mt-3">
+            <ConvertPitchButton brandId={brand.id} />
+          </div>
+        </div>
+      ) : null}
 
       <nav className="mb-8 flex flex-wrap gap-2" aria-label="Brand">
         {[
@@ -274,9 +307,15 @@ export default async function BrandHomePage({
         </div>
       </div>
 
-      {allowsHistory && insights.trend.length > 1 ? (
+      {insights.trend.length > 1 ? (
         <div className="mb-8 rounded-cb-card border border-cb-line bg-cb-surface p-5">
-          <p className="text-xs text-cb-muted">Score trend</p>
+          <p className="text-xs text-cb-muted">Named vs recommended · 8 weeks</p>
+          {insights.competitorLeader ? (
+            <p className="mt-1 text-sm text-cb-muted">
+              {insights.competitorLeader} leads {insights.competitorLeadCount} buyer questions
+              {insights.competitorLeadShare != null ? ` (${Math.round(insights.competitorLeadShare * 100)}%).` : "."}
+            </p>
+          ) : null}
           <div className="mt-4">
             <MomChart data={insights.trend} />
           </div>
@@ -287,7 +326,7 @@ export default async function BrandHomePage({
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium">Brand</h2>
           <div className="flex gap-2">
-            <DuplicateBrandButton brandId={brand.id} />
+            {isSampleBrand(brand.kind) ? null : <DuplicateBrandButton brandId={brand.id} />}
             <Button asChild variant="outline" size="sm">
               <Link href={`/app/brands/${brand.id}/edit`}>Edit</Link>
             </Button>

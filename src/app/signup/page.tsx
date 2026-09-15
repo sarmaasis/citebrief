@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = metadataPages.signup;
 
-const trialLead = `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_PROMPT_CAP} buyer questions. ${TRIAL_RUN_CAP} full report on ChatGPT + Gemini.`;
+const trialLead = `${TRIAL_DAYS}-day trial. ${TRIAL_BRAND_CAP} brand. ${TRIAL_PROMPT_CAP} buyer questions. ${TRIAL_RUN_CAP} full report on ChatGPT, Gemini, Grok, and AI Overviews.`;
 
 function signupCopy(
   planId: PlanId | null,
@@ -52,7 +52,7 @@ function signupCopy(
   if (plan === "studio") {
     return {
       title: "Start the first report",
-      body: `${trialLead} Studio is $${listed.amountUsd}/mo for ${listed.brands} brands, a custom sender, bulk send, portfolio CSV, and weekly Friday reports.`,
+      body: `${trialLead} ${listed.name} is $${listed.amountUsd}/mo for ${listed.brands} brands, a custom sender, bulk send, portfolio CSV, and weekly Friday reports.`,
     };
   }
   if (plan === "enterprise") {
@@ -63,7 +63,7 @@ function signupCopy(
   }
   return {
     title: "Start the first report",
-    body: `${trialLead} No weekly send or command center until paid. Agency is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, ${PLANS.agency.seats} seats, and the command-center dashboard.`,
+      body: `${trialLead} No weekly send or command center until paid. ${PLANS.agency.name} is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly Friday reports, white-label, client CC, ${PLANS.agency.seats} seats, and the command-center dashboard.`,
   };
 }
 

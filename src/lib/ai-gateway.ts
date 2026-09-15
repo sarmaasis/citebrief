@@ -3,7 +3,7 @@ import type { Database } from "@/db";
 import { runs } from "@/db/schema";
 import { isStubSecret } from "@/lib/billing";
 
-export type AiGatewayProvider = "openai" | "google" | "anthropic" | "xai" | "workers-ai";
+export type AiGatewayProvider = "openai" | "google" | "anthropic" | "xai" | "workers-ai" | "perplexity";
 
 export type AiGatewayCachePolicy = "fresh" | "allow_24h";
 
@@ -88,6 +88,7 @@ const PROVIDER_SEGMENT: Record<AiGatewayProvider, string> = {
   google: "google-ai-studio",
   anthropic: "anthropic",
   xai: "grok",
+  perplexity: "perplexity-ai",
   "workers-ai": "workers-ai",
 };
 

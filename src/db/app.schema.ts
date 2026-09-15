@@ -80,10 +80,17 @@ export const brands = sqliteTable(
     /** Free-form agency notes for client reporting center. */
     clientNotes: text("client_notes"),
     archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
+    /** client = retainer slot; sample = read-only demo; pitch = 48h prospect audit. */
+    kind: text("kind").notNull().default("client"),
+    /** Pitch audits expire; sample/client stay null. */
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [index("brands_workspace_idx").on(table.workspaceId)],
+  (table) => [
+    index("brands_workspace_idx").on(table.workspaceId),
+    index("brands_workspace_kind_idx").on(table.workspaceId, table.kind),
+  ],
 );
 
 export const competitors = sqliteTable(

@@ -19,19 +19,20 @@ import {
   softFailMinCore,
 } from "@/lib/engines";
 
-assert.deepEqual(TRIAL_ENGINE_IDS, ["chatgpt", "gemini"]);
+assert.deepEqual(TRIAL_ENGINE_IDS, ["chatgpt", "gemini", "grok", "aio"]);
 assert.deepEqual(AGENCY_ENGINE_IDS, ["chatgpt", "gemini", "grok", "aio"]);
-assert.deepEqual(STUDIO_ENGINE_IDS, ["chatgpt", "gemini", "grok", "aio"]);
-assert.equal(TRIAL_MAX_GATEWAY_REQUESTS, 15);
-assert.ok(TRIAL_MAX_GATEWAY_REQUESTS >= 5 * TRIAL_ENGINE_IDS.length);
+assert.deepEqual(STUDIO_ENGINE_IDS, ["chatgpt", "gemini", "grok", "aio", "perplexity"]);
+assert.equal(TRIAL_MAX_GATEWAY_REQUESTS, 90);
+assert.ok(TRIAL_MAX_GATEWAY_REQUESTS >= 20 * TRIAL_ENGINE_IDS.length);
 
-assert.deepEqual(selectableEngineIds({ paid: false }), ["chatgpt", "gemini"]);
+assert.deepEqual(selectableEngineIds({ paid: false }), ["chatgpt", "gemini", "grok", "aio"]);
 assert.deepEqual(selectableEngineIds({ paid: true }), ["chatgpt", "gemini", "grok", "aio"]);
 assert.deepEqual(selectableEngineIds({ paid: true, allowsStudioEngines: true }), [
   "chatgpt",
   "gemini",
   "grok",
   "aio",
+  "perplexity",
 ]);
 assert.equal(defaultEngineStringForPlan({ paid: false }), TRIAL_DEFAULT_ENGINE_STRING);
 assert.equal(defaultEngineStringForPlan({ paid: true }), DEFAULT_ENGINE_STRING);
@@ -39,7 +40,7 @@ assert.equal(defaultEngineStringForPlan({ paid: true }), DEFAULT_ENGINE_STRING);
 const trialValidated = validateDefaultEngines("chatgpt,gemini,grok,aio,claude", { paid: false });
 assert.equal(trialValidated.ok, true);
 if (trialValidated.ok) {
-  assert.equal(trialValidated.normalized, "chatgpt,gemini");
+  assert.equal(trialValidated.normalized, "chatgpt,gemini,grok,aio");
 }
 
 const paidValidated = validateDefaultEngines("chatgpt,gemini,claude,grok", {
@@ -55,7 +56,7 @@ const requested = parseRequestedEngines(DEFAULT_ENGINE_STRING);
 const trial = enginesForRun({ requested, paid: false });
 assert.deepEqual(
   trial.map((engine) => engine.id),
-  ["chatgpt", "gemini"],
+  ["chatgpt", "gemini", "grok", "aio"],
 );
 
 const agency = enginesForRun({ requested: parseRequestedEngines("chatgpt,gemini,claude,grok,aio"), paid: true });
@@ -90,7 +91,7 @@ assert.ok(studioDefault.some((engine) => engine.id === "grok"));
 const grokOnly = enginesForRun({ requested: ["grok", "aio"], paid: false });
 assert.deepEqual(
   grokOnly.map((engine) => engine.id),
-  ["chatgpt", "gemini"],
+  ["grok", "aio"],
 );
 
 assert.equal(softFailMinCore(2), 2);
@@ -103,14 +104,15 @@ const trialStates = scheduledEngineStatus(trial.map((engine) => engine.id));
 assert.equal(trialStates.chatgpt, "queued");
 assert.equal(trialStates.gemini, "queued");
 assert.equal(trialStates.claude, "skipped");
-assert.equal(trialStates.grok, "skipped");
-assert.equal(trialStates.aio, "skipped");
+assert.equal(trialStates.grok, "queued");
+assert.equal(trialStates.aio, "queued");
+assert.equal(trialStates.perplexity, "skipped");
 
 const agencyStates = scheduledEngineStatus(agency.map((engine) => engine.id));
 assert.equal(agencyStates.claude, "skipped");
 assert.equal(agencyStates.grok, "queued");
 
-const trialCalls = 5 * trial.length;
+const trialCalls = 20 * trial.length;
 assert.ok(trialCalls <= TRIAL_MAX_GATEWAY_REQUESTS);
 
 async function assertTrialGatewayBudget() {

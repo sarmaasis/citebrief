@@ -45,8 +45,10 @@ export function EnginePicker({
       <legend className="text-sm font-medium text-cb-text">Default engines</legend>
       <p className="text-xs text-cb-muted">
         {paid
-          ? "Friday reports use ChatGPT, Gemini, Grok, and AI Overviews. Agency reports ship if three of four sources return."
-          : "Trial reports use ChatGPT and Gemini only. Grok and AI Overviews unlock on Agency or Studio."}
+          ? studioAllowed
+            ? "Friday reports use ChatGPT, Gemini, Grok, AI Overviews, and Perplexity. Reports ship if most sources return."
+            : "Friday reports use ChatGPT, Gemini, Grok, and AI Overviews. Add the premium engine pack for Perplexity."
+          : "Trial reports use ChatGPT, Gemini, Grok, and AI Overviews. One full run. Perplexity is on Agency or the premium pack."}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         {CATALOG_ENGINES.map((engine) => {
@@ -66,7 +68,9 @@ export function EnginePicker({
               <span>
                 {engine.label}
                 {locked ? (
-                  <span className="ml-1 text-xs text-cb-muted">(Agency+)</span>
+                  <span className="ml-1 text-xs text-cb-muted">
+                    {engine.id === "perplexity" ? "(Agency / pack)" : "(paid)"}
+                  </span>
                 ) : null}
               </span>
             </label>

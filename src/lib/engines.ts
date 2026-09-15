@@ -4,6 +4,7 @@ export const CORE_ENGINES = [
   { id: "claude", label: "Claude" },
   { id: "grok", label: "Grok" },
   { id: "aio", label: "AI Overviews" },
+  { id: "perplexity", label: "Perplexity" },
 ] as const;
 
 /** Reserved for future premium-only engines. Claude adapter exists but is not plan-selectable for now. */
@@ -26,6 +27,7 @@ export function emptyEngineStatus(includeStudio = false): EngineStatusMap {
     claude: "queued",
     grok: "queued",
     aio: "queued",
+    perplexity: "queued",
   };
   return base;
 }
@@ -54,14 +56,14 @@ export function isCoreEngine(id: string): id is CoreEngineId {
 /** Cap used when 5+ engines are scheduled; for Agency’s 4 engines, softFailMinCore(4) returns 3 (3/4). */
 export const SOFT_FAIL_MIN_CORE = 4;
 
-/** Trial / free first report: ChatGPT + Gemini only. No Claude, Grok, AIO, or Perplexity. */
-export const TRIAL_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini"];
+/** Trial first report uses the same four public engines as paid Growth. Cap reruns, not engines. */
+export const TRIAL_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio"];
 
-/** Paid Agency default: no Claude (web-search token blowups). */
+/** Paid Growth default: no Claude (web-search token blowups). */
 export const AGENCY_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio"];
 
-/** Studio / Enterprise default: Agency set + Grok (already included); Claude off for now. */
-export const STUDIO_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio"];
+/** Agency / Enterprise + premium pack: Growth set + Perplexity. Claude stays off. */
+export const STUDIO_ENGINE_IDS: EngineId[] = ["chatgpt", "gemini", "grok", "aio", "perplexity"];
 
 /** Claude adapter remains; plans do not select Claude for now. */
 export function isClaudeDisabled(id: string): boolean {
@@ -73,8 +75,8 @@ export function claudeRequiresStudio(id: string): boolean {
   return isClaudeDisabled(id);
 }
 
-/** 5 prompts × 2 engines + a little headroom. Prompt-writer is not billed on this counter. */
-export const TRIAL_MAX_GATEWAY_REQUESTS = 15;
+/** 20 prompts × 4 engines + headroom. Prompt-writer is not billed on this counter. */
+export const TRIAL_MAX_GATEWAY_REQUESTS = 90;
 
 export function isTrialEngine(id: string): boolean {
   return TRIAL_ENGINE_IDS.includes(id as EngineId);

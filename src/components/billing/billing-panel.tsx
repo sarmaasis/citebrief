@@ -39,16 +39,18 @@ const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
     "History and week-over-week movement",
     `${PLANS.agency.seats} seats`,
     "Slack webhook",
-    "Coming soon: cited pages, alerts, multi-country tracking",
+    "Cited pages on every report",
+    "Prospect pitch audits (48h)",
   ],
   studio: [
     `${PLANS.studio.brands} client brands`,
     `${PLANS.studio.brands * PLANS.studio.prompts} tracked question capacity`,
     "Custom sender name and domain",
     "Bulk send and portfolio CSV export",
-    "ChatGPT, Gemini, Grok, and AI Overviews",
+    "ChatGPT, Gemini, Grok, AI Overviews, and Perplexity",
     `${PLANS.studio.seats} seats`,
-    "Coming soon: prospect audits, portal archive, API/Looker exports",
+    "Cited pages and prospect pitch audits",
+    "Coming soon: portal archive, API/Looker exports",
   ],
 };
 
@@ -346,8 +348,8 @@ export function BillingPanel({
         <div className="mt-5 rounded-cb-card border border-cb-line bg-cb-bg px-4 py-3">
           <p className="text-xs font-medium text-cb-text">Coming soon after launch feedback</p>
           <p className="mt-1 text-xs leading-5 text-cb-muted">
-            Cited-page analysis, visibility alerts, prompt research, multi-country tracking, prospect audits,
-            and export connectors are planned as expansion modules. Current billing only charges shipped plan capacity.
+            Visibility alerts, prompt research, multi-country tracking, and export connectors stay later.
+            Cited pages and prospect pitch audits ship on {PLANS.agency.name} and {PLANS.studio.name}.
           </p>
         </div>
 

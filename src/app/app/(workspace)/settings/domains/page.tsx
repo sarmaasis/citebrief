@@ -3,6 +3,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { notFound } from "next/navigation";
 import { DomainsPanel } from "@/components/settings/domains-panel";
 import { workspaces } from "@/db/schema";
+import { PLANS } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { buildSenderDomainSnapshot, checksFromWorkspace } from "@/lib/sender-domain";
 import { getAppContext } from "@/lib/session";
@@ -33,7 +34,7 @@ export default async function DomainsSettingsPage() {
     <div>
       <h1 className="text-xl font-semibold tracking-tight">Domains</h1>
       <p className="mt-3 text-sm text-cb-muted">
-        CiteBrief sends from getcitebrief.com by default. Studio can add a custom sender domain after
+        CiteBrief sends from getcitebrief.com by default. {PLANS.studio.name} can add a custom sender domain after
         Cloudflare Email DNS is verified (manual checklist — no automatic DNS poll).
       </p>
       <div className="mt-8">

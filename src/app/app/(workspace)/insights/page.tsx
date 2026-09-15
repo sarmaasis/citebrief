@@ -7,6 +7,7 @@ import { OpportunityStatusControl } from "@/components/app/opportunity-status";
 import { PortfolioFilters, type PortfolioFilterField } from "@/components/app/portfolio-filters";
 import { RiskPill } from "@/components/app/risk-pill";
 import { StudioBadge, StudioUpgradeHint } from "@/components/app/studio-badge";
+import { PLANS } from "@/lib/billing";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { pageFilters } from "@/lib/command-center";
 import { dashboardModulesForPlan } from "@/lib/dashboard-metrics";
@@ -44,8 +45,8 @@ export default async function InsightsPage({
         title="Insights"
         line={
           ent.trialing
-            ? "Trial keeps a lighter Home. Agency unlocks risk rollups and the opportunity queue."
-            : "Risks and opportunities are on Agency."
+            ? `Trial keeps a lighter Home. ${PLANS.agency.name} unlocks risk rollups and the opportunity queue.`
+            : `Risks and opportunities are on ${PLANS.agency.name}.`
         }
         upgradeTitle={UPGRADE_COPY.commandCenter.title}
         upgradeBody={UPGRADE_COPY.commandCenter.body}
@@ -233,13 +234,13 @@ export default async function InsightsPage({
           <p className="mt-1 text-sm text-cb-muted">
             {fullQueue
               ? "Action queue from stored reports. Impact, effort, and status for the next client conversation."
-              : "Basic opportunities from your latest report. Agency unlocks the full multi-client queue with status and owners."}
+              : `Basic opportunities from your latest report. ${PLANS.agency.name} unlocks the full multi-client queue with status and owners.`}
           </p>
           {fullQueue && !modules.opportunityScoring ? (
             <div className="mt-4">
               <StudioUpgradeHint
                 title="Priority opportunity scoring"
-                body="Studio doubles scoring weight so the queue sorts like a consultant triage — high-impact, lower-effort work floats first across the portfolio."
+                body={`${PLANS.studio.name} doubles scoring weight so the queue sorts like a consultant triage — high-impact, lower-effort work floats first across the portfolio.`}
               />
             </div>
           ) : null}

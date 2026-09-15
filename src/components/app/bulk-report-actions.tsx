@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PIPELINE_LABEL, type PipelineStage } from "@/lib/command-center";
+import { PLANS } from "@/lib/billing";
 import Link from "next/link";
 
 export type QueueRow = {
@@ -128,7 +129,7 @@ export function ReportsQueue({
           >
             {busy === "send" ? "Sending…" : `Send selected${sendIds.length ? ` (${sendIds.length})` : ""}`}
           </Button>
-          <p className="text-xs text-cb-muted">Studio bulk actions. Send uses the stored draft and goes to your login email.</p>
+          <p className="text-xs text-cb-muted">{PLANS.studio.name} bulk actions. Send uses the stored draft and goes to your login email.</p>
         </div>
       ) : null}
       {message ? <p className="mb-4 text-sm text-cb-muted">{message}</p> : null}

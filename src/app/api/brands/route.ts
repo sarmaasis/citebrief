@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     constraintNote: body.constraintNote?.trim() || null,
     clientOwner: body.clientOwner?.trim() || null,
     clientNotes: body.clientNotes?.trim() || null,
+    kind: "client",
     createdAt: now,
     updatedAt: now,
   });

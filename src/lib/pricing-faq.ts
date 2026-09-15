@@ -27,7 +27,7 @@ export const PRICING_FAQS = [
   },
   {
     q: "What is included in the trial?",
-    a: `${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, ${TRIAL_PROMPT_CAP} buyer questions, ${TRIAL_RUN_CAP} full report on ChatGPT + Gemini only. No weekly send, no command center, no unlimited reruns, and no extra-brand add-on until paid. No free forever plan. After the trial, Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands on a monthly cadence; weekly tracking starts on ${PLANS.agency.name} ($${PLANS.agency.amountUsd}/mo, ${PLANS.agency.brands * PLANS.agency.prompts} tracked questions) and agency white-label delivery is on ${PLANS.studio.name} ($${PLANS.studio.amountUsd}/mo).`,
+    a: `${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, ${TRIAL_PROMPT_CAP} buyer questions, ${TRIAL_RUN_CAP} full report on ChatGPT, Gemini, Grok, and AI Overviews. Cap reruns, not engines. No weekly send, no command center, and no extra-brand add-on until paid. No free forever plan. After the trial, Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands on a monthly cadence; weekly tracking starts on ${PLANS.agency.name} ($${PLANS.agency.amountUsd}/mo, ${PLANS.agency.brands * PLANS.agency.prompts} tracked questions) and agency white-label delivery is on ${PLANS.studio.name} ($${PLANS.studio.amountUsd}/mo).`,
   },
   {
     q: "What if I outgrow Starter?",

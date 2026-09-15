@@ -18,7 +18,7 @@ export type PublicArticle = {
   related?: { href: string; label: string }[];
 };
 
-const ctaNote = `${TRIAL_DAYS}-day trial is ${TRIAL_BRAND_CAP} brand, ${TRIAL_PROMPT_CAP} buyer questions, and ${TRIAL_RUN_CAP} full report on ChatGPT + Gemini only. No weekly send or command center until paid. Agency at $${PLANS.agency.amountUsd}/mo is the plan for ${PLANS.agency.brands} brands, weekly Friday sending, client CC, ${PLANS.agency.seats} seats, and the command-center dashboard.`;
+const ctaNote = `${TRIAL_DAYS}-day trial is ${TRIAL_BRAND_CAP} brand, ${TRIAL_PROMPT_CAP} buyer questions, and ${TRIAL_RUN_CAP} full report on ChatGPT, Gemini, Grok, and AI Overviews. No weekly send or command center until paid. ${PLANS.agency.name} at $${PLANS.agency.amountUsd}/mo is the plan for ${PLANS.agency.brands} brands, weekly Friday sending, client CC, ${PLANS.agency.seats} seats, and the command-center dashboard.`;
 
 export const PUBLIC_ARTICLES: PublicArticle[] = [
   {
@@ -35,7 +35,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
         heading: "The retainer needs an artifact",
         paragraphs: [
           "SEO agencies can sell AI-search monitoring inside $3k–$8k retainers. The work fails when the only output is another analytics tab or a GEO lecture. The client wants proof you checked this week, who won the shortlist, and what to do next.",
-          "CiteBrief is the report layer clients read, plus an Agency command center your team uses between Fridays. Not a keyword tracker and not a replacement for your rank tools. Twenty buying questions when paid. Four AI surfaces. A letter they can print.",
+          "CiteBrief is the report layer clients read, plus a Growth command center your team uses between Fridays. Not a keyword tracker and not a replacement for your rank tools. Twenty buying questions when paid. Four AI surfaces. A letter they can print.",
         ],
       },
       {
@@ -50,7 +50,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
       },
     ],
     related: [
-      { href: "/pricing", label: `See Agency at $${PLANS.agency.amountUsd}` },
+      { href: "/pricing", label: `See ${PLANS.agency.name} at $${PLANS.agency.amountUsd}` },
       { href: "/geo-reporting-for-agencies", label: "GEO reporting for agencies" },
     ],
   },
@@ -60,7 +60,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
     title: "Prove AI mentions for PR retainers",
     metaTitle: "AI visibility reports for PR agencies",
     description:
-      "PR agencies use CiteBrief to show whether ChatGPT, Gemini, Grok, and AI Overviews name the client or a competitor. A Friday PDF for the client; Agency adds a command center for the team.",
+      "PR agencies use CiteBrief to show whether ChatGPT, Gemini, Grok, and AI Overviews name the client or a competitor. A Friday PDF for the client; Growth adds a command center for the team.",
     kicker: "For PR agencies",
     lede: "Third-party mentions now include AI answers. CiteBrief turns those mentions into a client-ready Friday brief.",
     sections: [
@@ -74,7 +74,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
       {
         heading: "What it is not",
         paragraphs: [
-          "Not a clip farm, not a media monitoring suite, not a content generator. Clients get a Friday PDF. Agency unlocks the command center for risk, opportunities, and send pipeline.",
+          "Not a clip farm, not a media monitoring suite, not a content generator. Clients get a Friday PDF. Growth unlocks the command center for risk, opportunities, and send pipeline.",
           ctaNote,
         ],
       },
@@ -90,7 +90,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
     title: "White-label AI visibility reports",
     metaTitle: "White-label AI visibility reports for agencies",
     description:
-      "Agency-branded Friday PDFs and private client links. Logo, color, prepared-by footer, optional client CC on Agency. CiteBrief stays off the cover.",
+      "Agency-branded Friday PDFs and private client links. Logo, color, prepared-by footer, optional client CC on Growth. CiteBrief stays off the cover.",
     kicker: "White-label",
     lede: "The report should look like your agency. CiteBrief is the production line, not the byline.",
     sections: [
@@ -100,16 +100,16 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
           "Agency logo and accent on the PDF and client link",
           "Prepared-by footer you control",
           "Private /r token links with 90-day expiry and revoke from the app",
-          "Client CC on Agency and Studio; custom sender domain on Studio",
+          `Client CC on ${PLANS.agency.name} and ${PLANS.studio.name}; custom sender domain on ${PLANS.studio.name}`,
         ],
         paragraphs: [
-          "Starter is the workflow proof. Agency is the plan for weekly sending and seats. Studio adds custom sender identity.",
+          `Starter is the workflow proof. ${PLANS.agency.name} is the plan for weekly sending and seats. ${PLANS.studio.name} adds custom sender identity.`,
         ],
       },
     ],
     related: [
       { href: "/report", label: "View the sample Friday report" },
-      { href: "/pricing", label: `See Agency at $${PLANS.agency.amountUsd}` },
+      { href: "/pricing", label: `See ${PLANS.agency.name} at $${PLANS.agency.amountUsd}` },
     ],
   },
   {
@@ -146,22 +146,22 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
     title: "GEO reporting for agencies, as a Friday PDF",
     metaTitle: "GEO reporting for agencies",
     description:
-      "GEO reporting agencies can monetize: a white-label Friday PDF clients read, plus an Agency command center for risk, competitors, and next actions across ChatGPT, Gemini, Grok, and AI Overviews.",
+      "GEO reporting agencies can monetize: a white-label Friday PDF clients read, plus a Growth command center for risk, competitors, and next actions across ChatGPT, Gemini, Grok, and AI Overviews.",
     kicker: "GEO, as a report",
-    lede: "GEO is a category buyers search. CiteBrief does not compete as the deepest tracker. It ships the Friday PDF clients read, and on Agency a command center your team uses between Fridays.",
+    lede: "GEO is a category buyers search. CiteBrief does not compete as the deepest tracker. It ships the Friday PDF clients read, and on Growth a command center your team uses between Fridays.",
     sections: [
       {
         heading: "Use the word with clients carefully",
         paragraphs: [
           "Account managers should not lead with GEO, AEO, or model names. The PDF talks about buyer questions and who AI recommended. Keep the jargon in sales conversations if you must, not in the client letter.",
-          "If you already run a GEO research platform, keep it. Add CiteBrief when you need a forwardable Friday artifact plus an Agency workspace that shows who is winning, what changed, and what to do next.",
+          "If you already run a GEO research platform, keep it. Add CiteBrief when you need a forwardable Friday artifact plus a Growth workspace that shows who is winning, what changed, and what to do next.",
         ],
       },
       {
         heading: "What CiteBrief is (and is not)",
         bullets: [
           "Client deliverable: white-label Friday PDF and private link",
-          "Agency+ workspace: command center with scorecards, opportunities, risks, and send pipeline",
+          `${PLANS.agency.name}+ workspace: command center with scorecards, opportunities, risks, and send pipeline`,
           "Not a client login dashboard and not a deep GEO crawler or prompt-research suite",
         ],
         paragraphs: [ctaNote],
@@ -169,7 +169,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
     ],
     related: [
       { href: "/ai-search-reporting-for-agencies", label: "AI-search reporting for agencies" },
-      { href: "/pricing", label: `See Agency at $${PLANS.agency.amountUsd}` },
+      { href: "/pricing", label: `See ${PLANS.agency.name} at $${PLANS.agency.amountUsd}` },
     ],
   },
   {
@@ -180,12 +180,12 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
     description:
       "The Friday AI-search report agencies send to clients. Track twenty buyer questions across ChatGPT, Gemini, Grok, and Google AI Overviews.",
     kicker: "The product",
-    lede: "CiteBrief is the weekly AI-search report agencies send to clients, plus an Agency command center for the team. Not a cheap score. Not a Profound replacement.",
+    lede: "CiteBrief is the weekly AI-search report agencies send to clients, plus a Growth command center for the team. Not a cheap score. Not a Profound replacement.",
     sections: [
       {
         heading: "The job",
         paragraphs: [
-          "Prove you checked AI-search this period. Show whether the client was named or recommended. Show who won when they were not. Give three actions. Let the account manager forward the PDF. On Agency, open the command center between Fridays to see movement, risks, and opportunities.",
+          "Prove you checked AI-search this period. Show whether the client was named or recommended. Show who won when they were not. Give three actions. Let the account manager forward the PDF. On Growth, open the command center between Fridays to see movement, risks, and opportunities.",
           ctaNote,
         ],
       },
@@ -201,9 +201,9 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
     title: "Otterly alternative for agency client reports",
     metaTitle: "Otterly alternative for agencies",
     description:
-      "Looking for an Otterly alternative? CiteBrief is the Friday AI-search PDF agencies send to clients, plus an Agency command center for the team — not a prompt-tracking research workspace.",
+      "Looking for an Otterly alternative? CiteBrief is the Friday AI-search PDF agencies send to clients, plus a Growth command center for the team — not a prompt-tracking research workspace.",
     kicker: "Alternative",
-    lede: "Otterly is built around prompt tracking. CiteBrief is built around the client-ready Friday report and, on Agency, a command center for risk and next actions. If your buyer is an agency that needs a white-label PDF, start here.",
+    lede: "Otterly is built around prompt tracking. CiteBrief is built around the client-ready Friday report and, on Growth, a command center for risk and next actions. If your buyer is an agency that needs a white-label PDF, start here.",
     sections: [
       {
         heading: "When CiteBrief is the better fit",
@@ -211,10 +211,10 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
           "You sell retainers and need a weekly artifact, not another login for the client",
           "Account managers should not paste screenshots into slides",
           "You want named / recommended / who won in client-safe language",
-          "Your team needs Agency scorecards, opportunities, and a send pipeline between Fridays",
+          "Your team needs Growth scorecards, opportunities, and a send pipeline between Fridays",
         ],
         paragraphs: [
-          `If you need the deepest prompt research workspace, keep a tracker. CiteBrief does not try to win that category. Agency is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly sending, and the command center.`,
+          `If you need the deepest prompt research workspace, keep a tracker. CiteBrief does not try to win that category. ${PLANS.agency.name} is $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, weekly sending, and the command center.`,
         ],
       },
     ],
@@ -262,7 +262,7 @@ export const PUBLIC_ARTICLES: PublicArticle[] = [
           "The deliverable is a white-label PDF for the client, not a client login dashboard",
           "You already have SEO or PR retainers and need a Friday send",
           "You want 20 buying questions, four AI surfaces, and three next actions",
-          "Your team needs an Agency command center for risk, opportunities, and send pipeline",
+          "Your team needs a Growth command center for risk, opportunities, and send pipeline",
         ],
         paragraphs: [
           "Choose a GEO platform if you need optimization workflows, crawler logs, or a large analytics surface. CiteBrief will not pretend to be that product.",

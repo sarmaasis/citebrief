@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { MarketingHeader } from "@/components/marketing/header";
 import { MarketingPrimaryCta } from "@/components/marketing/primary-cta";
+import { DashboardPreview } from "@/components/marketing/dashboard-preview";
 import { PdfPreview } from "@/components/marketing/pdf-preview";
 import { SAMPLE_REPORT } from "@/components/marketing/sample-report-data";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -40,7 +41,7 @@ const steps = [
   {
     n: "01",
     title: "Add one client brand",
-    body: "Six fields. CiteBrief writes buyer questions (5 on trial, 20 when paid). No vanity prompts about whether ChatGPT mentioned the brand.",
+    body: "Six fields. CiteBrief writes twenty buyer questions. No vanity prompts about whether ChatGPT mentioned the brand.",
   },
   {
     n: "02",
@@ -103,15 +104,64 @@ export default function HomePage() {
             </div>
             <p className="mt-4 text-sm text-cb-muted">
               {TRIAL_DAYS}-day trial: {TRIAL_BRAND_CAP} brand, {TRIAL_PROMPT_CAP} buyer questions,
-              ChatGPT + Gemini, {TRIAL_RUN_CAP} full report. Paid plans use {PLANS.agency.prompts}{" "}
-              questions and four AI surfaces. No weekly send or command center until paid. Agency is $
-              {PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands.
+              ChatGPT + Gemini + Grok + AI Overviews, {TRIAL_RUN_CAP} full report. No extra reruns until
+              paid. {PLANS.agency.name} is ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands.
             </p>
           </div>
-          <PdfPreview />
+          <div className="grid gap-4">
+            <DashboardPreview />
+            <PdfPreview />
+          </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-20 lg:pb-24">
+        <section className="border-t border-cb-line">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-24">
+            <h2 className="text-2xl font-semibold tracking-tight">90 seconds: Overview, scorecard, send</h2>
+            <p className="mt-2 max-w-2xl text-sm text-cb-muted">
+              No loom yet. This is the path a buyer walks in-product: sample client already scored, preview the
+              white-label PDF, copy the client link.
+            </p>
+            <ol className="mt-10 grid gap-4 md:grid-cols-3">
+              <li className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
+                <p className="font-mono text-xs tabular-nums text-cb-accent">01</p>
+                <h3 className="mt-3 text-base font-medium tracking-tight">Overview is the send queue</h3>
+                <p className="mt-2 text-sm leading-6 text-cb-muted">
+                  Letters ready → Approve & send. Named score, who won, one next action. Not hours-saved.
+                </p>
+              </li>
+              <li className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
+                <p className="font-mono text-xs tabular-nums text-cb-accent">02</p>
+                <h3 className="mt-3 text-base font-medium tracking-tight">Brand scorecard</h3>
+                <p className="mt-2 text-sm leading-6 text-cb-muted">
+                  Eight-week named vs recommended, rival share, cited pages in the sources drawer.
+                </p>
+              </li>
+              <li className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
+                <p className="font-mono text-xs tabular-nums text-cb-accent">03</p>
+                <h3 className="mt-3 text-base font-medium tracking-tight">Preview then forward</h3>
+                <p className="mt-2 text-sm leading-6 text-cb-muted">
+                  Exact client PDF, branded /r link, revoke, copy for Slack. Same letter they print.
+                </p>
+              </li>
+            </ol>
+            <div className="mt-10 rounded-cb-panel border border-cb-line bg-cb-surface p-6">
+              <p className="text-xs font-medium uppercase tracking-wide text-cb-accent">Worked example</p>
+              <p className="mt-3 text-lg font-medium tracking-tight text-cb-text">
+                Northline kept the Northstar retainer by sending {SAMPLE_REPORT.named}/{SAMPLE_REPORT.total} named
+                instead of screenshots.
+              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-cb-muted">
+                {SAMPLE_REPORT.summary} The letter named ClickUp on the gap, assigned a comparison page, and
+                landed before Friday standup.
+              </p>
+              <Link href="/report" className="mt-4 inline-block text-sm text-cb-accent">
+                Read the sample letter →
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:pb-24">
           <div className="grid gap-4 md:grid-cols-2">
             {bento.map((cell) => (
               <div key={cell.kicker} className="rounded-cb-panel border border-cb-line bg-cb-surface p-6">
@@ -163,7 +213,7 @@ export default function HomePage() {
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">Win on the Friday letter, not a client login</h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-cb-muted">
-                Clients read the PDF. Your team uses the Agency command center between Fridays.
+                Clients read the PDF. Your team uses the {PLANS.agency.name} command center between Fridays.
               </p>
               <ul className="mt-8 space-y-0">
                 {posture.map((item) => (
@@ -180,18 +230,17 @@ export default function HomePage() {
         <section className="border-t border-cb-line">
           <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-4 py-12 sm:px-6 sm:py-16 md:flex-row md:items-center lg:py-24">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Agency is the weekly reporting system.</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">{PLANS.agency.name} is the weekly reporting system.</h2>
               <p className="mt-2 max-w-xl text-sm text-cb-muted">
                 ${PLANS.agency.amountUsd}/mo for {PLANS.agency.brands} brands, weekly Friday reports,
-                white-label, client CC, history, Slack, and {PLANS.agency.seats} seats. The command
-                center answers four questions: are we improving, who is winning, what changed, and
-                what should we do next.
+                and the command center. {PLANS.studio.name} at ${PLANS.studio.amountUsd}/mo adds white-label
+                sending, custom sender, and {PLANS.studio.brands} client brands.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <MarketingPrimaryCta signedOutLabel="Send a Friday report" />
               <Button asChild variant="outline">
-                <Link href="/pricing">See Agency at ${PLANS.agency.amountUsd}</Link>
+                <Link href="/pricing">See {PLANS.agency.name} at ${PLANS.agency.amountUsd}</Link>
               </Button>
             </div>
           </div>

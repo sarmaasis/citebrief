@@ -191,7 +191,10 @@ export const listHomeRows = cache(async (ctx: AppContext, brandIds?: string[]) =
     promptCountByBrand.set(row.brandId, (promptCountByBrand.get(row.brandId) ?? 0) + 1);
   }
 
-  const results = active.map((brand) => {
+  const hasClient = active.some((row) => !row.kind || row.kind === "client");
+  const visible = hasClient ? active.filter((brand) => brand.kind !== "sample") : active;
+
+  const results = visible.map((brand) => {
     const reportList = reportsByBrand.get(brand.id) ?? [];
     const latestReport = reportList[0] ?? null;
     const previousReport = reportList[1] ?? null;
@@ -293,6 +296,7 @@ export async function getBrandInsights(ctx: AppContext, brandId: string, brandNa
   const trend = [...reportList].reverse().map((report) => ({
     period: report.createdAt.toISOString().slice(0, 10),
     mentioned: report.scoreMentioned ?? 0,
+    recommended: report.scoreRecommended ?? undefined,
   }));
 
   if (latest) {

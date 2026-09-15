@@ -87,9 +87,9 @@ export default async function BrandHistoryPage({
       {!allowsHistory ? (
         <div className="mb-8">
           <UpgradePrompt
-            title="History and score trend are on Agency"
+            title={UPGRADE_COPY.weeklyStarter.title}
             body={UPGRADE_COPY.weeklyStarter.body}
-            cta="Upgrade to Agency"
+            cta={UPGRADE_COPY.weeklyStarter.cta}
           />
         </div>
       ) : null}

@@ -57,7 +57,10 @@ export type PlanId = keyof typeof PLANS;
 export const PUBLIC_PLAN_IDS = ["starter", "agency", "studio"] as const;
 export type PublicPlanId = (typeof PUBLIC_PLAN_IDS)[number];
 
-/** Extra brand addon list prices (PRODUCT §10–11: $29 Agency / $29 Studio). */
+/** Extra brand addon list prices (PRODUCT §10–11: $29 Growth / $29 Agency). */
+/** User-facing names for Growth+ / Agency+ gates. Plan IDs stay agency / studio. */
+export const GROWTH_PLUS_LABEL = `${PLANS.agency.name}, ${PLANS.studio.name}, or ${PLANS.enterprise.name}`;
+export const AGENCY_PLUS_LABEL = `${PLANS.studio.name} or ${PLANS.enterprise.name}`;
 export const EXTRA_BRAND_USD: Record<PlanId, number> = {
   starter: 29,
   agency: 29,
@@ -89,8 +92,8 @@ export const MONTHLY_RECHECK_CREDITS: Record<PlanId, number> = {
 export const TRIAL_DAYS = 14;
 export const TRIAL_BRAND_CAP = 1;
 export const TRIAL_RUN_CAP = 1;
-/** Unpaid / trial 1-report pack. 20 is too expensive for the free run. */
-export const TRIAL_PROMPT_CAP = 5;
+/** Trial pack matches paid letter size. Cap reruns, not questions or engines. */
+export const TRIAL_PROMPT_CAP = 20;
 
 export function parsePlanId(value: string | null | undefined): PlanId | null {
   if (!value) return null;
@@ -146,7 +149,7 @@ export function billingPageIntro(args: { trialing: boolean; paid: boolean; plan:
     return `${name} plan, included usage, and expansion. Invoices and cards live in the billing portal.`;
   }
   if (args.trialing) {
-    return `You are on a ${TRIAL_DAYS}-day trial — 1 brand, ${TRIAL_PROMPT_CAP} questions, 1 seat, 1 report. After trial you continue as ${name} if you subscribe.`;
+    return `You are on a ${TRIAL_DAYS}-day trial — 1 brand, ${TRIAL_PROMPT_CAP} questions, ChatGPT + Gemini + Grok + AI Overviews, 1 seat, 1 report. After trial you continue as ${name} if you subscribe.`;
   }
   return `${name} is selected. Subscribe to unlock it. Invoices and cards live in the billing portal.`;
 }

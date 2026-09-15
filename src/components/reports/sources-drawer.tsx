@@ -12,6 +12,7 @@ export type AuditEngineRow = {
   mentioned: boolean | null;
   createdAt: string | null;
   citedUrls: string[];
+  citedBrandUrl?: boolean | null;
   rawAnswer: string | null;
   confidence: string | null;
   gatewayRequestId: string | null;
@@ -118,6 +119,9 @@ export function SourcesDrawer({
                         ) : (
                           <p className="mt-2 text-xs text-cb-muted">No source URLs captured.</p>
                         )}
+                        <p className="mt-2 text-xs text-cb-muted">
+                          Brand page: {row.citedBrandUrl ? "hit" : "miss"}
+                        </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <Button
                             type="button"

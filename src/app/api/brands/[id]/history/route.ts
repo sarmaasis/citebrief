@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { reports, runs } from "@/db/schema";
+import { GROWTH_PLUS_LABEL } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -26,7 +27,7 @@ export async function GET(request: Request, context: RouteContext) {
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   if (!ent.allowsHistory) {
-    return jsonError("History export requires Agency, Studio, or Enterprise.", 402);
+    return jsonError(`History export requires ${GROWTH_PLUS_LABEL}.`, 402);
   }
 
   const rows = await ctx.db

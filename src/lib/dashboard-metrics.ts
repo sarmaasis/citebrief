@@ -850,7 +850,7 @@ export function dashboardModulesForPlan(ent: WorkspaceEntitlements) {
     basicCompetitorMentions: ent.paid || ent.trialing,
     basicOpportunities: ent.paid || ent.trialing,
     competitorLeaderboard: ent.allowsCommandCenter,
-    advancedCompetitorIntel: ent.allowsPortfolioExport || ent.plan === "studio" || ent.plan === "enterprise",
+    advancedCompetitorIntel: ent.allowsCommandCenter,
     opportunityQueue: ent.allowsOpportunityRollups,
     opportunityScoring: ent.allowsPortfolioExport || ent.plan === "studio" || ent.plan === "enterprise",
     riskAlerts: ent.allowsPortfolioRollups,

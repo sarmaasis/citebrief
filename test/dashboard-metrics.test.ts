@@ -207,8 +207,12 @@ const trialEnt = {
 const modules = dashboardModulesForPlan(trialEnt);
 assert.equal(modules.executiveOverview, true);
 assert.equal(modules.competitorLeaderboard, false);
+assert.equal(modules.advancedCompetitorIntel, false);
 assert.equal(modules.basicOpportunities, true);
 assert.equal(modules.basicCompetitorMentions, true);
+
+const growthEnt = { ...trialEnt, paid: true, trialing: false, allowsCommandCenter: true } as WorkspaceEntitlements;
+assert.equal(dashboardModulesForPlan(growthEnt).advancedCompetitorIntel, true);
 
 const endedEnt = { ...trialEnt, trialing: false } as WorkspaceEntitlements;
 const endedModules = dashboardModulesForPlan(endedEnt);

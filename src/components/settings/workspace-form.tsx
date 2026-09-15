@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormNoticeText, type FormNotice } from "@/components/ui/form-notice";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PLANS } from "@/lib/billing";
 
 const TIMEZONES = [
   "America/New_York",
@@ -111,8 +112,8 @@ export function WorkspaceForm({
           </a>
           .{" "}
           {customSenderAllowed
-            ? "Studio can verify a custom reports@ domain there."
-            : "Trial and Agency use CiteBrief on getcitebrief.com; Studio unlocks a custom sender."}
+            ? `${PLANS.studio.name} can verify a custom reports@ domain there.`
+            : `Trial and ${PLANS.agency.name} use CiteBrief on getcitebrief.com; ${PLANS.studio.name} unlocks a custom sender.`}
         </div>
         <EnginePicker
           value={defaultEngines}
@@ -137,7 +138,7 @@ export function WorkspaceForm({
           </div>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="slackWebhookUrl">Slack incoming webhook (Agency+)</Label>
+          <Label htmlFor="slackWebhookUrl">Slack incoming webhook ({PLANS.agency.name}+)</Label>
           <Input
             id="slackWebhookUrl"
             value={slackWebhookUrl}
@@ -146,7 +147,7 @@ export function WorkspaceForm({
             disabled={!slackAllowed}
           />
           {!slackAllowed ? (
-            <p className="text-xs text-cb-muted">Upgrade to Agency or Studio to post report-ready notices to Slack.</p>
+            <p className="text-xs text-cb-muted">Upgrade to {PLANS.agency.name} or {PLANS.studio.name} to post report-ready notices to Slack.</p>
           ) : (
             <p className="text-xs text-cb-muted">Posts a short message when a report is ready or Friday send runs.</p>
           )}
@@ -169,7 +170,7 @@ export function WorkspaceForm({
                         ? ` Last sent ${new Date(initial.highRiskLastNotifiedAt).toLocaleDateString()}.`
                         : " Not sent yet."
                     }`
-                  : "Agency+ with email send unlocks high-risk Friday digests."}
+                  : `${PLANS.agency.name}+ with email send unlocks high-risk Friday digests.`}
               </span>
             </span>
           </label>

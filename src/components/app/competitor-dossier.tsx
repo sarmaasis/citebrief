@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { CompetitorLeaderboardEntry } from "@/lib/dashboard-metrics";
-import { StudioBadge } from "@/components/app/studio-badge";
+import { PLANS } from "@/lib/billing";
 
 export function CompetitorDossier({
   entry,
@@ -93,10 +93,7 @@ export function CompetitorDossier({
       </section>
 
       <section className="mt-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-cb-muted">Cited pages</h3>
-          {showCitedPages ? <StudioBadge /> : null}
-        </div>
+        <h3 className="text-xs font-medium uppercase tracking-wide text-cb-muted">Cited pages</h3>
         {showCitedPages && entry.citedUrls.length ? (
           <ul className="mt-2 space-y-1 text-sm">
             {entry.citedUrls.slice(0, 8).map((url) => (
@@ -111,10 +108,10 @@ export function CompetitorDossier({
           <p className="mt-2 text-sm text-cb-muted">No competitor URLs were cited in the latest answers.</p>
         ) : (
           <p className="mt-2 text-sm text-cb-muted">
-            Studio unlocks the competitor URLs AI is citing so you can counter specific pages — not just names on a
-            leaderboard.{" "}
+            {PLANS.agency.name} surfaces the competitor URLs AI is citing so you can counter specific pages — not just
+            names on a leaderboard.{" "}
             <Link href="/app/settings/billing" className="text-cb-accent">
-              Upgrade to Studio
+              Upgrade to {PLANS.agency.name}
             </Link>
           </p>
         )}

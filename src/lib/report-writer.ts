@@ -16,6 +16,7 @@ export type PromptAgg = {
         sentence: string | null;
         nextAction: string | null;
         citedUrls: string[];
+        citedBrandUrl?: boolean;
         status: string;
       }
     >
@@ -80,6 +81,12 @@ function primaryWhoWon(agg: PromptAgg): string {
   return "";
 }
 
+function primaryCited(agg: PromptAgg): { brandHit: boolean; urls: string[] } {
+  const urls = enginesForAgg(agg).flatMap((engine) => agg.byEngine[engine.id]?.citedUrls ?? []);
+  const brandHit = enginesForAgg(agg).some((engine) => agg.byEngine[engine.id]?.citedBrandUrl);
+  return { brandHit, urls: [...new Set(urls)].slice(0, 3) };
+}
+
 function primaryAction(agg: PromptAgg, brand: string): string {
   for (const engine of enginesForAgg(agg)) {
     const row = agg.byEngine[engine.id];
@@ -104,6 +111,7 @@ export function writeReport(args: {
   failedEngines: string[];
   accentColor?: string;
   logoUrl?: string;
+  trend?: Array<{ period: string; mentioned: number; recommended?: number; competitor?: string }>;
 }): WrittenReport {
   const sorted = [...args.prompts].sort((a, b) => a.sortOrder - b.sortOrder);
   const scoreMentioned = sorted.filter(promptNamed).length;
@@ -129,6 +137,24 @@ export function writeReport(args: {
     owner: OWNER_LABELS[index] ?? OWNER_LABELS[0]!,
   }));
 
+  const trend = args.trend ?? [];
+  const trendHtml =
+    trend.length > 1
+      ? `<section class="prompt">
+  <h3>Eight-week named vs recommended</h3>
+  <table>
+    <thead><tr><th>Week</th><th>Named</th><th>Recommended</th></tr></thead>
+    <tbody>
+      ${trend
+        .map(
+          (row) =>
+            `<tr><td>${escapeHtml(row.period)}</td><td>${row.mentioned}</td><td>${row.recommended ?? "—"}</td></tr>`,
+        )
+        .join("")}
+    </tbody>
+  </table>
+</section>`
+      : "";
   const dateLabel = formatShortDate(new Date());
   const accent = args.accentColor && /^#[0-9A-Fa-f]{6}$/.test(args.accentColor) ? args.accentColor : "#0B3D2E";
   const logoHtml = args.logoUrl
@@ -148,14 +174,15 @@ export function writeReport(args: {
         }
         return `<span>${engine.label}: <span class="${cell.mentioned ? "named" : "missing"}">${cell.mentioned ? "Named" : "Missing"}</span></span>`;
       }).join(" · ");
-      const urls = enginesForAgg(row).flatMap((engine) => row.byEngine[engine.id]?.citedUrls ?? []).slice(0, 2);
+      const urls = primaryCited(row);
+      const rival = urls.urls.find((url) => !url.toLowerCase().includes(args.brand.toLowerCase().replace(/\s+/g, "-"))) ?? urls.urls[0];
       return `<section class="prompt">
   <h3>${escapeHtml(row.promptText)}</h3>
   <p class="meta">${engines}</p>
   ${primaryWhoWon(row) ? `<p class="meta"><strong>Currently winning:</strong> ${escapeHtml(primaryWhoWon(row))}</p>` : ""}
   ${Object.values(row.byEngine).find((v) => v?.sentence)?.sentence ? `<p>${escapeHtml(Object.values(row.byEngine).find((v) => v?.sentence)?.sentence ?? "")}</p>` : ""}
   <p><strong>Next action:</strong> ${escapeHtml(primaryAction(row, args.brand))}</p>
-  ${urls.length ? `<p class="meta">Cited: ${urls.map(escapeHtml).join(" · ")}</p>` : ""}
+  <p class="meta">Cited pages: brand ${urls.brandHit ? "hit" : "miss"}${rival ? ` · ${escapeHtml(rival)}` : urls.urls.length ? ` · ${urls.urls.map(escapeHtml).join(" · ")}` : ""}</p>
 </section>`;
     })
     .join("\n");
@@ -191,6 +218,8 @@ export function writeReport(args: {
     .banner { background: #f6ead4; color: #B45309; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
     ol { padding-left: 18px; }
     li { margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid #E8E6E1; }
     @media print {
       body { background: #fff; }
       .page { padding: 0.5in; max-width: 100%; }
@@ -214,6 +243,7 @@ export function writeReport(args: {
       <h3>Three priorities for the next 10 days</h3>
       <ol>${priorityHtml}</ol>
     </section>
+    ${trendHtml}
     <p class="muted">Prepared by ${escapeHtml(args.agency)} · ${escapeHtml(dateLabel)}</p>
   </article>
 </body>
@@ -226,7 +256,12 @@ export function writeReport(args: {
     scoreLine: `Named in ${scoreMentioned} of ${scoreTotal} buyer questions this week.`,
     recommendedLine: `Recommended in ${scoreRecommended} of ${scoreTotal}.`,
     summary,
-    priorities: priorities.map((p) => `${p.action} (${p.owner})`),
+    priorities: [
+      ...priorities.map((p) => `${p.action} (${p.owner})`),
+      ...(trend.length > 1
+        ? ["", "Eight-week named vs recommended:", ...trend.map((row) => `${row.period}: named ${row.mentioned}${row.recommended != null ? `, rec ${row.recommended}` : ""}`)]
+        : []),
+    ],
     dateLabel,
   });
 

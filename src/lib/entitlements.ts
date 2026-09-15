@@ -1,5 +1,6 @@
 import {
   EXTRA_BRAND_USD,
+  GROWTH_PLUS_LABEL,
   isAgencyPlus,
   parsePlanId,
   planAllowsApproval,
@@ -106,13 +107,13 @@ export function reportSendBlockedReason(args: {
   }
 
   if (!args.allowsEmailSend) {
-    return "Email sending requires Agency, Studio, or Enterprise.";
+    return "Email sending requires Growth, Agency, or Enterprise.";
   }
   if (args.requiresApproval && !args.approved) {
     return "Approve this report before sending.";
   }
   if (hasCc && !args.allowsClientCc && !trialCc) {
-    return "Client CC requires Agency, Studio, or Enterprise.";
+    return "Client CC requires Growth, Agency, or Enterprise.";
   }
   return null;
 }
@@ -277,33 +278,33 @@ export function workspaceEntitlements(sub: SubscriptionLike, now = Date.now()): 
 
 export function upgradeHintForBrandCap(ent: WorkspaceEntitlements): string {
   if (!ent.paid) {
-    return `Trial allows ${ent.trialBrandCap} brand (${TRIAL_PROMPT_CAP} buyer questions, ChatGPT + Gemini). Extra brands are Agency+ only after you subscribe.`;
+    return `Trial allows ${ent.trialBrandCap} brand (${TRIAL_PROMPT_CAP} buyer questions, ChatGPT + Gemini + Grok + AI Overviews). Extra brands are ${PLANS.agency.name}+ only after you subscribe.`;
   }
   if (ent.plan === "starter") {
-    return `Starter includes ${PLANS.starter.brands} brands. Extra brands are not available on Starter. Upgrade to Agency for ${PLANS.agency.brands} brands, weekly Friday reports, and the command center.`;
+    return `Starter includes ${PLANS.starter.brands} brands. Extra brands are not available on Starter. Upgrade to ${PLANS.agency.name} for ${PLANS.agency.brands} brands, weekly Friday reports, and the command center.`;
   }
   if (ent.plan === "agency") {
-    return `Agency includes ${PLANS.agency.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.agency}/mo) or upgrade to Studio.`;
+    return `${PLANS.agency.name} includes ${PLANS.agency.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.agency}/mo) or upgrade to ${PLANS.studio.name}.`;
   }
   if (ent.plan === "studio") {
-    return `Studio includes ${PLANS.studio.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.studio}/mo) or talk to us about Enterprise.`;
+    return `${PLANS.studio.name} includes ${PLANS.studio.brands} brands. Buy an extra brand ($${EXTRA_BRAND_USD.studio}/mo) or talk to us about Enterprise.`;
   }
   return `Enterprise brand limits are contractual. Buy an extra brand ($${EXTRA_BRAND_USD.enterprise}/mo) or ask support to raise the floor.`;
 }
 
 export function commandCenterDenial(ent: WorkspaceEntitlements): { status: 403; error: string } | null {
   if (!ent.allowsCommandCenter) {
-    return { status: 403, error: "Command Center requires Agency, Studio, or Enterprise." };
+    return { status: 403, error: `Command Center requires ${GROWTH_PLUS_LABEL}.` };
   }
   return null;
 }
 
 export function upgradeHintForSeatCap(ent: WorkspaceEntitlements): string {
   if (!ent.paid || !ent.allowsMembers) {
-    return "Member invites require Agency, Studio, or Enterprise.";
+    return `Member invites require ${GROWTH_PLUS_LABEL}.`;
   }
   if (ent.plan === "agency") {
-    return `Seat cap reached (${ent.seatCap}). Add a seat ($15/mo) or upgrade to Studio (${PLANS.studio.seats} seats).`;
+    return `Seat cap reached (${ent.seatCap}). Add a seat ($15/mo) or upgrade to ${PLANS.studio.name} (${PLANS.studio.seats} seats).`;
   }
   return `Seat cap reached (${ent.seatCap}). Add a seat ($15/mo).`;
 }

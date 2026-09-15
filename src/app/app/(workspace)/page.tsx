@@ -18,6 +18,9 @@ import { cn } from "@/lib/utils";
 import { buildCommandCenterSnapshot } from "@/server/command-center-data";
 import { buildDashboardSnapshot } from "@/server/dashboard-data";
 import { listHomeRows, withSendOverdue } from "@/server/workspace-data";
+import { ensureSampleBrand } from "@/lib/sample-workspace";
+import { PitchDomainForm } from "@/components/brands/pitch-domain-form";
+import { isSampleBrand } from "@/lib/brand-kind";
 
 export default async function AppHomePage({
   searchParams,
@@ -33,6 +36,8 @@ export default async function AppHomePage({
       </div>
     );
   }
+
+  await ensureSampleBrand(ctx.db, ctx.workspace.id);
 
   const params = (await searchParams) ?? {};
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
@@ -56,6 +61,7 @@ export default async function AppHomePage({
         rows={rows}
         overview={dash.overview}
         allowsEmailSend={ent.allowsEmailSend}
+        allowsApproval={ent.allowsApproval}
         plan={ent.plan}
         brandLimit={ent.brandLimit}
         promptCap={ent.promptCap}
@@ -81,7 +87,7 @@ export default async function AppHomePage({
           steps={[
             "Add your brand and category context",
             `Generate ${ent.promptCap} buyer questions`,
-            "Run the first report on ChatGPT + Gemini",
+            "Run the first report on four AI surfaces",
           ]}
         />
       </div>
@@ -112,18 +118,24 @@ export default async function AppHomePage({
     <div className="min-w-0">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
+          <h1 className="text-xl font-semibold tracking-tight">This week’s letters</h1>
           <p className="mt-1 text-sm text-cb-muted">
-            {portfolioMovement !== "unknown" ? `Portfolio is ${portfolioMovement}. ` : ""}
-            {snapshot.kpis.clientsAtRisk > 0
-              ? `${snapshot.kpis.clientsAtRisk} client${snapshot.kpis.clientsAtRisk === 1 ? "" : "s"} need attention.`
-              : "All clients stable."}
+            {snapshot.kpis.reportsReady > 0
+              ? `${snapshot.kpis.reportsReady} report${snapshot.kpis.reportsReady === 1 ? "" : "s"} ready to approve and send.`
+              : portfolioMovement !== "unknown"
+                ? `Portfolio is ${portfolioMovement}.`
+                : "All clients stable."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {snapshot.kpis.reportsReady > 0 ? (
+            <Button asChild>
+              <Link href="/app/reports">Approve & send</Link>
+            </Button>
+          ) : null}
           {ent.allowsPortfolioExport ? <PortfolioExport /> : null}
           {canAddBrand ? (
-            <Button asChild>
+            <Button asChild variant={snapshot.kpis.reportsReady > 0 ? "outline" : "default"}>
               <Link href="/app/onboarding?new=1">Add a brand</Link>
             </Button>
           ) : (
@@ -134,8 +146,15 @@ export default async function AppHomePage({
         </div>
       </div>
 
-      {/* KPI cards — all data from snapshot.kpis, no extra queries */}
+      {/* KPI cards — send job first, not hours-saved */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard
+          label="Ready to send"
+          value={String(snapshot.kpis.reportsReady)}
+          sub={snapshot.kpis.reportsReady > 0 ? "Approve & send" : "Nothing waiting"}
+          subTone={snapshot.kpis.reportsReady > 0 ? "accent" : "muted"}
+          href="/app/reports"
+        />
         <KpiCard
           label="AI visibility"
           value={namedAvg == null ? "—" : `${namedAvg}/${namedTotal}`}
@@ -151,18 +170,15 @@ export default async function AppHomePage({
           href="/app/risks"
         />
         <KpiCard
-          label="Opportunities"
-          value={String(snapshot.kpis.opportunitiesFound)}
-          sub={snapshot.kpis.opportunitiesFound > 0 ? "Found this week" : "None detected"}
-          subTone={snapshot.kpis.opportunitiesFound > 0 ? "accent" : "muted"}
-          href="/app/opportunities"
-        />
-        <KpiCard
-          label="Hours saved"
-          value={`${snapshot.kpis.hoursSaved}h`}
-          sub="This month, est."
-          subTone="muted"
-          href="/app/settings/billing"
+          label="Who is winning"
+          value={topCompetitor ? topCompetitor[0] : "—"}
+          sub={
+            topCompetitor
+              ? `${topCompetitor[1]} client${topCompetitor[1] === 1 ? "" : "s"}`
+              : "No rival lead yet"
+          }
+          subTone={topCompetitor ? "missing" : "muted"}
+          href="/app/competitors"
         />
       </div>
 
@@ -316,6 +332,7 @@ function LightHome({
   rows,
   overview,
   allowsEmailSend,
+  allowsApproval,
   plan,
   brandLimit,
   promptCap,
@@ -326,6 +343,7 @@ function LightHome({
   rows: Awaited<ReturnType<typeof listHomeRows>>;
   overview: Awaited<ReturnType<typeof buildDashboardSnapshot>>["overview"];
   allowsEmailSend: boolean;
+  allowsApproval: boolean;
   plan: keyof typeof PLANS;
   brandLimit: number;
   promptCap: number;
@@ -333,57 +351,104 @@ function LightHome({
   weekly: boolean;
   canAddBrand: boolean;
 }) {
+  void monthlyRecheckCredits;
+  void weekly;
+  void brandLimit;
+  const sampleRow = rows.find((row) => isSampleBrand(row.brand.kind));
+  const clientRows = rows.filter((row) => !isSampleBrand(row.brand.kind));
+  const readyCount = clientRows.filter((row) => row.latestReport && !row.latestReport.sentAt).length;
+
   if (rows.length === 0) {
     return (
       <div>
-        <h1 className="mb-8 text-xl font-semibold tracking-tight">Overview</h1>
+        <h1 className="mb-8 text-xl font-semibold tracking-tight">This week’s letters</h1>
         <EmptyState
           title="No brands yet"
-          line="Trial and Starter start here: add one brand, generate prompts, and run the first report."
+          line="Add a client brand, generate buyer questions, and run the first report."
           cta="Add a brand"
           href="/app/onboarding"
           secondaryCta="See plans"
           secondaryHref="/app/settings/billing"
-          steps={["Add a brand", "Generate prompts", "Run ChatGPT + Gemini"]}
+          steps={["Add a brand", "Generate prompts", "Run all four engines"]}
         />
+        <div className="mt-8 max-w-md rounded-cb-card border border-cb-line bg-cb-surface p-5">
+          <PitchDomainForm />
+        </div>
       </div>
     );
   }
 
-  const onlyBrand = rows.length === 1 ? rows[0] : null;
-  const firstBrandNeedsSetup = Boolean(onlyBrand && !onlyBrand.latestReport);
+  const onlyBrand = clientRows.length === 1 ? clientRows[0] : rows.length === 1 ? rows[0] : null;
+  const firstBrandNeedsSetup = Boolean(onlyBrand && !onlyBrand.latestReport && !isSampleBrand(onlyBrand.brand.kind));
   const nextAction = overview.suggestedNextAction;
   const namedAvg = averageNamedScore(rows);
   const namedTotal =
     rows.find((row) => row.latestReport?.scoreTotal)?.latestReport?.scoreTotal ?? promptCap;
-  const brandId = rows[0]?.brand.id;
-  // delta for single-brand light home
+  const brandId = (clientRows[0] ?? rows[0])?.brand.id;
   const delta = rows.length === 1 ? (rows[0]?.mentionedDelta ?? null) : null;
   const topCompetitor = rows[0]?.competitorLeader ?? null;
+  const sendHref = onlyBrand?.latestReport
+    ? `/app/brands/${onlyBrand.brand.id}/reports/${onlyBrand.latestReport.id}`
+    : "/app/brands";
 
   return (
     <div className="min-w-0">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
+          <h1 className="text-xl font-semibold tracking-tight">This week’s letters</h1>
           <p className="mt-1 text-sm text-cb-muted">
             {overview.movementLabel !== "unknown" ? `Brand is ${overview.movementLabel}. ` : ""}
-            <Link href="/app/settings/billing" className="text-cb-accent">Upgrade to Agency</Link>
-            {" "}for multi-client reports and white-label PDF delivery.
+            {readyCount > 0 ? `${readyCount} report${readyCount === 1 ? "" : "s"} ready to send.` : `Continue on ${PLANS[plan].name} when you subscribe.`}
           </p>
         </div>
-        {canAddBrand ? (
-          <Button asChild>
-            <Link href="/app/onboarding?new=1">Add a brand</Link>
-          </Button>
-        ) : (
-          <Button asChild variant="outline">
-            <Link href="/app/settings/billing">Upgrade to add a brand</Link>
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {onlyBrand?.latestReport ? (
+            <Button asChild>
+              <Link href={sendHref}>{allowsApproval || allowsEmailSend ? "Approve & send" : "Preview PDF"}</Link>
+            </Button>
+          ) : null}
+          {canAddBrand ? (
+            <Button asChild variant={onlyBrand?.latestReport ? "outline" : "default"}>
+              <Link href="/app/onboarding?new=1">{sampleRow ? "Run this for my client" : "Add a brand"}</Link>
+            </Button>
+          ) : (
+            <Button asChild variant="outline">
+              <Link href="/app/settings/billing">Upgrade to add a brand</Link>
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Compact stat row replaces the thin 40px number + capacity strip */}
+      {sampleRow ? (
+        <div className="mb-6 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
+          <p className="text-xs text-cb-muted">Sample client</p>
+          <p className="mt-2 text-sm font-medium">
+            {sampleRow.brand.name} already shipped last Friday
+            {sampleRow.latestReport
+              ? ` · named ${sampleRow.latestReport.scoreMentioned}/${sampleRow.latestReport.scoreTotal}`
+              : ""}
+            {sampleRow.competitorLeader ? ` · ${sampleRow.competitorLeader} won the shortlist` : ""}.
+          </p>
+          <p className="mt-1 text-sm text-cb-muted">Read-only demo. Add your client to run the same letter.</p>
+          <div className="mt-3 flex flex-wrap gap-3 text-sm">
+            {sampleRow.latestReport ? (
+              <Link href={`/app/brands/${sampleRow.brand.id}/reports/${sampleRow.latestReport.id}`} className="text-cb-accent">
+                Open sample PDF →
+              </Link>
+            ) : (
+              <Link href={`/app/brands/${sampleRow.brand.id}`} className="text-cb-accent">
+                Open sample →
+              </Link>
+            )}
+            {canAddBrand ? (
+              <Link href="/app/onboarding?new=1" className="text-cb-accent">
+                Run this for my client →
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <KpiCard
           label="AI visibility"
@@ -404,12 +469,16 @@ function LightHome({
           href={brandId ? `/app/brands/${brandId}?tab=competitors` : "/app/brands"}
         />
         <KpiCard
-          label="Plan"
-          value={PLANS[plan].name}
-          sub={`${rows.length}/${brandLimit} brands · ${weekly ? "weekly" : "monthly"}`}
-          subTone="muted"
-          href="/app/settings/billing"
+          label="Next action"
+          value={nextAction?.verb ?? (firstBrandNeedsSetup ? "Finish setup" : "—")}
+          sub={nextAction?.brandName ?? PLANS[plan].name}
+          subTone={nextAction ? "accent" : "muted"}
+          href={nextAction?.href ?? (brandId ? `/app/brands/${brandId}` : "/app/settings/billing")}
         />
+      </div>
+
+      <div className="mb-6 rounded-cb-card border border-cb-line bg-cb-surface p-5">
+        <PitchDomainForm compact />
       </div>
 
       {firstBrandNeedsSetup && onlyBrand ? (

@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   if (!ent.allowsMembers) {
-    return jsonError("Member invites require Agency, Studio, or Enterprise.", 402);
+    return jsonError(upgradeHintForSeatCap(ent), 402);
   }
 
   const seats = await countOccupiedSeats(ctx.db, ctx.workspace.id);

@@ -10,6 +10,7 @@ import {
   planMonthlyRecheckCredits,
   TRIAL_RUN_CAP,
 } from "@/lib/billing";
+import { countsTowardBrandCap, isPitchBrand, isPitchExpired, isSampleBrand } from "@/lib/brand-kind";
 import { recordDodoExtraRunUsage } from "@/lib/dodo";
 import {
   expiredPaidStatus,
@@ -226,7 +227,13 @@ export async function countActiveBrands(db: Database, workspaceId: string) {
   const [row] = await db
     .select({ count: sql<number>`count(*)` })
     .from(brands)
-    .where(and(eq(brands.workspaceId, workspaceId), isNull(brands.archivedAt)));
+    .where(
+      and(
+        eq(brands.workspaceId, workspaceId),
+        isNull(brands.archivedAt),
+        eq(brands.kind, "client"),
+      ),
+    );
   return Number(row?.count ?? 0);
 }
 
@@ -289,6 +296,36 @@ export async function assertRunCap(db: Database, workspaceId: string, brandId: s
     throw err;
   }
 
+  const [capBrand] = await db.select().from(brands).where(eq(brands.id, brandId)).limit(1);
+  if (capBrand && isSampleBrand(capBrand.kind)) {
+    const err = new Error("The sample client is read-only. Add your own brand to run a report.") as Error & {
+      code: CapDenial["code"];
+    };
+    err.code = "run_cap";
+    throw err;
+  }
+  if (capBrand && isPitchBrand(capBrand.kind)) {
+    if (isPitchExpired(capBrand.expiresAt)) {
+      const err = new Error("This pitch audit expired. Convert it to a client brand or start a new pitch.") as Error & {
+        code: CapDenial["code"];
+      };
+      err.code = "run_cap";
+      throw err;
+    }
+    const existing = await db
+      .select({ id: runs.id })
+      .from(runs)
+      .where(and(eq(runs.brandId, brandId), ne(runs.status, "failed")));
+    if (existing.length > 0) {
+      const err = new Error("Pitch audits are one-shot. Convert to a client brand to keep tracking.") as Error & {
+        code: CapDenial["code"];
+      };
+      err.code = "run_cap";
+      throw err;
+    }
+    return { allowed: true as const, warning: null, extraRun: false, consumeCredit: false };
+  }
+
   if (!ent.paid) {
     if (ent.ended) {
       const err = new Error(
@@ -297,8 +334,11 @@ export async function assertRunCap(db: Database, workspaceId: string, brandId: s
       err.code = "subscription_ended";
       throw err;
     }
-    const workspaceBrands = await db.select({ id: brands.id }).from(brands).where(eq(brands.workspaceId, workspaceId));
-    const ids = workspaceBrands.map((row) => row.id);
+    const workspaceBrands = await db
+      .select({ id: brands.id, kind: brands.kind })
+      .from(brands)
+      .where(eq(brands.workspaceId, workspaceId));
+    const ids = workspaceBrands.filter((row) => countsTowardBrandCap(row.kind)).map((row) => row.id);
     let trialRuns = 0;
     if (ids.length > 0) {
       const rows = await db

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { workspaces } from "@/db/schema";
 import { writeAuditLog } from "@/lib/audit";
+import { PLANS } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { requireSettingsAccess } from "@/lib/permissions";
 import {
@@ -83,7 +84,7 @@ export async function PUT(request: Request) {
   if (!current) return jsonError("Workspace not found.", 404);
 
   if (!ent.allowsCustomSender) {
-    return jsonError("Custom sender domain requires Studio.", 403);
+    return jsonError(`Custom sender domain requires ${PLANS.studio.name}.`, 403);
   }
 
   const senderName = body.senderName?.trim() || null;

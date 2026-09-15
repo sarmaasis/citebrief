@@ -66,7 +66,7 @@ assert.equal(isPaidActive(lapsedActive), false);
 assert.equal(expiredPaidStatus(lapsedActive), "cancelled");
 assert.equal(subscriptionEndedAt(lapsedActive)?.getTime(), lapsedActive.currentPeriodEnd.getTime());
 assert.equal(workspaceEntitlements(lapsedActive).paid, false);
-assert.equal(workspaceEntitlements(trial).promptCap, 5);
+assert.equal(workspaceEntitlements(trial).promptCap, 20);
 assert.equal(workspaceEntitlements(trial).brandLimit, 1);
 assert.equal(workspaceEntitlements(trial).trialRunCap, 1);
 assert.equal(workspaceEntitlements(trial).seatCap, 1);
@@ -153,7 +153,7 @@ const unpaid = {
   trialEndsAt: null,
   currentPeriodEnd: null,
 };
-assert.equal(workspaceEntitlements(unpaid).promptCap, 5);
+assert.equal(workspaceEntitlements(unpaid).promptCap, 20);
 assert.equal(workspaceEntitlements(unpaid).brandLimit, 1);
 assert.equal(workspaceEntitlements(unpaid).allowsEmailSend, false);
 assert.equal(workspaceEntitlements(null).allowsSlack, false);
@@ -201,7 +201,7 @@ assert.equal(
     allowsEmailSend: true,
     allowsClientCc: false,
   }),
-  "Client CC requires Agency, Studio, or Enterprise.",
+  "Client CC requires Growth, Agency, or Enterprise.",
 );
 assert.equal(
   reportSendBlockedReason({ ccClient: "client@example.com", allowsEmailSend: true, allowsClientCc: true }),
@@ -232,7 +232,7 @@ const starterSend = reportSendDenial({
   allowsClientCc: workspaceEntitlements(paidStarter).allowsClientCc,
 });
 assert.equal(starterSend?.status, 403);
-assert.equal(starterSend?.error, "Email sending requires Agency, Studio, or Enterprise.");
+assert.equal(starterSend?.error, "Email sending requires Growth, Agency, or Enterprise.");
 
 const agencySend = reportSendDenial({
   allowsEmailSend: workspaceEntitlements(paidAgency).allowsEmailSend,
@@ -492,6 +492,10 @@ assert.equal(
 );
 
 assert.equal(commandCenterDenial(workspaceEntitlements(paidStarter))?.status, 403);
+assert.match(
+  commandCenterDenial(workspaceEntitlements(paidStarter))?.error ?? "",
+  /Growth, Agency, or Enterprise/,
+);
 assert.equal(commandCenterDenial(workspaceEntitlements(paidAgency)), null);
 
 const draft = suggestedClientEmail({

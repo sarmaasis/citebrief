@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { brands, reports } from "@/db/schema";
 import { writeAuditLog } from "@/lib/audit";
+import { GROWTH_PLUS_LABEL } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -16,7 +17,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   if (!ent.allowsEmailSend) {
-    return jsonError("Suggested client email is on Agency, Studio, and Enterprise.", 403);
+    return jsonError(`Suggested client email is on ${GROWTH_PLUS_LABEL}.`, 403);
   }
 
   const body = (await request.json().catch(() => ({}))) as { subject?: string; body?: string };

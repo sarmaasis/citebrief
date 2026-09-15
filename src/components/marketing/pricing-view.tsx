@@ -63,11 +63,13 @@ const plans = [
       "Executive PDF, private share links, and team reporting",
       "Visibility dashboard: scorecards, competitors, opportunities, risks, pipeline",
       "History and week-over-week movement",
+      "Cited pages on every report (in-app drawer + PDF shortlist)",
+      "Prospect pitch audits (48h, no client slot)",
       "Recommended next actions and content fixes",
       "ChatGPT, Gemini, Grok, and AI Overviews",
       "Slack webhook",
-      "Coming soon: cited-page analysis, alerts, multi-country tracking",
       `Extra brands at $${EXTRA_BRAND_USD.agency}/mo`,
+      `Perplexity via $${PREMIUM_ENGINE_PACK_USD}/mo engine pack`,
     ],
   },
   {
@@ -88,10 +90,11 @@ const plans = [
       "Custom sender name and domain",
       "Bulk approve and send",
       "Portfolio filters and CSV export",
-      "ChatGPT, Gemini, Grok, and AI Overviews",
+      "Prospect pitch audits (48h PDF, convert on win)",
+      "Cited pages on every report",
+      "ChatGPT, Gemini, Grok, AI Overviews, and Perplexity",
       `${PLANS.studio.seats} seats`,
-      "Coming soon: prospect pitch audits and client portal archive",
-      "Coming soon: Looker Studio/API exports and priority processing",
+      "Coming soon: client portal archive, Looker Studio/API exports, priority processing",
       `Extra brands at $${EXTRA_BRAND_USD.studio}/mo`,
     ],
   },
@@ -206,12 +209,12 @@ export function PricingView({
       </div>
 
       <p className="mt-6 text-sm leading-6 text-cb-muted">
-        Add-ons: extra brand ${EXTRA_BRAND_USD.agency}/mo on Agency and Studio only (not trial or
+        Add-ons: extra brand ${EXTRA_BRAND_USD.agency}/mo on {PLANS.agency.name} and {PLANS.studio.name} only (not trial or
         Starter). Extra run ${EXTRA_RUN_USD.agency} after monthly re-check credits on paid plans.
         Extra seats ${SEAT_OVERAGE_USD}/seat/mo after the plan cap. Premium engine pack $
-        {PREMIUM_ENGINE_PACK_USD}/mo for extra Grok / engine volume. Tax handled by Dodo. Trial:{" "}
+        {PREMIUM_ENGINE_PACK_USD}/mo adds Perplexity on {PLANS.agency.name}. Tax handled by Dodo. Trial:{" "}
         {TRIAL_DAYS} days, {TRIAL_BRAND_CAP} brand, {TRIAL_PROMPT_CAP} buyer questions,{" "}
-        {TRIAL_RUN_CAP} full run on ChatGPT + Gemini only. No free forever plan.
+        {TRIAL_RUN_CAP} full run on ChatGPT, Gemini, Grok, and AI Overviews. No free forever plan.
       </p>
       <p className="mt-3 text-sm leading-6 text-cb-muted">
         Enterprise starts at ${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual

@@ -65,6 +65,11 @@ assert.equal(grok.body.reasoning_effort, "none");
 assert.equal("search_parameters" in grok.body, false);
 assert.equal("tools" in grok.body, false);
 
+const perplexity = buildEngineSearchRequest("perplexity", "agencies", "best crm for agencies");
+assert.equal(perplexity.provider, "perplexity");
+assert.equal(perplexity.path, "/chat/completions");
+assert.equal(perplexity.body.model, "sonar");
+
 const adapterSrc = readFileSync(join(process.cwd(), "src/lib/engine-adapters.ts"), "utf8");
 const writerSrc = readFileSync(join(process.cwd(), "src/lib/prompts.ts"), "utf8");
 for (const stale of ["gpt-4.1-mini", "gpt-4o-mini", "gemini-2.0-flash", "claude-sonnet-4", "grok-4.6"]) {

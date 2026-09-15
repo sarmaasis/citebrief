@@ -1,5 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createDodoAddonCheckout, type DodoAddon } from "@/lib/dodo";
+import { GROWTH_PLUS_LABEL } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
@@ -40,13 +41,16 @@ export async function POST(request: Request) {
     return jsonError("Start a paid plan before buying add-ons.", 402);
   }
   if (addon === "extra_brand" && !ent.allowsExtraBrands) {
-    return jsonError("Extra brands are available on Agency, Studio, and Enterprise. Upgrade from Starter to add more brands.", 402);
+    return jsonError(
+      `Extra brands are available on ${GROWTH_PLUS_LABEL}. Upgrade from Starter to add more brands.`,
+      402,
+    );
   }
   if (addon === "extra_seat" && !ent.allowsExtraSeats) {
-    return jsonError("Additional seats require Agency, Studio, or Enterprise.", 402);
+    return jsonError(`Additional seats require ${GROWTH_PLUS_LABEL}.`, 402);
   }
   if (addon === "premium_engine_pack" && !ent.allowsPremiumEnginePack) {
-    return jsonError("The premium engine pack is available on paid Agency, Studio, and Enterprise.", 402);
+    return jsonError(`The premium engine pack is available on paid ${GROWTH_PLUS_LABEL}.`, 402);
   }
 
   const { env } = await getCloudflareContext({ async: true });

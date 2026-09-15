@@ -12,7 +12,7 @@ assert.equal(planAllowsStudioEngines("studio"), true);
 assert.equal(planAllowsStudioEngines("agency"), false);
 assert.equal(planAllowsStudioEngines("enterprise"), true);
 assert.equal(TRIAL_BRAND_CAP, 1);
-assert.equal(TRIAL_PROMPT_CAP, 5);
+assert.equal(TRIAL_PROMPT_CAP, 20);
 assert.equal(TRIAL_RUN_CAP, 1);
 
 assert.equal(COGS_PER_PROMPT_USD.claude, 0.19);

@@ -104,7 +104,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
       {
         heading: "Plans",
         paragraphs: [
-          `Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands, Agency $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, Studio $${PLANS.studio.amountUsd}/mo for ${PLANS.studio.brands} brands. Enterprise starts at $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract. Extra brands are $${EXTRA_BRAND_USD.agency}/mo on Agency and $${EXTRA_BRAND_USD.studio}/mo on Studio. Annual billing is ${ANNUAL_MONTHS_CHARGED} months prepaid when Dodo annual products are configured. Trial is ${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, and ${TRIAL_RUN_CAP} full report. Cancel at period end. Generated PDFs remain available for 90 days after cancel.`,
+          `Starter is $${PLANS.starter.amountUsd}/mo for ${PLANS.starter.brands} brands, ${PLANS.agency.name} $${PLANS.agency.amountUsd}/mo for ${PLANS.agency.brands} brands, ${PLANS.studio.name} $${PLANS.studio.amountUsd}/mo for ${PLANS.studio.brands} brands. Enterprise starts at $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}/mo or annual contract. Extra brands are $${EXTRA_BRAND_USD.agency}/mo on ${PLANS.agency.name} and $${EXTRA_BRAND_USD.studio}/mo on ${PLANS.studio.name}. Annual billing is ${ANNUAL_MONTHS_CHARGED} months prepaid when Dodo annual products are configured. Trial is ${TRIAL_DAYS} days, ${TRIAL_BRAND_CAP} brand, and ${TRIAL_RUN_CAP} full report. Cancel at period end. Generated PDFs remain available for 90 days after cancel.`,
         ],
       },
       {

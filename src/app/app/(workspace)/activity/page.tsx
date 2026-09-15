@@ -3,6 +3,7 @@ import { DataTable, Td, Th } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
 import { LockedModule } from "@/components/app/locked-module";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
+import { PLANS } from "@/lib/billing";
 import { dashboardModulesForPlan } from "@/lib/dashboard-metrics";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { formatShortDate } from "@/lib/friday";
@@ -25,8 +26,8 @@ export default async function ActivityPage() {
         title="Activity"
         line={
           ent.trialing
-            ? "Trial keeps a lighter history. Agency unlocks the full action timeline."
-            : "Deeper action history is on Agency and above."
+            ? `Trial keeps a lighter history. ${PLANS.agency.name} unlocks the full action timeline.`
+            : `Deeper action history is on ${PLANS.agency.name} and above.`
         }
         upgradeTitle={UPGRADE_COPY.commandCenter.title}
         upgradeBody={UPGRADE_COPY.commandCenter.body}

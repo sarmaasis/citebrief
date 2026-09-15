@@ -91,7 +91,9 @@ export async function runFridayCron(db: Database, env: CloudflareEnv, options: F
     const activeBrands = await db
       .select()
       .from(brands)
-      .where(and(eq(brands.workspaceId, workspace.id), isNull(brands.archivedAt)));
+      .where(
+        and(eq(brands.workspaceId, workspace.id), isNull(brands.archivedAt), eq(brands.kind, "client")),
+      );
 
     if (activeBrands.length === 0) continue;
 

@@ -315,14 +315,17 @@ Cost controls **Shipped** in code:
 
 Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three cards** plus an Enterprise contract note. Feature Growth at $249 as the main team plan. Do not ship a $29 personal plan.
 
-### Trial (not paid Agency)
+### Trial (not paid Growth/Agency)
 
 | | Value |
 |---|---|
 | Marketing / FAQ | 14 days |
 | Caps (unpaid **or** `status: trialing`) | **1 brand / 1 seat / 1 full run** |
+| Prompts / engines | **20 buyer questions**, ChatGPT + Gemini + Grok + AI Overviews (same four public engines as paid). Cap reruns, not engines. |
+| Sample client | Read-only Northstar demo seeded on first workspace (does not eat the brand slot) |
+| Pitch audit | One-shot 48h domain pitch; does not eat a client slot; convert on win |
 | Continuation plan | Stored `subscriptions.plan` may be starter/agency/studio; **entitlements stay trial-like until `status: active`** |
-| Weekly send, members, history, Slack, Command Center, email send | Off |
+| Weekly send, members, history, Slack, Command Center, email send | Off (trial still emails the owner when the first report is ready; one CiteBrief-branded client CC) |
 | Client CC | **One CiteBrief-branded CC** on the first report (`trial_client_cc_used`); not agency white-label |
 
 **Shipped:** first verified workspace insert writes `status: "trialing"` + `trialEndsAt` (14 days). After expiry without pay, caps stay unpaid 1/1/1 until `status: active`. Invite join does not mint a new trial.
@@ -359,7 +362,7 @@ Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three card
 
 **Growth:** 5 brands/projects, 30 prompts per brand (150 tracked question capacity), 3 seats, weekly Friday reports, 10 monthly re-check credits, executive PDF, private share links, email sending, report approval before sending, suggested email, month-over-month history, source evidence / raw output audit, recommended next actions, content fixes, risk flags, Command Center, report pipeline, Slack webhook, extra brands $29.
 
-**Agency:** 20 client brands, 25 prompts per brand (500 tracked question capacity), 10 seats, everything in Growth, 100 monthly re-check credits, white-label PDF (logo, color, footer), agency-branded client links with expiry and revoke, client CC, custom sender name/domain, bulk approve and send, advanced portfolio filters + CSV export, Grok included (with ChatGPT / Gemini / AI Overviews), premium pack available. Public `/pricing` lists prospect pitch audits, client portal archive, priority processing, Looker/API exports as **Coming soon** (do not treat as Shipped). Bulk send, custom sender, and extra brands are **Shipped**.
+**Agency:** 20 client brands, 25 prompts per brand (500 tracked question capacity), 10 seats, everything in Growth, 100 monthly re-check credits, white-label PDF (logo, color, footer), agency-branded client links with expiry and revoke, client CC, custom sender name/domain, bulk approve and send, advanced portfolio filters + CSV export, Grok included (with ChatGPT / Gemini / AI Overviews), Perplexity included, premium pack available. Public `/pricing` lists client portal archive, priority processing, Looker/API exports as **Coming soon** (do not treat as Shipped). Pitch audits, cited pages, bulk send, custom sender, and extra brands are **Shipped**.
 
 **Enterprise:** starts at $1,499/mo or annual contract. Custom limits, dedicated onboarding, higher premium-engine allocation, SSO/security review **when required** (**Later** in-app SSO). No self-serve Enterprise checkout on `/pricing`.
 
@@ -907,7 +910,7 @@ Dashboard load does not trigger new model calls.
 **Shipped**
 - Plan-selectable sources: ChatGPT, Gemini, Grok (Gateway); AIO via Browser Rendering. Claude adapter kept but not plan-selectable
 - **Agency / Studio default run:** ChatGPT + Gemini + Grok + AIO. Soft-fail **3/4**.
-- Trial first report: **ChatGPT + Gemini only** (2/2 to ship), **5 prompts**
+- Trial first report: **ChatGPT + Gemini + Grok + AI Overviews**, **20 prompts**, 1 run
 - Claude paused on all plans for now. Claude `max_tokens` 800 + `max_uses` 1 remain in adapter code
 - Extra Grok / engine volume on Studio, Enterprise, or premium pack
 - 24h D1 `engine_cache` on identical prompt+engine

@@ -1,3 +1,4 @@
+import { GROWTH_PLUS_LABEL } from "@/lib/billing";
 import { commandCenterDenial, workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   const denied = commandCenterDenial(ent);
   if (denied) return jsonError(denied.error, denied.status);
   if (!ent.allowsWeeklySendQueue) {
-    return jsonError("The Friday send queue requires Agency, Studio, or Enterprise.", 403);
+    return jsonError(`The Friday send queue requires ${GROWTH_PLUS_LABEL}.`, 403);
   }
   const snapshot = await buildCommandCenterSnapshot(ctx, ent, filtersFromSearch(new URL(request.url).searchParams));
   return jsonOk({

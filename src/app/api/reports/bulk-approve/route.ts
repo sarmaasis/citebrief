@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { brands, reports } from "@/db/schema";
 import { writeAuditLog } from "@/lib/audit";
+import { AGENCY_PLUS_LABEL, GROWTH_PLUS_LABEL } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -14,10 +15,10 @@ export async function POST(request: Request) {
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   if (!ent.allowsBulkSend) {
-    return jsonError("Bulk approve requires Studio or Enterprise.", 403);
+    return jsonError(`Bulk approve requires ${AGENCY_PLUS_LABEL}.`, 403);
   }
   if (!ent.allowsApproval) {
-    return jsonError("Report approval is on Agency, Studio, and Enterprise.", 403);
+    return jsonError(`Report approval is on ${GROWTH_PLUS_LABEL}.`, 403);
   }
 
   const body = (await request.json().catch(() => ({}))) as { ids?: unknown };

@@ -1,6 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { and, eq, inArray } from "drizzle-orm";
 import { brands, reports } from "@/db/schema";
+import { AGENCY_PLUS_LABEL } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { consumeRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { deliverApprovedReport } from "@/lib/report-send";
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   if (!ent.allowsBulkSend) {
-    return jsonError("Bulk send requires Studio or Enterprise.", 403);
+    return jsonError(`Bulk send requires ${AGENCY_PLUS_LABEL}.`, 403);
   }
 
   const body = (await request.json().catch(() => ({}))) as { ids?: unknown; to?: string; ccClient?: string };

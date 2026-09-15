@@ -1,14 +1,15 @@
 import Link from "next/link";
+import { PLANS } from "@/lib/billing";
 
 const links = [
   { href: "/app/settings/workspace", title: "Workspace", body: "Name, timezone, default engines, Slack." },
   {
     href: "/app/settings/domains",
     title: "Domains",
-    body: "CiteBrief getcitebrief.com sender status and Studio custom domain DNS checklist.",
+    body: `CiteBrief getcitebrief.com sender status and ${PLANS.studio.name} custom domain DNS checklist.`,
   },
   { href: "/app/settings/brand-kit", title: "Brand kit", body: "Logo, color, footer, Prepared by — used on PDFs and client links." },
-  { href: "/app/settings/members", title: "Members", body: "Invite account managers (Agency+). Owners invite; members join." },
+  { href: "/app/settings/members", title: "Members", body: `Invite account managers (${PLANS.agency.name}+). Owners invite; members join.` },
   { href: "/app/settings/billing", title: "Billing", body: "Plan, included vs extra usage, invoices in the portal." },
   { href: "/app/activity", title: "Activity", body: "Workspace audit log." },
 ];

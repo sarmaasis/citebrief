@@ -4,7 +4,7 @@ import { DataTable, Td, Th } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
 import { EngineBreakdownEmpty, EngineBreakdownGrid } from "@/components/app/engine-breakdown";
 import { LockedModule } from "@/components/app/locked-module";
-import { StudioUpgradeHint } from "@/components/app/studio-badge";
+import { PLANS } from "@/lib/billing";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { dashboardModulesForPlan } from "@/lib/dashboard-metrics";
 import { workspaceEntitlements } from "@/lib/entitlements";
@@ -102,7 +102,7 @@ export default async function CompetitorsPage({
         </p>
         {!modules.competitorLeaderboard ? (
           <p className="mt-2 text-xs text-cb-muted">
-            Basic competitor mentions on this plan. Agency unlocks the full leaderboard.
+            Basic competitor mentions on this plan. {PLANS.agency.name} unlocks the full leaderboard.
           </p>
         ) : null}
       </div>
@@ -298,13 +298,6 @@ export default async function CompetitorsPage({
               )}
             </tbody>
           </DataTable>
-        </section>
-      ) : modules.competitorLeaderboard && !modules.advancedCompetitorIntel ? (
-        <section className="mb-10">
-          <StudioUpgradeHint
-            title="Competitor cited pages"
-            body="Studio surfaces the exact URLs AI cites for winning competitors so you can counter specific pages — not just names on a leaderboard. Studio also adds Grok coverage and priority opportunity scoring."
-          />
         </section>
       ) : null}
 

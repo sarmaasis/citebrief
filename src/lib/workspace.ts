@@ -167,4 +167,11 @@ export async function ensureWorkspaceForUser(
     createdAt: now,
     updatedAt: now,
   });
+
+  try {
+    const { ensureSampleBrand } = await import("@/lib/sample-workspace");
+    await ensureSampleBrand(db, workspaceId, now);
+  } catch (error) {
+    console.info("[workspace] sample brand seed skipped", error);
+  }
 }

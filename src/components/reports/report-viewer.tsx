@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
+import { PLANS } from "@/lib/billing";
 import { SourcesDrawer, type AuditEngineRow } from "@/components/reports/sources-drawer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogActions, DialogCloseButton } from "@/components/ui/dialog";
@@ -203,6 +204,15 @@ export function ReportViewer({
     flash("Suggested email copied");
   }
 
+  async function copySlack() {
+    const url = revoked || !liveToken ? "" : `${window.location.origin}/r/${liveToken}`;
+    const score =
+      scoreMentioned == null ? "" : `Named ${scoreMentioned}/${scoreTotal}${scoreRecommended != null ? `, rec ${scoreRecommended}/${scoreTotal}` : ""}.`;
+    const text = [`${brandName} Friday letter.`, score, summary, url].filter(Boolean).join("\n");
+    await navigator.clipboard.writeText(text);
+    flash("Slack update copied");
+  }
+
   async function copyLink() {
     if (revoked || !liveToken) {
       flash(revoked ? "This client link was revoked. Create a new one." : "Share link is not ready yet.");
@@ -337,7 +347,7 @@ export function ReportViewer({
                     ? " · Approved"
                     : " · Needs review"
                   : " · Not sent"
-              : " · Email on Agency"}
+              : ` · Email on ${PLANS.agency.name}`}
             {shareOpenCount ? ` · ${shareOpenCount} opens` : ""}
           </p>
         </div>
@@ -360,6 +370,9 @@ export function ReportViewer({
           {/* Secondary: copy client link */}
           <Button type="button" variant="outline" size="sm" onClick={() => void copyLink()}>
             Copy client link
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => void copySlack()}>
+            Copy for Slack
           </Button>
           {/* CC client */}
           {allowSend ? (
@@ -522,6 +535,24 @@ export function ReportViewer({
         ) : (
           <p className="mb-3 text-xs text-cb-muted">Client links are read-only, expire after 90 days, and can be revoked.</p>
         )}
+        {liveToken && !revoked ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-cb-card border border-cb-line bg-cb-surface px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-xs text-cb-muted">What the client sees</p>
+              <p className="truncate font-mono text-xs text-cb-text">/r/{liveToken}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline">
+                <a href={`/r/${liveToken}`} target="_blank" rel="noreferrer">
+                  Open client page
+                </a>
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => void copyLink()}>
+                Copy link
+              </Button>
+            </div>
+          </div>
+        ) : null}
         <div className="rounded-cb-card border border-cb-line bg-cb-surface">
           {html ? (
             <iframe title="Report" className="min-h-[80vh] w-full rounded-cb-card" srcDoc={html} />

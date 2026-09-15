@@ -6,6 +6,7 @@ import { PipelineStrip } from "@/components/app/pipeline-strip";
 import { PortfolioExport } from "@/components/app/portfolio-export";
 import { PortfolioFilters } from "@/components/app/portfolio-filters";
 import { StudioBadge, StudioUpgradeHint } from "@/components/app/studio-badge";
+import { PLANS } from "@/lib/billing";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { pageFilters, pipelineCounts } from "@/lib/command-center";
 import { dashboardModulesForPlan } from "@/lib/dashboard-metrics";
@@ -40,8 +41,8 @@ export default async function ReportsPipelinePage({
         title="Reports"
         line={
           ent.trialing
-            ? "Trial includes one report on the brand page. Agency unlocks the Friday send queue and pipeline."
-            : "Pipeline and Friday send queue are on Agency."
+            ? `Trial includes one report on the brand page. ${PLANS.agency.name} unlocks the Friday send queue and pipeline.`
+            : `Pipeline and Friday send queue are on ${PLANS.agency.name}.`
         }
         upgradeTitle={UPGRADE_COPY.commandCenter.title}
         upgradeBody={UPGRADE_COPY.commandCenter.body}
@@ -112,7 +113,7 @@ export default async function ReportsPipelinePage({
           <p className="mb-4 text-sm text-cb-muted">
             Monthly summary, before/after movement, notes, and completed actions for client calls.
             {ent.allowsCustomSender
-              ? " Studio custom sender applies after Domains DNS verification."
+              ? ` ${PLANS.studio.name} custom sender applies after Domains DNS verification.`
               : ""}
           </p>
           <ClientReportingCenterLoader />
@@ -120,7 +121,7 @@ export default async function ReportsPipelinePage({
             <div className="mt-4">
               <StudioUpgradeHint
                 title="Custom sender + white-label send path"
-                body="Agency already gets the reporting center. Studio adds custom sender name/domain (Settings → Domains) so client-facing emails leave from your agency identity."
+                body={`${PLANS.agency.name} already gets the reporting center. ${PLANS.studio.name} adds custom sender name/domain (Settings → Domains) so client-facing emails leave from your agency identity.`}
               />
             </div>
           ) : null}

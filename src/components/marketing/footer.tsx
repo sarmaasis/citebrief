@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
+import { PLANS } from "@/lib/billing";
 
 const product = [
   { href: "/pricing", label: "Pricing" },
@@ -40,8 +41,8 @@ export function MarketingFooter() {
           <div>
             <Logo muted />
             <p className="mt-3 max-w-xs text-sm leading-6 text-cb-muted">
-              The Friday AI-search report agencies send to clients. Agency adds the command center
-              that explains movement, competitors, and next actions.
+              The Friday AI-search report agencies send to clients. {PLANS.agency.name} adds the
+              command center that explains movement, competitors, and next actions.
             </p>
           </div>
           <FooterColumn title="Product" items={product} />

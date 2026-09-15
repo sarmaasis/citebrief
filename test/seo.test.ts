@@ -105,7 +105,7 @@ assert.doesNotMatch(softFailFaq.a, /four of five|Claude/i);
 const trialFaq = PRICING_FAQS.find((item) => item.q === "What is included in the trial?");
 assert.ok(trialFaq);
 assert.match(trialFaq.a, new RegExp(`${TRIAL_PROMPT_CAP} buyer questions`));
-assert.match(trialFaq.a, /ChatGPT \+ Gemini only/);
+assert.match(trialFaq.a, /ChatGPT, Gemini, Grok, and AI Overviews/);
 assert.doesNotMatch(trialFaq.a, /Claude/);
 
 for (const item of PRICING_FAQS) {
@@ -219,7 +219,7 @@ for (const article of PUBLIC_ARTICLES) {
 
 const sampleCta = PUBLIC_ARTICLES[0]?.sections.flatMap((section) => section.paragraphs).join(" ") ?? "";
 assert.match(sampleCta, new RegExp(`${TRIAL_PROMPT_CAP} buyer questions`));
-assert.match(sampleCta, /ChatGPT \+ Gemini only/);
+assert.match(sampleCta, /ChatGPT, Gemini, Grok, and AI Overviews/);
 
 const llms = buildLlmsTxt();
 assert.match(llms, /^# CiteBrief/m);

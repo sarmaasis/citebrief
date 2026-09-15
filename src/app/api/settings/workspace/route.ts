@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { workspaces } from "@/db/schema";
+import { GROWTH_PLUS_LABEL, PLANS } from "@/lib/billing";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { writeAuditLog } from "@/lib/audit";
 import { clampMinutesSaved } from "@/lib/command-center";
@@ -104,10 +105,10 @@ export async function PUT(request: Request) {
   if (senderTouched) {
     if (!ent.allowsCustomSender) {
       if (body.senderName?.trim() && body.senderName.trim() !== "CiteBrief") {
-        return jsonError("Custom sender requires Studio.", 403);
+        return jsonError(`Custom sender requires ${PLANS.studio.name}.`, 403);
       }
       if (body.senderDomain?.trim()) {
-        return jsonError("Custom sender domain requires Studio.", 403);
+        return jsonError(`Custom sender domain requires ${PLANS.studio.name}.`, 403);
       }
       senderName = null;
       senderDomain = null;
@@ -127,7 +128,7 @@ export async function PUT(request: Request) {
   }
 
   if (slackWebhookUrl && !ent.allowsSlack) {
-    return jsonError("Slack webhook requires Agency, Studio, or Enterprise.", 402);
+    return jsonError(`Slack webhook requires ${GROWTH_PLUS_LABEL}.`, 402);
   }
   if (slackWebhookUrl && !slackWebhookUrl.startsWith("https://hooks.slack.com/")) {
     return jsonError("Use a Slack incoming webhook URL (https://hooks.slack.com/...).");

@@ -1,3 +1,4 @@
+import { AGENCY_PLUS_LABEL } from "@/lib/billing";
 import { commandCenterDenial, workspaceEntitlements } from "@/lib/entitlements";
 import { commandCenterCsv } from "@/lib/command-center";
 import { getAppContext } from "@/lib/session";
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
 
   if (url.searchParams.get("format") === "csv") {
     if (!ent.allowsPortfolioExport) {
-      return jsonError("Portfolio export requires Studio or Enterprise.", 403);
+      return jsonError(`Portfolio export requires ${AGENCY_PLUS_LABEL}.`, 403);
     }
     const { rows } = await loadCommandRows(ctx, ent.allowsWeeklyCadence);
     return new Response(commandCenterCsv(rows), {

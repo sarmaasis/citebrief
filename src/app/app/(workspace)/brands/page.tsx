@@ -130,6 +130,9 @@ export default async function BrandsPage({
               <Link href="/app/onboarding?new=1">Add a brand</Link>
             </Button>
           )}
+          <Button asChild variant="outline">
+            <Link href="/app?pitch=1">Pitch a domain</Link>
+          </Button>
         </div>
       </div>
 
@@ -140,11 +143,17 @@ export default async function BrandsPage({
               needsAgency
                 ? UPGRADE_COPY.fourthBrand.title
                 : ent.plan === "studio"
-                  ? "You hit the Studio brand cap"
+                  ? UPGRADE_COPY.extraBrandStudio.title
                   : UPGRADE_COPY.extraBrandAgency.title
             }
             body={upgradeHintForBrandCap(ent)}
-            cta={needsAgency ? UPGRADE_COPY.fourthBrand.cta : UPGRADE_COPY.extraBrandAgency.cta}
+            cta={
+              needsAgency
+                ? UPGRADE_COPY.fourthBrand.cta
+                : ent.plan === "studio"
+                  ? UPGRADE_COPY.extraBrandStudio.cta
+                  : UPGRADE_COPY.extraBrandAgency.cta
+            }
           />
         </div>
       ) : null}
