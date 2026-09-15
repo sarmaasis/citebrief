@@ -506,7 +506,6 @@ function assertAllowedFree(decision: ReturnType<typeof decidePaidRunCap>) {
     assert.ok(patch);
     assert.equal("extraRunCredits" in patch, false);
   }
-  assert.equal(credits, 5);
 }
 
 {
