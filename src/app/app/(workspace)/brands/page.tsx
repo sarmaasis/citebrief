@@ -3,6 +3,7 @@ import { AgencySavedViews } from "@/components/app/agency-saved-views";
 import { BrandScorecard } from "@/components/app/brand-scorecard";
 import { DataTable, Td, Th } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
+import { ListPager } from "@/components/app/list-pager";
 import { RiskPill } from "@/components/app/risk-pill";
 import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
@@ -16,35 +17,48 @@ import {
 } from "@/lib/dashboard-metrics";
 import { upgradeHintForBrandCap, workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
-import { getWorkspaceSubscription } from "@/lib/usage";
+import { countActiveBrands, getWorkspaceSubscription } from "@/lib/usage";
 import { buildDashboardSnapshot } from "@/server/dashboard-data";
-import { listWorkspaceBrands } from "@/server/workspace-data";
+import {
+  listWorkspaceBrands,
+  listWorkspaceBrandsPage,
+  parseListPage,
+} from "@/server/workspace-data";
 
 export default async function BrandsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ archived?: string; view?: string; saved?: string }>;
+  searchParams: Promise<{ archived?: string; view?: string; saved?: string; page?: string }>;
 }) {
   const ctx = await getAppContext();
   if (!ctx) {
     return <EmptyState line="Sign in to add a brand." cta="Sign in" href="/login" />;
   }
 
-  const { archived, view, saved } = await searchParams;
+  const { archived, view, saved, page: pageRaw } = await searchParams;
   const includeArchived = archived === "1";
   const tableView = view === "table";
   const savedView = parseAgencySavedView(saved);
-  const rows = await listWorkspaceBrands(ctx, includeArchived);
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
-  const snapshot = await buildDashboardSnapshot(ctx, ent);
+  const showAgencyViews = Boolean(ent.allowsCommandCenter) && !includeArchived;
+  const pageInfo = parseListPage(pageRaw);
+  const sqlPage = !showAgencyViews || savedView === "all";
+  const [activeCount, paged, allRows] = await Promise.all([
+    countActiveBrands(ctx.db, ctx.workspace.id),
+    sqlPage
+      ? listWorkspaceBrandsPage(ctx, { includeArchived, page: pageInfo.page, pageSize: pageInfo.pageSize })
+      : Promise.resolve(null),
+    sqlPage ? Promise.resolve(null) : listWorkspaceBrands(ctx, includeArchived),
+  ]);
+  const snapshot = await buildDashboardSnapshot(ctx, ent, {
+    brandIds: paged?.rows.map((brand) => brand.id),
+  });
   const scoreById = new Map(snapshot.scorecards.map((card) => [card.brandId, card]));
   const commandById = new Map(snapshot.rows.map((row) => [row.brand.id, row]));
   const brandLimit = ent.brandLimit;
-  const activeCount = includeArchived ? rows.filter((brand) => !brand.archivedAt).length : rows.length;
   const atCap = activeCount >= brandLimit;
   const needsAgency = !ent.paid || ent.plan === "starter";
-  const showAgencyViews = Boolean(snapshot.modules.agencyWorkspace) && !includeArchived;
 
   function matchesView(brandId: string, agencyView: AgencySavedView) {
     const card = scoreById.get(brandId);
@@ -64,19 +78,37 @@ export default async function BrandsPage({
     );
   }
 
-  const filteredScorecards =
-    showAgencyViews && savedView !== "all"
-      ? snapshot.scorecards.filter((card) => matchesView(card.brandId, savedView))
-      : snapshot.scorecards;
-  const filteredRows =
-    showAgencyViews && savedView !== "all" ? rows.filter((brand) => matchesView(brand.id, savedView)) : rows;
+  let filteredScorecards = snapshot.scorecards;
+  let filteredRows = paged?.rows ?? allRows ?? [];
+  let listTotal = paged?.total ?? filteredRows.length;
+  const workspaceEmpty = (paged?.total ?? allRows?.length ?? 0) === 0;
 
-  function brandsHref(next: { table?: boolean; archived?: boolean; saved?: AgencySavedView }) {
+  if (!sqlPage) {
+    const source = allRows ?? [];
+    filteredRows =
+      showAgencyViews && savedView !== "all" ? source.filter((brand) => matchesView(brand.id, savedView)) : source;
+    filteredScorecards =
+      showAgencyViews && savedView !== "all"
+        ? snapshot.scorecards.filter((card) => matchesView(card.brandId, savedView))
+        : snapshot.scorecards;
+    listTotal = tableView || includeArchived ? filteredRows.length : filteredScorecards.length;
+    filteredRows = filteredRows.slice(pageInfo.offset, pageInfo.offset + pageInfo.pageSize);
+    filteredScorecards = filteredScorecards.slice(pageInfo.offset, pageInfo.offset + pageInfo.pageSize);
+  } else {
+    const order = new Map(filteredRows.map((brand, index) => [brand.id, index]));
+    filteredScorecards = snapshot.scorecards
+      .filter((card) => order.has(card.brandId))
+      .sort((a, b) => (order.get(a.brandId) ?? 0) - (order.get(b.brandId) ?? 0));
+  }
+
+  function brandsHref(next: { table?: boolean; archived?: boolean; saved?: AgencySavedView; page?: number }) {
     const params = new URLSearchParams();
     if (next.table ?? tableView) params.set("view", "table");
     if (next.archived ?? includeArchived) params.set("archived", "1");
     const nextSaved = next.saved ?? savedView;
     if (nextSaved !== "all") params.set("saved", nextSaved);
+    const nextPage = next.page ?? 1;
+    if (nextPage > 1) params.set("page", String(nextPage));
     const qs = params.toString();
     return qs ? `/app/brands?${qs}` : "/app/brands";
   }
@@ -91,12 +123,12 @@ export default async function BrandsPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {snapshot.scorecards.length > 0 ? (
+          {listTotal > 0 || snapshot.scorecards.length > 0 ? (
             <Button asChild variant="outline" size="sm">
               <Link href={brandsHref({ table: !tableView })}>{tableView ? "Scorecards" : "Table"}</Link>
             </Button>
           ) : null}
-          {atCap || rows.length === 0 ? null : (
+          {atCap || workspaceEmpty ? null : (
             <Button asChild>
               <Link href="/app/onboarding?new=1">Add a brand</Link>
             </Button>
@@ -146,13 +178,11 @@ export default async function BrandsPage({
         <span className="ml-3 text-cb-muted">
           {activeCount}/{brandLimit} active
           {!ent.paid ? " · trial" : ""}
-          {showAgencyViews && savedView !== "all"
-            ? ` · ${tableView || includeArchived ? filteredRows.length : filteredScorecards.length} in view`
-            : ""}
+          {showAgencyViews && savedView !== "all" ? ` · ${listTotal} in view` : ""}
         </span>
       </p>
 
-      {rows.length === 0 ? (
+      {workspaceEmpty ? (
         <EmptyState
           title="No brands yet"
           line="Scorecards appear after you add a brand and run a report. Start with onboarding — one brand is enough to prove the workflow."
@@ -233,6 +263,14 @@ export default async function BrandsPage({
           </tbody>
         </DataTable>
       )}
+      {!workspaceEmpty ? (
+        <ListPager
+          page={pageInfo.page}
+          pageSize={pageInfo.pageSize}
+          total={listTotal}
+          hrefForPage={(nextPage) => brandsHref({ page: nextPage })}
+        />
+      ) : null}
     </div>
   );
 }

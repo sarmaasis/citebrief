@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { brands, competitors, prompts, reports, runRows, runs } from "@/db/schema";
 import { competitorSignalsFromRows } from "@/lib/command-center";
 import { isSendOverdue } from "@/lib/friday-tz";
@@ -26,14 +26,63 @@ export function indexTopNByBrandId<T extends { brandId: string }>(rows: T[], n: 
   return map;
 }
 
+export const LIST_PAGE_SIZE = 50;
+export const HISTORY_PAGE_SIZE = 24;
+
+export function parseListPage(raw: string | undefined, pageSize = LIST_PAGE_SIZE) {
+  const parsed = Number.parseInt(raw ?? "1", 10);
+  const page = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  const size = Math.max(1, pageSize);
+  return { page, pageSize: size, offset: (page - 1) * size };
+}
+
+function brandsWhere(workspaceId: string, includeArchived: boolean) {
+  return includeArchived
+    ? eq(brands.workspaceId, workspaceId)
+    : and(eq(brands.workspaceId, workspaceId), isNull(brands.archivedAt));
+}
+
 export async function listWorkspaceBrands(ctx: AppContext, includeArchived = false) {
-  const rows = await ctx.db
+  return ctx.db
     .select()
     .from(brands)
-    .where(eq(brands.workspaceId, ctx.workspace.id))
+    .where(brandsWhere(ctx.workspace.id, includeArchived))
     .orderBy(desc(brands.createdAt));
+}
 
-  return includeArchived ? rows : rows.filter((brand) => !brand.archivedAt);
+export async function listWorkspaceBrandsPage(
+  ctx: AppContext,
+  opts: { includeArchived?: boolean; page?: number; pageSize?: number } = {},
+) {
+  const includeArchived = Boolean(opts.includeArchived);
+  const { page, pageSize, offset } = parseListPage(String(opts.page ?? 1), opts.pageSize ?? LIST_PAGE_SIZE);
+  const where = brandsWhere(ctx.workspace.id, includeArchived);
+  const [rows, countRows] = await Promise.all([
+    ctx.db.select().from(brands).where(where).orderBy(desc(brands.createdAt)).limit(pageSize).offset(offset),
+    ctx.db.select({ n: sql<number>`count(*)` }).from(brands).where(where),
+  ]);
+  return { rows, total: Number(countRows[0]?.n ?? 0), page, pageSize };
+}
+
+export async function listBrandReportsPage(ctx: AppContext, brandId: string, page = 1, pageSize = HISTORY_PAGE_SIZE) {
+  const parsed = parseListPage(String(page), pageSize);
+  const where = eq(reports.brandId, brandId);
+  const [rows, countRows] = await Promise.all([
+    ctx.db
+      .select({ report: reports, run: runs })
+      .from(reports)
+      .innerJoin(runs, eq(runs.id, reports.runId))
+      .where(where)
+      .orderBy(desc(reports.createdAt))
+      .limit(parsed.pageSize)
+      .offset(parsed.offset),
+    ctx.db
+      .select({ n: sql<number>`count(*)` })
+      .from(reports)
+      .innerJoin(runs, eq(runs.id, reports.runId))
+      .where(where),
+  ]);
+  return { rows, total: Number(countRows[0]?.n ?? 0), page: parsed.page, pageSize: parsed.pageSize };
 }
 
 export async function getWorkspaceBrand(ctx: AppContext, brandId: string) {
@@ -76,29 +125,35 @@ export async function getBrandBundle(ctx: AppContext, brandId: string) {
   };
 }
 
-export async function listHomeRows(ctx: AppContext) {
+export async function listHomeRows(ctx: AppContext, brandIds?: string[]) {
+  if (brandIds && brandIds.length === 0) return [];
+
   const active = await ctx.db
     .select()
     .from(brands)
-    .where(and(eq(brands.workspaceId, ctx.workspace.id), isNull(brands.archivedAt)))
+    .where(
+      brandIds?.length
+        ? and(eq(brands.workspaceId, ctx.workspace.id), inArray(brands.id, brandIds))
+        : and(eq(brands.workspaceId, ctx.workspace.id), isNull(brands.archivedAt)),
+    )
     .orderBy(desc(brands.createdAt));
 
   if (active.length === 0) return [];
 
-  const brandIds = active.map((brand) => brand.id);
+  const activeIds = active.map((brand) => brand.id);
 
   // Batched reads (Studio 25 brands ≈ 3 queries, not 75).
   const [allRuns, allReports, promptIdRows] = await Promise.all([
-    ctx.db.select().from(runs).where(inArray(runs.brandId, brandIds)).orderBy(desc(runs.createdAt)),
+    ctx.db.select().from(runs).where(inArray(runs.brandId, activeIds)).orderBy(desc(runs.createdAt)),
     ctx.db
       .select()
       .from(reports)
-      .where(inArray(reports.brandId, brandIds))
+      .where(inArray(reports.brandId, activeIds))
       .orderBy(desc(reports.createdAt)),
     ctx.db
       .select({ id: prompts.id, brandId: prompts.brandId })
       .from(prompts)
-      .where(and(inArray(prompts.brandId, brandIds), isNull(prompts.archivedAt))),
+      .where(and(inArray(prompts.brandId, activeIds), isNull(prompts.archivedAt))),
   ]);
 
   const latestRunByBrand = indexLatestByBrandId(allRuns);

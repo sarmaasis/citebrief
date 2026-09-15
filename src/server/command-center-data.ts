@@ -22,9 +22,9 @@ import type { WorkspaceEntitlements } from "@/lib/entitlements";
 import type { AppContext } from "@/lib/session";
 import { listHomeRows, withSendOverdue } from "@/server/workspace-data";
 
-export async function loadCommandRows(ctx: AppContext, weekly: boolean) {
+export async function loadCommandRows(ctx: AppContext, weekly: boolean, brandIds?: string[]) {
   const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
-  const rows = withSendOverdue(await listHomeRows(ctx), {
+  const rows = withSendOverdue(await listHomeRows(ctx, brandIds), {
     timezone: workspace?.timezone || "America/New_York",
     weekly,
   });

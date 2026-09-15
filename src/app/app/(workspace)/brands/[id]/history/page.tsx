@@ -10,39 +10,53 @@ import { Button } from "@/components/ui/button";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
-import { getWorkspaceBrand, recommendedCountsForRuns } from "@/server/workspace-data";
+import { ListPager } from "@/components/app/list-pager";
+import { getWorkspaceBrand, HISTORY_PAGE_SIZE, listBrandReportsPage, parseListPage, recommendedCountsForRuns } from "@/server/workspace-data";
 import { reports, runRows, runs } from "@/db/schema";
 
-export default async function BrandHistoryPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BrandHistoryPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ page?: string }>;
+}) {
   const ctx = await getAppContext();
   if (!ctx) notFound();
   const { id } = await params;
+  const { page: pageRaw } = await searchParams;
+  const pageInfo = parseListPage(pageRaw, HISTORY_PAGE_SIZE);
   const brand = await getWorkspaceBrand(ctx, id);
   if (!brand) notFound();
 
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const allowsHistory = workspaceEntitlements(sub).allowsHistory;
 
-  const reportRows = await ctx.db
-    .select({ report: reports, run: runs })
-    .from(reports)
-    .innerJoin(runs, eq(runs.id, reports.runId))
-    .where(eq(reports.brandId, id))
-    .orderBy(desc(reports.createdAt))
-    .limit(24);
+  const paged = await listBrandReportsPage(ctx, id, pageInfo.page, pageInfo.pageSize);
+  const chartRows =
+    pageInfo.page === 1
+      ? paged.rows
+      : await ctx.db
+          .select({ report: reports, run: runs })
+          .from(reports)
+          .innerJoin(runs, eq(runs.id, reports.runId))
+          .where(eq(reports.brandId, id))
+          .orderBy(desc(reports.createdAt))
+          .limit(HISTORY_PAGE_SIZE);
+  const reportRows = paged.rows;
 
   const recommended = await recommendedCountsForRuns(
     ctx,
-    reportRows.map(({ run }) => run.id),
+    [...new Set([...chartRows, ...reportRows].map(({ run }) => run.id))],
   );
 
-  const chartData = [...reportRows].reverse().map(({ report, run }) => ({
+  const chartData = [...chartRows].reverse().map(({ report, run }) => ({
     period: run.periodStart || report.createdAt.toISOString().slice(0, 10),
     mentioned: report.scoreMentioned ?? 0,
     recommended: report.scoreRecommended ?? recommended[run.id] ?? 0,
   }));
 
-  const latestRunId = reportRows[0]?.run.id;
+  const latestRunId = chartRows[0]?.run.id;
   const whoWonCounts: Record<string, number> = {};
   if (latestRunId) {
     const rows = await ctx.db.select().from(runRows).where(eq(runRows.runId, latestRunId));
@@ -61,7 +75,7 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
           <p className="mt-2 text-sm text-cb-muted">Month-over-month named and recommended scores, and who won.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {allowsHistory && reportRows.length > 0 ? (
+          {allowsHistory && paged.total > 0 ? (
             <HistoryExport brandId={id} brandName={brand.name} />
           ) : null}
           <Button asChild variant="outline">
@@ -109,7 +123,7 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
 
       <div className="rounded-cb-card border border-cb-line bg-cb-surface">
         <div className="border-b border-cb-line px-5 py-3 text-xs text-cb-muted">All PDFs</div>
-        {reportRows.length === 0 ? (
+        {paged.total === 0 ? (
           <div className="p-5">
             <EmptyState
               line="No reports for this period yet."
@@ -118,6 +132,7 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
             />
           </div>
         ) : (
+          <>
           <ul>
             {reportRows.map(({ report, run }) => (
               <li
@@ -137,6 +152,17 @@ export default async function BrandHistoryPage({ params }: { params: Promise<{ i
               </li>
             ))}
           </ul>
+          <div className="px-5 pb-4">
+            <ListPager
+              page={paged.page}
+              pageSize={paged.pageSize}
+              total={paged.total}
+              hrefForPage={(nextPage) =>
+                nextPage > 1 ? `/app/brands/${id}/history?page=${nextPage}` : `/app/brands/${id}/history`
+              }
+            />
+          </div>
+          </>
         )}
       </div>
     </div>

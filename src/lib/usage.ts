@@ -352,16 +352,14 @@ export async function assertRunCap(db: Database, workspaceId: string, brandId: s
 
 /** Attempt counter. Do not pass extraRun=true here — extras settle after a report. */
 export async function bumpRunsUsed(db: Database, workspaceId: string, extraRun = false) {
-  const sub = await getWorkspaceSubscription(db, workspaceId);
-  if (!sub) return;
   await db
     .update(subscriptions)
     .set({
-      runsUsed: (sub.runsUsed || 0) + 1,
-      extraRuns: extraRun ? (sub.extraRuns || 0) + 1 : sub.extraRuns || 0,
+      runsUsed: sql`${subscriptions.runsUsed} + 1`,
+      ...(extraRun ? { extraRuns: sql`${subscriptions.extraRuns} + 1` } : {}),
       updatedAt: new Date(),
     })
-    .where(eq(subscriptions.id, sub.id));
+    .where(eq(subscriptions.workspaceId, workspaceId));
 }
 
 /**
@@ -370,15 +368,13 @@ export async function bumpRunsUsed(db: Database, workspaceId: string, extraRun =
  * Soft-cap / recheck math already excludes failed rows via `ne(status, failed)`.
  */
 export async function refundFailedRunAttempt(db: Database, workspaceId: string) {
-  const sub = await getWorkspaceSubscription(db, workspaceId);
-  if (!sub || (sub.runsUsed || 0) <= 0) return;
   await db
     .update(subscriptions)
     .set({
-      runsUsed: Math.max(0, (sub.runsUsed || 0) - 1),
+      runsUsed: sql`max(${subscriptions.runsUsed} - 1, 0)`,
       updatedAt: new Date(),
     })
-    .where(eq(subscriptions.id, sub.id));
+    .where(eq(subscriptions.workspaceId, workspaceId));
 }
 
 /**

@@ -15,7 +15,7 @@ import {
   suggestedClientEmail,
   weeklyAction,
 } from "@/lib/command-center";
-import { indexLatestByBrandId, indexTopNByBrandId } from "@/server/workspace-data";
+import { indexLatestByBrandId, indexTopNByBrandId, parseListPage } from "@/server/workspace-data";
 
 const brand = { id: "b1", name: "Northstar" };
 
@@ -226,6 +226,15 @@ assert.equal(pageFilters({ sent: "0", opportunityType: "geo_package" }).opportun
     ["rep1", "rep2"],
   );
   assert.equal(top2.get("b")?.length, 1);
+}
+
+{
+  const first = parseListPage(undefined);
+  assert.equal(first.page, 1);
+  assert.equal(first.offset, 0);
+  assert.equal(parseListPage("0").page, 1);
+  assert.equal(parseListPage("abc").page, 1);
+  assert.equal(parseListPage("3", 24).offset, 48);
 }
 
 console.log("command-center.test.ts ok");

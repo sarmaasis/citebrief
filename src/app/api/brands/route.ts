@@ -2,7 +2,7 @@ import { getAppContext } from "@/lib/session";
 import { assertBrandCap, capDenialFromError } from "@/lib/usage";
 import { splitNames } from "@/lib/split";
 import { jsonError, jsonOk } from "@/server/json";
-import { listWorkspaceBrands } from "@/server/workspace-data";
+import { LIST_PAGE_SIZE, listWorkspaceBrands, listWorkspaceBrandsPage, parseListPage } from "@/server/workspace-data";
 import { brands, competitors } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +12,18 @@ export async function GET(request: Request) {
   if (!ctx) {
     return jsonError("Sign in required.", 401);
   }
-  const includeArchived = new URL(request.url).searchParams.get("archived") === "1";
-  const rows = await listWorkspaceBrands(ctx, includeArchived);
-  return jsonOk({ brands: rows });
+  const url = new URL(request.url);
+  const includeArchived = url.searchParams.get("archived") === "1";
+  const pageRaw = url.searchParams.get("page");
+  if (!pageRaw) {
+    const rows = await listWorkspaceBrands(ctx, includeArchived);
+    return jsonOk({ brands: rows });
+  }
+  const limitRaw = Number.parseInt(url.searchParams.get("limit") || "", 10);
+  const pageSize = Number.isFinite(limitRaw) ? Math.min(100, Math.max(1, limitRaw)) : LIST_PAGE_SIZE;
+  const { page } = parseListPage(pageRaw, pageSize);
+  const paged = await listWorkspaceBrandsPage(ctx, { includeArchived, page, pageSize });
+  return jsonOk({ brands: paged.rows, total: paged.total, page: paged.page, pageSize: paged.pageSize });
 }
 
 export async function POST(request: Request) {

@@ -62,9 +62,13 @@ export async function loadOpportunityStatuses(ctx: AppContext) {
 export async function buildDashboardSnapshot(
   ctx: AppContext,
   ent: WorkspaceEntitlements,
-  opts?: { view?: AgencySavedView },
+  opts?: { view?: AgencySavedView; brandIds?: string[] },
 ) {
-  const { rows, minutesSavedPerReport, planned } = await loadCommandRows(ctx, ent.allowsWeeklyCadence);
+  const { rows, minutesSavedPerReport, planned } = await loadCommandRows(
+    ctx,
+    ent.allowsWeeklyCadence,
+    opts?.brandIds,
+  );
   const [workspace] = await ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1);
   const timezone = workspace?.timezone || "America/New_York";
   const statusMap = await loadOpportunityStatuses(ctx);
