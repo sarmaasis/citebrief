@@ -1,5 +1,5 @@
 import { ReportsQueue } from "@/components/app/bulk-report-actions";
-import { ClientReportingCenter } from "@/components/app/client-reporting-center";
+import { ClientReportingCenterLoader } from "@/components/app/client-reporting-center-loader";
 import { EmptyState } from "@/components/app/empty-state";
 import { LockedModule } from "@/components/app/locked-module";
 import { PipelineStrip } from "@/components/app/pipeline-strip";
@@ -12,8 +12,7 @@ import { dashboardModulesForPlan } from "@/lib/dashboard-metrics";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
-import { buildCommandCenterSnapshot, loadCommandRows } from "@/server/command-center-data";
-import { buildClientReportingCenter } from "@/server/dashboard-data";
+import { buildCommandCenterSnapshot } from "@/server/command-center-data";
 
 export default async function ReportsPipelinePage({
   searchParams,
@@ -53,11 +52,8 @@ export default async function ReportsPipelinePage({
 
   const filters = pageFilters(params);
   const modules = dashboardModulesForPlan(ent);
-  const [{ rows: allRows }, snapshot, reportingRows] = await Promise.all([
-    loadCommandRows(ctx, ent.allowsWeeklyCadence),
-    buildCommandCenterSnapshot(ctx, ent, filters),
-    modules.clientReportingCenter ? buildClientReportingCenter(ctx, ent) : Promise.resolve([]),
-  ]);
+  const snapshot = await buildCommandCenterSnapshot(ctx, ent, filters, { includeAllRows: true });
+  const allRows = snapshot.allRows ?? [];
   if (allRows.length === 0) {
     return (
       <div>
@@ -119,7 +115,7 @@ export default async function ReportsPipelinePage({
               ? " Studio custom sender applies after Domains DNS verification."
               : ""}
           </p>
-          <ClientReportingCenter rows={reportingRows} />
+          <ClientReportingCenterLoader />
           {!ent.allowsCustomSender ? (
             <div className="mt-4">
               <StudioUpgradeHint

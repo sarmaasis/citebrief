@@ -8,6 +8,7 @@ import { RiskPill } from "@/components/app/risk-pill";
 import { ScoreChange } from "@/components/app/score-change";
 import { Button } from "@/components/ui/button";
 import { workspaces } from "@/db/schema";
+import { PLANS } from "@/lib/billing";
 import { PIPELINE_LABEL, averageNamedScore, pipelineStage, weeklyAction } from "@/lib/command-center";
 import { movementLabel, parseAgencySavedView } from "@/lib/dashboard-metrics";
 import { workspaceEntitlements } from "@/lib/entitlements";
@@ -54,7 +55,11 @@ export default async function AppHomePage({
         rows={rows}
         overview={dash.overview}
         allowsEmailSend={ent.allowsEmailSend}
+        plan={ent.plan}
+        brandLimit={ent.brandLimit}
         promptCap={ent.promptCap}
+        monthlyRecheckCredits={ent.monthlyRecheckCredits}
+        weekly={ent.allowsWeeklyCadence}
         canAddBrand={rows.length < ent.brandLimit}
       />
     );
@@ -118,6 +123,17 @@ export default async function AppHomePage({
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="mb-8">
+        <WorkspaceCapacityStrip
+          plan={ent.plan}
+          brandsUsed={snapshot.unfilteredCount}
+          brandLimit={ent.brandLimit}
+          promptCap={ent.promptCap}
+          monthlyRecheckCredits={ent.monthlyRecheckCredits}
+          weekly={ent.allowsWeeklyCadence}
+        />
       </div>
 
       <div className="mb-8">
@@ -250,13 +266,21 @@ function LightHome({
   rows,
   overview,
   allowsEmailSend,
+  plan,
+  brandLimit,
   promptCap,
+  monthlyRecheckCredits,
+  weekly,
   canAddBrand,
 }: {
   rows: Awaited<ReturnType<typeof listHomeRows>>;
   overview: Awaited<ReturnType<typeof buildDashboardSnapshot>>["overview"];
   allowsEmailSend: boolean;
+  plan: keyof typeof PLANS;
+  brandLimit: number;
   promptCap: number;
+  monthlyRecheckCredits: number;
+  weekly: boolean;
   canAddBrand: boolean;
 }) {
   if (rows.length === 0) {
@@ -291,8 +315,8 @@ function LightHome({
           <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
           <p className="mt-1 text-sm text-cb-muted">
             Are we improving, who is winning, what changed, and what to do next.
-            {overview.movementLabel !== "unknown" ? ` Brand is ${overview.movementLabel}.` : ""} Agency unlocks
-            multi-client risk and opportunity rollups.
+            {overview.movementLabel !== "unknown" ? ` Brand is ${overview.movementLabel}.` : ""} Growth unlocks
+            weekly trend depth; Agency adds multi-client white-label workflows.
           </p>
         </div>
         {canAddBrand ? (
@@ -304,6 +328,17 @@ function LightHome({
             <Link href="/app/settings/billing">Upgrade to add a brand</Link>
           </Button>
         )}
+      </div>
+
+      <div className="mb-8">
+        <WorkspaceCapacityStrip
+          plan={plan}
+          brandsUsed={rows.length}
+          brandLimit={brandLimit}
+          promptCap={promptCap}
+          monthlyRecheckCredits={monthlyRecheckCredits}
+          weekly={weekly}
+        />
       </div>
 
       <div className="mb-8">
@@ -426,5 +461,55 @@ function LightHome({
         </DataTable>
       </section>
     </div>
+  );
+}
+
+function WorkspaceCapacityStrip({
+  plan,
+  brandsUsed,
+  brandLimit,
+  promptCap,
+  monthlyRecheckCredits,
+  weekly,
+}: {
+  plan: keyof typeof PLANS;
+  brandsUsed: number;
+  brandLimit: number;
+  promptCap: number;
+  monthlyRecheckCredits: number;
+  weekly: boolean;
+}) {
+  const questionCapacity = brandLimit * promptCap;
+  const questionUsed = Math.min(brandsUsed * promptCap, questionCapacity);
+  const items = [
+    ["Plan", PLANS[plan].name],
+    ["Brands", `${brandsUsed}/${brandLimit}`],
+    ["Tracked questions", `${questionUsed}/${questionCapacity}`],
+    ["Cadence", weekly ? "Weekly" : "Monthly"],
+    ["Rechecks", `${monthlyRecheckCredits}/mo`],
+  ];
+
+  return (
+    <section className="rounded-cb-card border border-cb-line bg-cb-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">Workspace capacity</p>
+          <p className="mt-1 text-xs text-cb-muted">
+            Capacity is based on active brands and buyer questions per brand. Cited pages, alerts, and export modules are coming soon.
+          </p>
+        </div>
+        <Link href="/app/settings/billing" className="text-xs text-cb-accent">
+          Manage plan
+        </Link>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-5">
+        {items.map(([label, value]) => (
+          <div key={label} className="border-t border-cb-line pt-3 sm:border-t-0 sm:pt-0">
+            <p className="text-[11px] uppercase text-cb-muted">{label}</p>
+            <p className="mt-1 font-mono text-sm tabular-nums text-cb-text">{value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

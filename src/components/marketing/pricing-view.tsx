@@ -28,11 +28,12 @@ const plans = [
     name: "Starter",
     monthly: PLANS.starter.amountUsd,
     recommended: false,
-    pitch: "For freelancers and solo consultants proving the Friday report on a lighter Home.",
+    pitch: "For founders and small teams checking whether AI search can find and recommend them.",
     monthlyCta: "Start trial",
     annualCta: "Start annual",
     bullets: [
       `${PLANS.starter.brands} brands`,
+      `${PLANS.starter.brands * PLANS.starter.prompts} tracked question capacity`,
       `${PLANS.starter.prompts} buyer questions per brand`,
       "Monthly report cadence",
       "CiteBrief sender",
@@ -46,40 +47,42 @@ const plans = [
   },
   {
     id: "agency" as const,
-    name: "Agency",
+    name: PLANS.agency.name,
     monthly: PLANS.agency.amountUsd,
     recommended: true,
-    pitch: "The $249 weekly system: Friday PDF plus a multi-client command center.",
-    monthlyCta: "Start Agency trial",
-    annualCta: "Start Agency annual",
+    pitch: "For in-house marketing and GEO teams that need weekly tracking, trends, and actions.",
+    monthlyCta: `Start ${PLANS.agency.name} trial`,
+    annualCta: `Start ${PLANS.agency.name} annual`,
     bullets: [
-      `${PLANS.agency.brands} client brands`,
+      `${PLANS.agency.brands} brands or projects`,
+      `${PLANS.agency.brands * PLANS.agency.prompts} tracked question capacity`,
       `${PLANS.agency.prompts} buyer questions per brand`,
       `${PLANS.agency.seats} seats`,
       "Weekly Friday reports",
       `${MONTHLY_RECHECK_CREDITS.agency} manual re-check credits/mo`,
-      "White-label PDF, logo, color, footer",
-      "Client CC and private client links",
-      "Command center: scorecards, competitors, opportunities, risks, pipeline",
+      "Executive PDF, private share links, and team reporting",
+      "Visibility dashboard: scorecards, competitors, opportunities, risks, pipeline",
       "History and week-over-week movement",
-      "Recommended next actions and upsell notes",
+      "Recommended next actions and content fixes",
       "ChatGPT, Gemini, Grok, and AI Overviews",
       "Slack webhook",
+      "Coming soon: cited-page analysis, alerts, multi-country tracking",
       `Extra brands at $${EXTRA_BRAND_USD.agency}/mo`,
     ],
   },
   {
     id: "studio" as const,
-    name: "Studio",
+    name: PLANS.studio.name,
     monthly: PLANS.studio.amountUsd,
     recommended: false,
-    pitch: "Agency growth plan: more brands, custom sender, bulk send, and deeper portfolio ops.",
-    monthlyCta: "Start Studio trial",
-    annualCta: "Start Studio annual",
+    pitch: "For agencies and consultants packaging AI-search reporting across a client portfolio.",
+    monthlyCta: `Start ${PLANS.studio.name} trial`,
+    annualCta: `Start ${PLANS.studio.name} annual`,
     bullets: [
-      `${PLANS.studio.brands} brands`,
+      `${PLANS.studio.brands} client brands`,
+      `${PLANS.studio.brands * PLANS.studio.prompts} tracked question capacity`,
       `${PLANS.studio.prompts} buyer questions per brand`,
-      "Everything in Agency",
+      `Everything in ${PLANS.agency.name}`,
       "Weekly Friday reports",
       `${MONTHLY_RECHECK_CREDITS.studio} manual re-check credits/mo`,
       "Custom sender name and domain",
@@ -87,9 +90,8 @@ const plans = [
       "Portfolio filters and CSV export",
       "ChatGPT, Gemini, Grok, and AI Overviews",
       `${PLANS.studio.seats} seats`,
-      "Client portal archive (coming)",
-      "Priority support (coming)",
-      "Internal COGS and usage export (coming)",
+      "Coming soon: prospect pitch audits and client portal archive",
+      "Coming soon: Looker Studio/API exports and priority processing",
       `Extra brands at $${EXTRA_BRAND_USD.studio}/mo`,
     ],
   },
@@ -117,12 +119,13 @@ export function PricingView({
 
   return (
     <main id="main" className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-24">
-      <h1 className="font-serif text-3xl tracking-tight sm:text-5xl">Simple pricing for agency retainers</h1>
+      <h1 className="font-serif text-3xl tracking-tight sm:text-5xl">AI-search visibility for teams and agencies</h1>
       <p className="mt-4 max-w-2xl text-lg text-cb-muted">
-        Agency at ${PLANS.agency.amountUsd}/mo is the plan to buy: {PLANS.agency.brands} brands ($
-        {(PLANS.agency.amountUsd / PLANS.agency.brands).toFixed(2)}/client), weekly Friday reports,
-        white-label, {PLANS.agency.seats} seats, and a command center that shows who is winning,
-        what changed, and what to do next. Not a $29 vanity score.
+        Start with a brand visibility report, then scale into weekly tracking, competitor movement,
+        cited sources, and client-ready reporting. {PLANS.agency.name} gives teams{" "}
+        {PLANS.agency.brands * PLANS.agency.prompts} tracked questions; {PLANS.studio.name} gives
+        agencies {PLANS.studio.brands * PLANS.studio.prompts} tracked questions plus white-label
+        sending.
       </p>
 
       <div className="mt-8 inline-flex max-w-full flex-wrap rounded-cb-control border border-cb-line bg-cb-surface p-1">
@@ -216,13 +219,13 @@ export function PricingView({
         Ask during onboarding — there is no self-serve Enterprise checkout.
       </p>
       <p className="mt-3 text-sm leading-6 text-cb-muted">
-        Launch: first 25 agencies can lock Agency annual at $
-        {planAnnualAmountUsd("agency").toLocaleString("en-US")} for 12 months. First 20 paid agencies
-        get done-with-you setup. Ask during onboarding.
+        Launch: first 25 paid workspaces can lock {PLANS.agency.name} annual at $
+        {planAnnualAmountUsd("agency").toLocaleString("en-US")} for 12 months. First 20 paid workspaces
+        get done-with-you setup.
       </p>
 
       <section className="mt-16 max-w-3xl">
-        <h2 className="text-xl font-semibold">Questions agencies actually ask</h2>
+        <h2 className="text-xl font-semibold">Questions buyers actually ask</h2>
         <div className="mt-6 divide-y divide-cb-line border-y border-cb-line">
           {PRICING_FAQS.map((item) => (
             <details key={item.q} className="group py-4">

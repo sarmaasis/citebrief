@@ -19,13 +19,13 @@ import {
 } from "@/lib/billing";
 import { isEngineApiConfigured, usesDeterministicStub } from "@/lib/engine-adapters";
 
-assert.equal(PLANS.starter.amountUsd, 99);
+assert.equal(PLANS.starter.amountUsd, 79);
 assert.equal(PLANS.agency.amountUsd, 249);
-assert.equal(PLANS.studio.amountUsd, 799);
+assert.equal(PLANS.studio.amountUsd, 599);
 assert.equal(PLANS.enterprise.amountUsd, 1499);
 assert.equal(PLANS.starter.brands, 2);
-assert.equal(PLANS.agency.brands, 10);
-assert.equal(PLANS.studio.brands, 25);
+assert.equal(PLANS.agency.brands, 5);
+assert.equal(PLANS.studio.brands, 20);
 assert.equal(PLANS.starter.seats, 1);
 assert.equal(PLANS.agency.seats, 3);
 assert.equal(PLANS.studio.seats, 10);

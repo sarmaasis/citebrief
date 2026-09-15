@@ -21,7 +21,8 @@ import { cn } from "@/lib/utils";
 
 const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
   starter: [
-    `${PLANS.starter.brands} client brands`,
+    `${PLANS.starter.brands} brands`,
+    `${PLANS.starter.brands * PLANS.starter.prompts} tracked question capacity`,
     "Monthly cadence",
     "Lighter Home (no command center)",
     "CiteBrief sender",
@@ -29,22 +30,25 @@ const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
     `${PLANS.starter.seats} seat`,
   ],
   agency: [
-    `${PLANS.agency.brands} client brands`,
+    `${PLANS.agency.brands} brands or projects`,
+    `${PLANS.agency.brands * PLANS.agency.prompts} tracked question capacity`,
     "Weekly Friday reports",
-    "White-label logo, color, footer",
-    "Client CC",
-    "Command center: scorecards, risks, opportunities, pipeline",
+    "Team visibility dashboard",
+    "Private report links and email sending",
+    "Scorecards, risks, opportunities, pipeline",
     "History and week-over-week movement",
     `${PLANS.agency.seats} seats`,
     "Slack webhook",
+    "Coming soon: cited pages, alerts, multi-country tracking",
   ],
   studio: [
     `${PLANS.studio.brands} client brands`,
-    `${PLANS.studio.prompts} prompts per brand`,
+    `${PLANS.studio.brands * PLANS.studio.prompts} tracked question capacity`,
     "Custom sender name and domain",
     "Bulk send and portfolio CSV export",
     "ChatGPT, Gemini, Grok, and AI Overviews",
     `${PLANS.studio.seats} seats`,
+    "Coming soon: prospect audits, portal archive, API/Looker exports",
   ],
 };
 
@@ -283,7 +287,7 @@ export function BillingPanel({
           <p className="mt-2 text-sm text-cb-muted">Current period ends {usage.currentPeriodEnd}.</p>
         ) : null}
 
-        <div className="mt-6 grid gap-5 sm:grid-cols-3">
+        <div className="mt-6 grid gap-5 sm:grid-cols-4">
           <UsageMeter
             label="Brands"
             used={usage.brandsUsed}
@@ -293,8 +297,17 @@ export function BillingPanel({
                 ? "Trial includes 1 brand"
                 : !isPaid
                   ? "1 brand until you subscribe"
-                  : `${usage.brandsIncluded} included${usage.extraBrandBillable ? ` · ${usage.extraBrandBillable} extra billed` : ""}`
+              : `${usage.brandsIncluded} included${usage.extraBrandBillable ? ` · ${usage.extraBrandBillable} extra billed` : ""}`
             }
+          />
+          <UsageMeter
+            label="Tracked questions"
+            used={Math.min(
+              usage.brandsUsed * PLANS[selectedPlan].prompts,
+              usage.brandLimit * PLANS[selectedPlan].prompts,
+            )}
+            cap={usage.brandLimit * PLANS[selectedPlan].prompts}
+            hint={`${PLANS[selectedPlan].prompts} buyer questions per brand on ${selectedName}`}
           />
           <UsageMeter
             label="Seats"
@@ -330,6 +343,14 @@ export function BillingPanel({
           </div>
         </div>
 
+        <div className="mt-5 rounded-cb-card border border-cb-line bg-cb-bg px-4 py-3">
+          <p className="text-xs font-medium text-cb-text">Coming soon after launch feedback</p>
+          <p className="mt-1 text-xs leading-5 text-cb-muted">
+            Cited-page analysis, visibility alerts, prompt research, multi-country tracking, prospect audits,
+            and export connectors are planned as expansion modules. Current billing only charges shipped plan capacity.
+          </p>
+        </div>
+
         <p className="mt-5 text-xs text-cb-muted">
           {isPaid
             ? "Included usage is on the plan. Extra brands, seats, and runs show as billable before they charge. Invoices live in the billing portal."
@@ -362,7 +383,7 @@ export function BillingPanel({
         <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
           <p className="text-sm font-medium">Add-ons</p>
           <p className="mt-1 text-sm text-cb-muted">
-            Extra brand ${extraBrandPrice}/mo on Agency and Studio only (not Starter). Extra seat $
+            Extra brand ${extraBrandPrice}/mo on Growth and Agency only (not Starter). Extra seat $
             {SEAT_OVERAGE_USD}/mo after the seat cap. Extra run ${EXTRA_RUN_USD[selectedPlan]} after
             monthly re-check credits.
           </p>
@@ -379,7 +400,7 @@ export function BillingPanel({
                 </Button>
               ) : showUpgradeToAgency ? (
                 <Button type="button" variant="outline" disabled={busy !== null} onClick={() => void checkout("agency")}>
-                  Need more brands? Upgrade to Agency
+                  Need more brands? Upgrade to {PLANS.agency.name}
                 </Button>
               ) : null}
               {canBuyExtraSeat ? (
@@ -426,9 +447,9 @@ export function BillingPanel({
           <div className="mb-4 rounded-cb-card border border-cb-accent bg-cb-surface px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-cb-text">Agency annual · ${planAnnualAmountUsd("agency").toLocaleString("en-US")}/year</p>
+                <p className="text-sm font-medium text-cb-text">{PLANS.agency.name} annual · ${planAnnualAmountUsd("agency").toLocaleString("en-US")}/year</p>
                 <p className="mt-1 text-xs text-cb-muted">
-                  10 months prepaid (2 months free). Same Agency features — weekly Friday reports, client CC, command center.
+                  10 months prepaid (2 months free). Same {PLANS.agency.name} features — weekly Friday reports, email sending, command center.
                 </p>
               </div>
               <Button
@@ -439,7 +460,7 @@ export function BillingPanel({
                   void checkout("agency", "annual");
                 }}
               >
-                {busy === "agency" && annual ? "Starting…" : `Get Agency annual · $${planAnnualAmountUsd("agency").toLocaleString("en-US")}`}
+                {busy === "agency" && annual ? "Starting…" : `Get ${PLANS.agency.name} annual · $${planAnnualAmountUsd("agency").toLocaleString("en-US")}`}
               </Button>
             </div>
           </div>

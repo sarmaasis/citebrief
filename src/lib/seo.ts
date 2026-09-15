@@ -52,8 +52,8 @@ export const PAGE_COPY = {
   },
   pricing: {
     path: "/pricing" as const,
-    title: "Simple pricing for agency retainers",
-    description: `Starter $${PLANS.starter.amountUsd}, Agency $${PLANS.agency.amountUsd}, Studio $${PLANS.studio.amountUsd}. Agency includes weekly white-label Friday reports for ${PLANS.agency.brands} client brands. Enterprise from $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}. Not a $29 vanity score.`,
+    title: "AI-search visibility pricing",
+    description: `Starter $${PLANS.starter.amountUsd}, Growth $${PLANS.agency.amountUsd}, Agency $${PLANS.studio.amountUsd}. Growth includes ${PLANS.agency.brands * PLANS.agency.prompts} tracked questions for teams; Agency includes ${PLANS.studio.brands * PLANS.studio.prompts} tracked questions and white-label delivery. Enterprise from $${PLANS.enterprise.amountUsd.toLocaleString("en-US")}.`,
   },
   report: {
     path: "/report" as const,
@@ -258,10 +258,10 @@ function softwareApplicationNode() {
     featureList: [
       "White-label Friday PDF reports",
       `Buyer questions across ${PUBLIC_ENGINES_PHRASE}`,
-      `Weekly reports for ${SEO_PLAN_OFFERS[1].brands} Agency client brands`,
+      `Weekly reports for ${SEO_PLAN_OFFERS[1].brands * PLANS.agency.prompts} Growth tracked questions`,
       "Private client links",
       "Recommended next actions on each report",
-      "Agency command center with competitor intelligence and opportunity queue",
+      "Growth command center with competitor intelligence and opportunity queue",
     ],
     offers: SEO_PLAN_OFFERS.map((plan) => ({
       "@type": "Offer",
@@ -269,7 +269,7 @@ function softwareApplicationNode() {
       price: String(plan.price),
       priceCurrency: "USD",
       url: canonicalPath("/pricing"),
-      description: `${plan.cadence}. ${plan.brands} client brands.`,
+      description: `${plan.cadence}. ${plan.brands * PLANS[plan.id].prompts} tracked question capacity.`,
     })),
     publisher: { "@id": `${CANONICAL_ORIGIN}/#organization` },
   };

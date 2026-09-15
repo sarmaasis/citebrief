@@ -84,7 +84,7 @@ export async function buildCommandCenterSnapshot(
   ctx: AppContext,
   ent: WorkspaceEntitlements,
   filters: CommandCenterFilters = {},
-  opts?: { view?: AgencySavedView },
+  opts?: { view?: AgencySavedView; includeAllRows?: boolean },
 ) {
   const { rows, minutesSavedPerReport, planned } = await loadCommandRows(ctx, ent.allowsWeeklyCadence);
   const view = opts?.view ?? "all";
@@ -130,6 +130,7 @@ export async function buildCommandCenterSnapshot(
     },
     pipeline,
     roi,
+    allRows: opts?.includeAllRows ? rows : undefined,
     rows: filtered.map((row) => serializeCommandRow(row, ent, planned)),
     opportunities,
     risks: filtered

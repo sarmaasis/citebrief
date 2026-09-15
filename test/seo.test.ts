@@ -129,23 +129,23 @@ assert.equal((homeMeta.openGraph as { url: string }).url, CANONICAL_ORIGIN);
 assert.deepEqual(
   SEO_PLAN_OFFERS.map((plan) => ({ name: plan.name, price: plan.price, brands: plan.brands })),
   [
-    { name: "Starter", price: 99, brands: 2 },
-    { name: "Agency", price: 249, brands: 10 },
-    { name: "Studio", price: 799, brands: 25 },
+    { name: "Starter", price: 79, brands: 2 },
+    { name: "Growth", price: 249, brands: 5 },
+    { name: "Agency", price: 599, brands: 20 },
   ],
 );
 
 const pricingMeta = publicMetadata(PAGE_COPY.pricing);
 assert.equal((pricingMeta.alternates as { canonical: string }).canonical, `${CANONICAL_ORIGIN}/pricing`);
-assert.match(String(pricingMeta.description), /Starter \$99/);
-assert.match(String(pricingMeta.description), /Agency \$249/);
-assert.match(String(pricingMeta.description), /Studio \$799/);
-assert.match(String(pricingMeta.description), /10 client brands/);
+assert.match(String(pricingMeta.description), /Starter \$79/);
+assert.match(String(pricingMeta.description), /Growth \$249/);
+assert.match(String(pricingMeta.description), /Agency \$599/);
+assert.match(String(pricingMeta.description), /150 tracked questions/);
+assert.match(String(pricingMeta.description), /500 tracked questions/);
 assert.match(String(pricingMeta.description), /Enterprise from \$1,499/);
 assert.doesNotMatch(String(pricingMeta.description), /\$149/);
 assert.doesNotMatch(String(pricingMeta.description), /Studio \$499/);
 assert.doesNotMatch(String(pricingMeta.description), /8 client brands/);
-assert.doesNotMatch(String(pricingMeta.description), /20 client brands/);
 assert.doesNotMatch(String(pricingMeta.description), /Claude/);
 
 const graph = homeJsonLd()["@graph"] as Array<{ "@type": string; offers?: { name: string; price: string }[] }>;
@@ -165,8 +165,8 @@ assert.deepEqual(
   SEO_PLAN_OFFERS.map((plan) => String(plan.price)),
 );
 assert.equal(app.offers[1]?.name, `CiteBrief ${PLANS.agency.name}`);
-assert.match(String(app.offers[1]?.description), new RegExp(`${PLANS.agency.brands} client brands`));
-assert.ok(app.featureList?.some((item) => item.includes(`${PLANS.agency.brands} Agency`)));
+assert.match(String(app.offers[1]?.description), /150 tracked question capacity/);
+assert.ok(app.featureList?.some((item) => item.includes("150 Growth tracked questions")));
 assert.ok(app.featureList?.some((item) => item.includes(PUBLIC_ENGINES_PHRASE)));
 assert.ok(app.featureList?.some((item) => /command center/i.test(item)));
 assert.ok(app.featureList?.some((item) => /competitor intelligence/i.test(item)));
@@ -179,11 +179,11 @@ assert.equal(
     (offer) =>
       offer.price === "149" ||
       offer.price === "499" ||
-      /8 client brands|20 client brands/.test(offer.description ?? ""),
+      /8 client brands/.test(offer.description ?? ""),
   ),
   false,
 );
-assert.equal(app.offers.map((offer) => offer.price).includes("799"), true);
+assert.equal(app.offers.map((offer) => offer.price).includes("599"), true);
 
 const faq = (pricingJsonLd()["@graph"] as Array<{ "@type": string; mainEntity?: { name: string }[] }>).find(
   (node) => node["@type"] === "FAQPage",

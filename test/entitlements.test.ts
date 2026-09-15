@@ -98,8 +98,8 @@ const paidAgency = {
   extraBrands: 2,
   extraSeats: 1,
 };
-assert.equal(workspaceEntitlements(paidAgency).promptCap, 20);
-assert.equal(workspaceEntitlements(paidAgency).brandLimit, 12);
+assert.equal(workspaceEntitlements(paidAgency).promptCap, 30);
+assert.equal(workspaceEntitlements(paidAgency).brandLimit, 7);
 assert.equal(workspaceEntitlements(paidAgency).seatCap, 4);
 assert.equal(workspaceEntitlements(paidAgency).extraBrandUsd, 29);
 assert.equal(workspaceEntitlements(paidAgency).allowsWeeklyCadence, true);
@@ -118,7 +118,7 @@ const paidStarter = {
   trialEndsAt: null,
   currentPeriodEnd: new Date(Date.now() + 20 * 86400000),
 };
-assert.equal(workspaceEntitlements(paidStarter).promptCap, 20);
+assert.equal(workspaceEntitlements(paidStarter).promptCap, 25);
 assert.equal(workspaceEntitlements(paidStarter).brandLimit, 2);
 assert.equal(workspaceEntitlements(paidStarter).allowsHistory, false);
 assert.equal(workspaceEntitlements(paidStarter).allowsMembers, false);
@@ -144,7 +144,7 @@ assert.equal(
     trialEndsAt: null,
     currentPeriodEnd: new Date(Date.now() + 20 * 86400000),
   }).promptCap,
-  30,
+  25,
 );
 
 const unpaid = {
@@ -308,9 +308,9 @@ assert.equal(trialStarterCards[0].badge, "After trial");
 assert.equal(trialStarterCards[0].cta, "Continue with Starter");
 assert.equal(trialStarterCards[1].highlighted, false);
 assert.equal(trialStarterCards[1].badge, null);
-assert.equal(trialStarterCards[1].cta, "Choose Agency");
+assert.equal(trialStarterCards[1].cta, "Choose Growth");
 assert.equal(
-  billingPageIntro({ trialing: true, paid: false, plan: "starter" }).includes("Agency"),
+  billingPageIntro({ trialing: true, paid: false, plan: "starter" }).includes("Growth"),
   false,
 );
 
@@ -328,9 +328,9 @@ assert.equal(trialAgencyCards.filter((card) => card.highlighted).length, 1);
 assert.equal(trialAgencyCards[1].highlighted, true);
 assert.equal(trialAgencyCards[1].badge, "After trial");
 assert.equal(trialAgencyCards[0].badge, null);
-assert.ok(billingPageIntro({ trialing: true, paid: false, plan: "agency" }).includes("Agency"));
+assert.ok(billingPageIntro({ trialing: true, paid: false, plan: "agency" }).includes("Growth"));
 assert.equal(billingPageIntro({ trialing: true, paid: true, plan: "agency" }).includes("trial"), false);
-assert.ok(billingPageIntro({ trialing: true, paid: true, plan: "agency" }).includes("Agency plan"));
+assert.ok(billingPageIntro({ trialing: true, paid: true, plan: "agency" }).includes("Growth plan"));
 
 const paidAgencyCards = (["starter", "agency", "studio"] as const).map((id) =>
   planCardState({
@@ -394,7 +394,7 @@ const afterStubAgency = workspaceEntitlements({
 assert.equal(afterStubAgency.paid, true);
 assert.equal(afterStubAgency.trialing, false);
 assert.equal(afterStubAgency.plan, "agency");
-assert.equal(afterStubAgency.brandLimit, 10);
+assert.equal(afterStubAgency.brandLimit, 5);
 assert.equal(afterStubAgency.allowsWeeklyCadence, true);
 
 const stubStarterPatch = stubPaidSubscriptionPatch({ plan: "starter", interval: "annual", now: stubNow });

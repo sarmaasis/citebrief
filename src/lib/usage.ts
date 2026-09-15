@@ -582,6 +582,41 @@ export async function countMonthlyRechecksUsed(
   return countRechecksFromBrandWeekBuckets(monthRows, softCap);
 }
 
+export async function countMonthlyRunUsage(
+  db: Database,
+  workspaceId: string,
+  plan: string | null | undefined,
+  planMeteringSince?: Date | null,
+) {
+  const workspaceBrands = await db.select({ id: brands.id }).from(brands).where(eq(brands.workspaceId, workspaceId));
+  const ids = workspaceBrands.map((row) => row.id);
+  if (ids.length === 0) {
+    return { monthlyRechecksUsed: 0, billableExtrasThisPeriod: 0 };
+  }
+  const windowStart = meteringWindowStart(planMeteringSince);
+  const [monthRows, extraRows] = await Promise.all([
+    db
+      .select({ brandId: runs.brandId, createdAt: runs.createdAt })
+      .from(runs)
+      .where(and(inArray(runs.brandId, ids), gte(runs.createdAt, windowStart), ne(runs.status, "failed"))),
+    db
+      .select({ id: runs.id })
+      .from(runs)
+      .where(
+        and(
+          inArray(runs.brandId, ids),
+          eq(runs.extraRun, true),
+          isNotNull(runs.billedAt),
+          gte(runs.createdAt, windowStart),
+        ),
+      ),
+  ]);
+  return {
+    monthlyRechecksUsed: countRechecksFromBrandWeekBuckets(monthRows, planIncludedRunCap(plan)),
+    billableExtrasThisPeriod: extraRows.length,
+  };
+}
+
 /** Settled Dodo-metered extras in the current metering window (not prepaid credits). */
 export async function countSettledBillableExtras(
   db: Database,
@@ -609,18 +644,19 @@ export async function countSettledBillableExtras(
 export async function getUsageSnapshot(db: Database, workspaceId: string) {
   const sub = await getWorkspaceSubscription(db, workspaceId);
   const ent = workspaceEntitlements(sub);
-  const brandsUsed = await countActiveBrands(db, workspaceId);
-  const seats = await countOccupiedSeats(db, workspaceId);
+  const [brandsUsed, seats] = await Promise.all([
+    countActiveBrands(db, workspaceId),
+    countOccupiedSeats(db, workspaceId),
+  ]);
   const planMeteringSince = sub
     ? await resolvePlanMeteringSince(db, workspaceId, sub)
     : null;
-  const monthlyRechecksUsed = ent.paid
-    ? await countMonthlyRechecksUsed(db, workspaceId, sub?.plan, planMeteringSince)
-    : 0;
+  const usage = ent.paid
+    ? await countMonthlyRunUsage(db, workspaceId, sub?.plan, planMeteringSince)
+    : { monthlyRechecksUsed: 0, billableExtrasThisPeriod: 0 };
+  const monthlyRechecksUsed = usage.monthlyRechecksUsed;
   const monthlyRechecksRemaining = Math.max(0, ent.monthlyRecheckCredits - monthlyRechecksUsed);
-  const billableExtrasThisPeriod = ent.paid
-    ? await countSettledBillableExtras(db, workspaceId, planMeteringSince)
-    : 0;
+  const billableExtrasThisPeriod = usage.billableExtrasThisPeriod;
   return {
     plan: ent.plan,
     status: sub?.status || "none",
