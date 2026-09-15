@@ -20,6 +20,7 @@ import {
   publicMetadata,
   sitemapEntries,
 } from "@/lib/seo";
+import { buildLlmsFullTxt, buildLlmsTxt } from "@/lib/llms-txt";
 
 assert.equal(CANONICAL_ORIGIN, "https://getcitebrief.com");
 assert.equal(canonicalPath("/"), CANONICAL_ORIGIN);
@@ -219,5 +220,20 @@ for (const article of PUBLIC_ARTICLES) {
 const sampleCta = PUBLIC_ARTICLES[0]?.sections.flatMap((section) => section.paragraphs).join(" ") ?? "";
 assert.match(sampleCta, new RegExp(`${TRIAL_PROMPT_CAP} buyer questions`));
 assert.match(sampleCta, /ChatGPT \+ Gemini only/);
+
+const llms = buildLlmsTxt();
+assert.match(llms, /^# CiteBrief/m);
+assert.ok(llms.includes(CANONICAL_ORIGIN));
+assert.match(llms, /llms-full\.txt/);
+assert.match(llms, /\/pricing/);
+assert.match(llms, /\/for-seo-agencies/);
+assert.doesNotMatch(llms, /\/app\//);
+
+const llmsFull = buildLlmsFullTxt();
+assert.match(llmsFull, /^# CiteBrief/m);
+assert.match(llmsFull, new RegExp(`\\$${PLANS.agency.amountUsd}`));
+assert.match(llmsFull, /Do not index/);
+assert.match(llmsFull, /\/llms\.txt/);
+assert.match(llmsFull, /\/api\/\*/);
 
 console.log("seo.test.ts ok");

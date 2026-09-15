@@ -61,6 +61,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* llmstxt.org v2 discovery for AI agents */}
+        <link rel="describedby" href={`${CANONICAL_ORIGIN}/llms.txt`} title="llms.txt" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} bg-cb-bg text-cb-text font-sans antialiased`}
       >
