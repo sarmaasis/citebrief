@@ -51,6 +51,15 @@ export async function listWorkspaceBrands(ctx: AppContext, includeArchived = fal
     .orderBy(desc(brands.createdAt));
 }
 
+/** Nav switcher: id+name only, request-cached (layout + pages). */
+export const listWorkspaceBrandNav = cache(async (ctx: AppContext) => {
+  return ctx.db
+    .select({ id: brands.id, name: brands.name })
+    .from(brands)
+    .where(brandsWhere(ctx.workspace.id, false))
+    .orderBy(desc(brands.createdAt));
+});
+
 export async function listWorkspaceBrandsPage(
   ctx: AppContext,
   opts: { includeArchived?: boolean; page?: number; pageSize?: number } = {},

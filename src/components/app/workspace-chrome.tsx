@@ -14,6 +14,7 @@ export function WorkspaceChrome({
   signedIn,
   brands,
   recheckHint,
+  loadRecheckHint = false,
 }: {
   children: React.ReactNode;
   workspaceName: string;
@@ -23,6 +24,8 @@ export function WorkspaceChrome({
   signedIn: boolean;
   brands: Array<{ id: string; name: string }>;
   recheckHint?: string | null;
+  /** When true, TopBar fetches remaining rechecks once (not on every RSC nav). */
+  loadRecheckHint?: boolean;
 }) {
   const pathname = usePathname();
   const [navState, setNavState] = useState({ open: false, pathname });
@@ -77,6 +80,7 @@ export function WorkspaceChrome({
           brands={brands}
           onOpenNav={openNav}
           recheckHint={recheckHint}
+          loadRecheckHint={loadRecheckHint}
         />
         <main id="main" className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-8 sm:py-8">
           {children}

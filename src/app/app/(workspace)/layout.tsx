@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { WorkspaceChrome } from "@/components/app/workspace-chrome";
+import { PageSkeleton } from "@/components/app/page-skeleton";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
-import { getUsageSnapshot, getWorkspaceSubscription } from "@/lib/usage";
-import { listWorkspaceBrands } from "@/server/workspace-data";
+import { getWorkspaceSubscription } from "@/lib/usage";
+import { listWorkspaceBrandNav } from "@/server/workspace-data";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getAppContext();
@@ -15,37 +17,25 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         impersonating={false}
         signedIn={false}
         brands={[]}
-        recheckHint={null}
+        loadRecheckHint={false}
       >
-        {children}
+        <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
       </WorkspaceChrome>
     );
   }
 
   const role = ctx.impersonating ? "owner" : ctx.role;
+  // Keep layout thin: brands for switcher + sub for trial/paid flag only.
+  // Recheck remaining counts hit several D1 queries — TopBar loads those client-side.
   const [brands, sub] = await Promise.all([
-    listWorkspaceBrands(ctx),
+    listWorkspaceBrandNav(ctx),
     getWorkspaceSubscription(ctx.db, ctx.workspace.id),
   ]);
-
-  let recheckHint: string | null = null;
   const ent = workspaceEntitlements(sub);
-  if (ent.paid) {
-    const usage = await getUsageSnapshot(ctx.db, ctx.workspace.id);
-    const remaining = Math.max(0, usage.monthlyRechecksRemaining ?? 0);
-    const included = Math.max(0, ent.monthlyRecheckCredits);
-    const credits = Math.max(0, usage.extraRunCredits ?? ent.extraRunCredits);
-    if (included > 0 || credits > 0) {
-      recheckHint =
-        credits > 0
-          ? `${remaining}/${included} rechecks · ${credits} extra credit${credits === 1 ? "" : "s"}`
-          : remaining === 0
-            ? `${remaining}/${included} rechecks left · buy extra to re-run past included`
-            : `${remaining}/${included} recheck${included === 1 ? "" : "s"} left`;
-    }
-  } else if (ent.trialing) {
-    recheckHint = `Trial · ${ent.trialRunCap} report · ${ent.trialBrandCap} brand`;
-  }
+  const loadRecheckHint = ent.paid || ent.trialing;
+  const trialHint = ent.trialing
+    ? `Trial · ${ent.trialRunCap} report · ${ent.trialBrandCap} brand`
+    : null;
 
   return (
     <WorkspaceChrome
@@ -54,10 +44,11 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
       roleLabel={role}
       impersonating={Boolean(ctx.impersonating)}
       signedIn
-      brands={brands.map((brand) => ({ id: brand.id, name: brand.name }))}
-      recheckHint={recheckHint}
+      brands={brands}
+      recheckHint={trialHint}
+      loadRecheckHint={loadRecheckHint && !trialHint}
     >
-      {children}
+      <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
     </WorkspaceChrome>
   );
 }

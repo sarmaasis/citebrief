@@ -7,6 +7,27 @@ import { ChevronDown, Menu } from "lucide-react";
 import { UserMenu } from "@/components/app/user-menu";
 import { cn } from "@/lib/utils";
 
+function formatRecheckHint(usage: {
+  monthlyRechecksRemaining?: number;
+  monthlyRecheckCredits?: number;
+  extraRunCredits?: number;
+}): string | null {
+  const remaining = Math.max(0, usage.monthlyRechecksRemaining ?? 0);
+  const included = Math.max(0, usage.monthlyRecheckCredits ?? 0);
+  const credits = Math.max(0, usage.extraRunCredits ?? 0);
+  if (included <= 0 && credits <= 0) return null;
+  if (credits > 0) {
+    return `${remaining}/${included} rechecks · ${credits} extra credit${credits === 1 ? "" : "s"}`;
+  }
+  return remaining === 0
+    ? `${remaining}/${included} rechecks left · buy extra to re-run past included`
+    : `${remaining}/${included} recheck${included === 1 ? "" : "s"} left`;
+}
+
+// Survive layout remounts across soft navigations (OpenNext often re-sends the shell).
+let recheckHintCache: { value: string | null; at: number } | null = null;
+const RECHECK_HINT_TTL_MS = 60_000;
+
 export function AppTopBar({
   userLabel,
   roleLabel,
@@ -14,6 +35,7 @@ export function AppTopBar({
   signedIn = true,
   onOpenNav,
   recheckHint,
+  loadRecheckHint = false,
 }: {
   userLabel: string;
   roleLabel?: string | null;
@@ -22,12 +44,47 @@ export function AppTopBar({
   onOpenNav?: () => void;
   /** Optional “2 rechecks left” style hint for paid plans. */
   recheckHint?: string | null;
+  /** Fetch remaining rechecks once; keeps workspace layout off the usage snapshot path. */
+  loadRecheckHint?: boolean;
 }) {
   const pathname = usePathname();
   const current = brands.find((brand) => pathname.startsWith(`/app/brands/${brand.id}`)) ?? brands[0];
+  const [fetchedHint, setFetchedHint] = useState<string | null>(() => {
+    if (
+      loadRecheckHint &&
+      recheckHintCache &&
+      Date.now() - recheckHintCache.at < RECHECK_HINT_TTL_MS
+    ) {
+      return recheckHintCache.value;
+    }
+    return null;
+  });
+  const hint = recheckHint ?? fetchedHint;
+
+  useEffect(() => {
+    if (!loadRecheckHint || !signedIn || recheckHint) return;
+    if (recheckHintCache && Date.now() - recheckHintCache.at < RECHECK_HINT_TTL_MS) {
+      return;
+    }
+    let cancelled = false;
+    void fetch("/api/billing/usage")
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const data = (await response.json()) as { usage?: Parameters<typeof formatRecheckHint>[0] };
+        return data.usage ? formatRecheckHint(data.usage) : null;
+      })
+      .then((next) => {
+        recheckHintCache = { value: next, at: Date.now() };
+        if (!cancelled && next) setFetchedHint(next);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [loadRecheckHint, signedIn, recheckHint]);
 
   return (
-    <header className="relative z-20 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-cb-line bg-cb-bg px-4 py-2 sm:px-6">
+    <header className="relative z-20 flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-cb-line bg-cb-bg px-4 py-2 sm:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-2 text-sm sm:gap-3">
         {onOpenNav ? (
           <button
@@ -40,9 +97,9 @@ export function AppTopBar({
           </button>
         ) : null}
         {brands.length && current ? <BrandSwitcher brands={brands} currentId={current.id} /> : null}
-        {recheckHint ? (
+        {hint ? (
           <Link href="/app/settings/billing" className="hidden truncate text-xs text-cb-muted hover:text-cb-accent md:inline">
-            {recheckHint}
+            {hint}
           </Link>
         ) : null}
       </div>

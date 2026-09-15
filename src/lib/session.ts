@@ -111,12 +111,12 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     }
 
     const db = await getDb();
-    await ensureWorkspaceForUser(db, {
+    const user = {
       id: session.user.id,
       name: session.user.name,
       email: session.user.email,
       emailVerified: session.user.emailVerified,
-    });
+    };
 
     const { env } = await getCloudflareContext({ async: true });
     const actAsId = await resolveActAsWorkspaceId(requestHeaders, env);
@@ -142,18 +142,26 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
       }
     }
 
-    const membership = await db
-      .select({
-        workspaceId: workspaceMembers.workspaceId,
-        workspaceName: workspaces.name,
-        timezone: workspaces.timezone,
-        role: workspaceMembers.role,
-      })
-      .from(workspaceMembers)
-      .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
-      .where(eq(workspaceMembers.userId, session.user.id))
-      .orderBy(desc(workspaceMembers.createdAt))
-      .limit(1);
+    const loadMembership = () =>
+      db
+        .select({
+          workspaceId: workspaceMembers.workspaceId,
+          workspaceName: workspaces.name,
+          timezone: workspaces.timezone,
+          role: workspaceMembers.role,
+        })
+        .from(workspaceMembers)
+        .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+        .where(eq(workspaceMembers.userId, session.user.id))
+        .orderBy(desc(workspaceMembers.createdAt))
+        .limit(1);
+
+    let membership = await loadMembership();
+    if (!membership[0]) {
+      // First verified login only — skip ensureWorkspace on every nav when membership exists.
+      await ensureWorkspaceForUser(db, user);
+      membership = await loadMembership();
+    }
 
     const row = membership[0];
     if (!row) {
