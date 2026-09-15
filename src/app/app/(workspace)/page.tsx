@@ -14,6 +14,7 @@ import { movementLabel, parseAgencySavedView } from "@/lib/dashboard-metrics";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
+import { cn } from "@/lib/utils";
 import { buildCommandCenterSnapshot } from "@/server/command-center-data";
 import { buildDashboardSnapshot } from "@/server/dashboard-data";
 import { listHomeRows, withSendOverdue } from "@/server/workspace-data";
@@ -87,9 +88,6 @@ export default async function AppHomePage({
     );
   }
 
-  const onlyBrand = snapshot.unfilteredCount === 1 && snapshot.rows.length === 1 ? snapshot.rows[0] : null;
-  const firstBrandNeedsSetup = Boolean(onlyBrand && !onlyBrand.latestReport);
-  const nextAction = snapshot.actions[0] ?? null;
   const canAddBrand = snapshot.unfilteredCount < ent.brandLimit;
   const namedAvg = snapshot.kpis.portfolioVisibility;
   const namedTotal =
@@ -101,14 +99,25 @@ export default async function AppHomePage({
     deltas.length === 0 ? null : Math.round((deltas.reduce((a, b) => a + b, 0) / deltas.length) * 10) / 10;
   const portfolioMovement = movementLabel(movement);
 
+  // Top competitor across portfolio (most frequent competitor leader)
+  const competitorTally = new Map<string, number>();
+  for (const row of snapshot.rows) {
+    if (row.competitorLeader) {
+      competitorTally.set(row.competitorLeader, (competitorTally.get(row.competitorLeader) ?? 0) + 1);
+    }
+  }
+  const topCompetitor = [...competitorTally.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
+
   return (
     <div className="min-w-0">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
           <p className="mt-1 text-sm text-cb-muted">
-            Are we improving, who is winning, what changed, and what to do next.
-            {portfolioMovement !== "unknown" ? ` Portfolio is ${portfolioMovement}.` : ""}
+            {portfolioMovement !== "unknown" ? `Portfolio is ${portfolioMovement}. ` : ""}
+            {snapshot.kpis.clientsAtRisk > 0
+              ? `${snapshot.kpis.clientsAtRisk} client${snapshot.kpis.clientsAtRisk === 1 ? "" : "s"} need attention.`
+              : "All clients stable."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -125,64 +134,98 @@ export default async function AppHomePage({
         </div>
       </div>
 
-      <div className="mb-8">
-        <WorkspaceCapacityStrip
-          plan={ent.plan}
-          brandsUsed={snapshot.unfilteredCount}
-          brandLimit={ent.brandLimit}
-          promptCap={ent.promptCap}
-          monthlyRecheckCredits={ent.monthlyRecheckCredits}
-          weekly={ent.allowsWeeklyCadence}
+      {/* KPI cards — all data from snapshot.kpis, no extra queries */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard
+          label="AI visibility"
+          value={namedAvg == null ? "—" : `${namedAvg}/${namedTotal}`}
+          sub={movement == null ? "No data yet" : movement > 0 ? `↑ +${movement} vs last week` : movement < 0 ? `↓ ${movement} vs last week` : "Flat this week"}
+          subTone={movement == null ? "muted" : movement > 0 ? "named" : movement < 0 ? "missing" : "muted"}
+          href="/app/brands"
+        />
+        <KpiCard
+          label="Clients at risk"
+          value={String(snapshot.kpis.clientsAtRisk)}
+          sub={snapshot.kpis.clientsAtRisk === 0 ? "All stable" : "Need action"}
+          subTone={snapshot.kpis.clientsAtRisk > 0 ? "missing" : "named"}
+          href="/app/risks"
+        />
+        <KpiCard
+          label="Opportunities"
+          value={String(snapshot.kpis.opportunitiesFound)}
+          sub={snapshot.kpis.opportunitiesFound > 0 ? "Found this week" : "None detected"}
+          subTone={snapshot.kpis.opportunitiesFound > 0 ? "accent" : "muted"}
+          href="/app/opportunities"
+        />
+        <KpiCard
+          label="Hours saved"
+          value={`${snapshot.kpis.hoursSaved}h`}
+          sub="This month, est."
+          subTone="muted"
+          href="/app/settings/billing"
         />
       </div>
 
-      <div className="mb-8">
-        <p className="font-mono text-[40px] leading-none tabular-nums text-cb-accent">
-          {namedAvg == null ? "—" : `${namedAvg}/${namedTotal}`}
-        </p>
-        <p className="mt-3 text-sm text-cb-muted">
-          {namedAvg == null
-            ? "Named scores appear after the first report."
-            : `Named in ${namedAvg}/${namedTotal} questions this week`}
-        </p>
-      </div>
-
-      {firstBrandNeedsSetup && onlyBrand ? (
-        <div className="mb-8 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
-          <p className="text-xs text-cb-muted">Suggested next action</p>
-          <p className="mt-2 text-sm font-medium">Finish the first report</p>
-          <p className="mt-1 text-sm text-cb-muted">
-            Generate {ent.promptCap} buyer questions, run the report, then open the PDF.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-3 text-sm">
-            {onlyBrand.promptCount === 0 ? (
-              <Link href={`/app/brands/${onlyBrand.brand.id}/prompts`} className="text-cb-accent">
-                Generate {ent.promptCap} prompts
-              </Link>
-            ) : (
-              <Link href={`/app/brands/${onlyBrand.brand.id}`} className="text-cb-accent">
-                Run report
-              </Link>
-            )}
-            <Link href="/report" className="text-cb-accent">
-              View sample
+      {/* Reports ready / competitor intel strip */}
+      {(snapshot.kpis.reportsReady > 0 || topCompetitor) ? (
+        <div className="mb-6 flex flex-wrap gap-3">
+          {snapshot.kpis.reportsReady > 0 ? (
+            <Link
+              href="/app/reports"
+              className="flex items-center gap-2 rounded-cb-control border border-cb-pending bg-cb-pending-subtle px-3 py-2 text-sm"
+            >
+              <span className="font-medium text-cb-pending">
+                {snapshot.kpis.reportsReady} report{snapshot.kpis.reportsReady === 1 ? "" : "s"} ready to send
+              </span>
+              <span className="text-cb-muted">→</span>
             </Link>
-          </div>
-        </div>
-      ) : nextAction ? (
-        <div className="mb-8 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
-          <p className="text-xs text-cb-muted">Suggested next action</p>
-          <p className="mt-2 text-sm font-medium">
-            {nextAction.brandName}: {nextAction.verb}
-          </p>
-          <p className="mt-1 text-sm text-cb-muted">{nextAction.reason}</p>
-          <Link href={nextAction.href} className="mt-3 inline-block text-sm text-cb-accent">
-            Open
-          </Link>
+          ) : null}
+          {topCompetitor ? (
+            <div className="flex items-center gap-2 rounded-cb-control border border-cb-line bg-cb-surface px-3 py-2 text-sm text-cb-muted">
+              <span className="font-medium text-cb-text">{topCompetitor[0]}</span>
+              <span>
+                leading against {topCompetitor[1]} client{topCompetitor[1] === 1 ? "" : "s"}
+              </span>
+            </div>
+          ) : null}
+          {snapshot.kpis.failedOrPartial > 0 ? (
+            <Link
+              href="/app/activity"
+              className="flex items-center gap-2 rounded-cb-control border border-cb-line bg-cb-surface px-3 py-2 text-sm text-cb-missing"
+            >
+              {snapshot.kpis.failedOrPartial} run{snapshot.kpis.failedOrPartial === 1 ? "" : "s"} failed — retry
+            </Link>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="mb-8">
+      {/* Actions queue — top 3, not just 1 */}
+      {snapshot.actions.length > 0 ? (
+        <div className="mb-6 rounded-cb-card border border-cb-line bg-cb-surface">
+          <div className="flex items-center justify-between border-b border-cb-line px-4 py-3">
+            <p className="text-sm font-medium">Actions this week</p>
+            <span className="text-xs text-cb-muted">{snapshot.actions.length} pending</span>
+          </div>
+          <ul>
+            {snapshot.actions.slice(0, 3).map((action, i) => (
+              <li
+                key={i}
+                className="flex items-center justify-between gap-4 border-b border-cb-line px-4 py-3 last:border-0"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{action.brandName}: {action.verb}</p>
+                  <p className="mt-0.5 truncate text-xs text-cb-muted">{action.reason}</p>
+                </div>
+                <Link href={action.href} className="shrink-0 text-sm text-cb-accent">
+                  Open →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="mb-6">
         <AgencySavedViews active={savedView} basePath="/app" paramKey="view" />
       </div>
 
@@ -212,7 +255,14 @@ export default async function AppHomePage({
             </thead>
             <tbody>
               {snapshot.rows.map((row) => (
-                <tr key={row.brand.id} className="h-12 border-b border-cb-line last:border-0">
+                <tr
+                  key={row.brand.id}
+                  className={cn(
+                    "h-12 border-b border-cb-line last:border-0",
+                    row.risk === "at_risk" && "border-l-2 border-l-cb-missing bg-cb-missing-subtle/30",
+                    row.risk === "watch" && "border-l-2 border-l-cb-pending",
+                  )}
+                >
                   <Td>
                     <Link href={`/app/brands/${row.brand.id}`} className="font-medium text-cb-text hover:text-cb-accent">
                       {row.brand.name}
@@ -307,16 +357,19 @@ function LightHome({
   const namedTotal =
     rows.find((row) => row.latestReport?.scoreTotal)?.latestReport?.scoreTotal ?? promptCap;
   const brandId = rows[0]?.brand.id;
+  // delta for single-brand light home
+  const delta = rows.length === 1 ? (rows[0]?.mentionedDelta ?? null) : null;
+  const topCompetitor = rows[0]?.competitorLeader ?? null;
 
   return (
     <div className="min-w-0">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
           <p className="mt-1 text-sm text-cb-muted">
-            Are we improving, who is winning, what changed, and what to do next.
-            {overview.movementLabel !== "unknown" ? ` Brand is ${overview.movementLabel}.` : ""} Growth unlocks
-            weekly trend depth; Agency adds multi-client white-label workflows.
+            {overview.movementLabel !== "unknown" ? `Brand is ${overview.movementLabel}. ` : ""}
+            <Link href="/app/settings/billing" className="text-cb-accent">Upgrade to Agency</Link>
+            {" "}for multi-client reports and white-label PDF delivery.
           </p>
         </div>
         {canAddBrand ? (
@@ -330,31 +383,38 @@ function LightHome({
         )}
       </div>
 
-      <div className="mb-8">
-        <WorkspaceCapacityStrip
-          plan={plan}
-          brandsUsed={rows.length}
-          brandLimit={brandLimit}
-          promptCap={promptCap}
-          monthlyRecheckCredits={monthlyRecheckCredits}
-          weekly={weekly}
+      {/* Compact stat row replaces the thin 40px number + capacity strip */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <KpiCard
+          label="AI visibility"
+          value={namedAvg == null ? "—" : `${namedAvg}/${namedTotal}`}
+          sub={
+            delta == null ? "Run first report" :
+            delta > 0 ? `↑ +${delta} vs last week` :
+            delta < 0 ? `↓ ${delta} vs last week` : "Flat this week"
+          }
+          subTone={delta == null ? "muted" : delta > 0 ? "named" : delta < 0 ? "missing" : "muted"}
+          href={brandId ? `/app/brands/${brandId}` : "/app/brands"}
+        />
+        <KpiCard
+          label="Top competitor"
+          value={topCompetitor ?? "None tracked"}
+          sub={topCompetitor ? "Leading against you" : "Add competitors"}
+          subTone={topCompetitor ? "missing" : "muted"}
+          href={brandId ? `/app/brands/${brandId}?tab=competitors` : "/app/brands"}
+        />
+        <KpiCard
+          label="Plan"
+          value={PLANS[plan].name}
+          sub={`${rows.length}/${brandLimit} brands · ${weekly ? "weekly" : "monthly"}`}
+          subTone="muted"
+          href="/app/settings/billing"
         />
       </div>
 
-      <div className="mb-8">
-        <p className="font-mono text-[40px] leading-none tabular-nums text-cb-accent">
-          {namedAvg == null ? "—" : `${namedAvg}/${namedTotal}`}
-        </p>
-        <p className="mt-3 text-sm text-cb-muted">
-          {namedAvg == null
-            ? "Named scores appear after the first report."
-            : `Named in ${namedAvg}/${namedTotal} questions this week`}
-        </p>
-      </div>
-
       {firstBrandNeedsSetup && onlyBrand ? (
-        <div className="mb-8 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
-          <p className="text-xs text-cb-muted">Suggested next action</p>
+        <div className="mb-6 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
+          <p className="text-xs text-cb-muted">Next step</p>
           <p className="mt-2 text-sm font-medium">Finish the first report</p>
           <p className="mt-1 text-sm text-cb-muted">
             Generate {promptCap} buyer questions, run the report, then open the PDF.
@@ -362,28 +422,32 @@ function LightHome({
           <div className="mt-3 flex flex-wrap gap-3 text-sm">
             {onlyBrand.promptCount === 0 ? (
               <Link href={`/app/brands/${onlyBrand.brand.id}/prompts`} className="text-cb-accent">
-                Generate {promptCap} prompts
+                Generate {promptCap} prompts →
               </Link>
             ) : (
               <Link href={`/app/brands/${onlyBrand.brand.id}`} className="text-cb-accent">
-                Run report
+                Run report →
               </Link>
             )}
-            <Link href="/report" className="text-cb-accent">
+            <Link href="/report" className="text-cb-muted">
               View sample
             </Link>
           </div>
         </div>
       ) : nextAction ? (
-        <div className="mb-8 rounded-cb-card border border-cb-accent bg-cb-surface p-5">
-          <p className="text-xs text-cb-muted">Suggested next action</p>
-          <p className="mt-2 text-sm font-medium">
-            {nextAction.brandName}: {nextAction.verb}
-          </p>
-          <p className="mt-1 text-sm text-cb-muted">{nextAction.reason}</p>
-          <Link href={nextAction.href} className="mt-3 inline-block text-sm text-cb-accent">
-            Open
-          </Link>
+        <div className="mb-6 rounded-cb-card border border-cb-line bg-cb-surface">
+          <div className="border-b border-cb-line px-4 py-3">
+            <p className="text-sm font-medium">Next action</p>
+          </div>
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{nextAction.brandName}: {nextAction.verb}</p>
+              <p className="mt-0.5 truncate text-xs text-cb-muted">{nextAction.reason}</p>
+            </div>
+            <Link href={nextAction.href} className="shrink-0 text-sm text-cb-accent">
+              Open →
+            </Link>
+          </div>
         </div>
       ) : null}
 
@@ -464,52 +528,36 @@ function LightHome({
   );
 }
 
-function WorkspaceCapacityStrip({
-  plan,
-  brandsUsed,
-  brandLimit,
-  promptCap,
-  monthlyRecheckCredits,
-  weekly,
+function KpiCard({
+  label,
+  value,
+  sub,
+  subTone,
+  href,
 }: {
-  plan: keyof typeof PLANS;
-  brandsUsed: number;
-  brandLimit: number;
-  promptCap: number;
-  monthlyRecheckCredits: number;
-  weekly: boolean;
+  label: string;
+  value: string;
+  sub: string;
+  subTone: "muted" | "named" | "missing" | "accent";
+  href: string;
 }) {
-  const questionCapacity = brandLimit * promptCap;
-  const questionUsed = Math.min(brandsUsed * promptCap, questionCapacity);
-  const items = [
-    ["Plan", PLANS[plan].name],
-    ["Brands", `${brandsUsed}/${brandLimit}`],
-    ["Tracked questions", `${questionUsed}/${questionCapacity}`],
-    ["Cadence", weekly ? "Weekly" : "Monthly"],
-    ["Rechecks", `${monthlyRecheckCredits}/mo`],
-  ];
+  const toneClass = {
+    muted: "text-cb-muted",
+    named: "text-cb-named",
+    missing: "text-cb-missing",
+    accent: "text-cb-accent",
+  }[subTone];
 
   return (
-    <section className="rounded-cb-card border border-cb-line bg-cb-surface p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium">Workspace capacity</p>
-          <p className="mt-1 text-xs text-cb-muted">
-            Capacity is based on active brands and buyer questions per brand. Cited pages, alerts, and export modules are coming soon.
-          </p>
-        </div>
-        <Link href="/app/settings/billing" className="text-xs text-cb-accent">
-          Manage plan
-        </Link>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-5">
-        {items.map(([label, value]) => (
-          <div key={label} className="border-t border-cb-line pt-3 sm:border-t-0 sm:pt-0">
-            <p className="text-[11px] uppercase text-cb-muted">{label}</p>
-            <p className="mt-1 font-mono text-sm tabular-nums text-cb-text">{value}</p>
-          </div>
-        ))}
-      </div>
-    </section>
+    <Link
+      href={href}
+      className="group rounded-cb-card border border-cb-line bg-cb-surface p-4 hover:border-cb-accent"
+    >
+      <p className="text-[11px] uppercase tracking-wide text-cb-muted">{label}</p>
+      <p className="mt-2 font-mono text-2xl tabular-nums text-cb-text group-hover:text-cb-accent">
+        {value}
+      </p>
+      <p className={cn("mt-1 text-xs", toneClass)}>{sub}</p>
+    </Link>
   );
 }

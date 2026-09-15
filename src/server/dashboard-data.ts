@@ -64,23 +64,11 @@ export async function buildDashboardSnapshot(
   ent: WorkspaceEntitlements,
   opts?: { view?: AgencySavedView; brandIds?: string[]; includeRechecks?: boolean },
 ) {
-  const { rows, minutesSavedPerReport, planned } = await loadCommandRows(
+  const { rows, minutesSavedPerReport, planned, timezone } = await loadCommandRows(
     ctx,
     ent.allowsWeeklyCadence,
     opts?.brandIds,
   );
-  const [[workspace], statusMap, sub] = await Promise.all([
-    ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1),
-    loadOpportunityStatuses(ctx),
-    opts?.includeRechecks === false ? Promise.resolve(null) : getWorkspaceSubscription(ctx.db, ctx.workspace.id),
-  ]);
-  const timezone = workspace?.timezone || "America/New_York";
-  const rechecksUsed =
-    ent.paid && opts?.includeRechecks !== false
-      ? await countMonthlyRechecksUsed(ctx.db, ctx.workspace.id, sub?.plan)
-      : 0;
-  const enginesMonitored = enginesForEnt(ent);
-  const view = opts?.view ?? "all";
 
   const runIds = rows.map((row) => row.latestRun?.id).filter((id): id is string => Boolean(id));
   const previousRunIds = rows
@@ -91,6 +79,53 @@ export async function buildDashboardSnapshot(
         : null;
     })
     .filter((id): id is string => Boolean(id));
+
+  // All secondary queries in one parallel batch (was two sequential batches before)
+  const [[workspace], statusMap, sub, signalRows, prevSignalRows] = await Promise.all([
+    ctx.db.select().from(workspaces).where(eq(workspaces.id, ctx.workspace.id)).limit(1),
+    loadOpportunityStatuses(ctx),
+    opts?.includeRechecks === false ? Promise.resolve(null) : getWorkspaceSubscription(ctx.db, ctx.workspace.id),
+    runIds.length > 0
+      ? ctx.db
+          .select({
+            runId: runRows.runId,
+            promptId: runRows.promptId,
+            promptText: prompts.text,
+            mentioned: runRows.mentioned,
+            recommended: runRows.recommended,
+            whoWon: runRows.whoWon,
+            citedUrls: runRows.citedUrls,
+            citedBrandUrl: runRows.citedBrandUrl,
+            engine: runRows.engine,
+            brandId: runs.brandId,
+            status: runRows.status,
+          })
+          .from(runRows)
+          .innerJoin(runs, eq(runs.id, runRows.runId))
+          .innerJoin(prompts, eq(prompts.id, runRows.promptId))
+          .where(inArray(runRows.runId, runIds))
+      : Promise.resolve([]),
+    previousRunIds.length > 0
+      ? ctx.db
+          .select({
+            whoWon: runRows.whoWon,
+            brandId: runs.brandId,
+            brandName: brands.name,
+          })
+          .from(runRows)
+          .innerJoin(runs, eq(runs.id, runRows.runId))
+          .innerJoin(brands, eq(brands.id, runs.brandId))
+          .where(inArray(runRows.runId, previousRunIds))
+      : Promise.resolve([]),
+  ]);
+
+  const rechecksUsed =
+    ent.paid && opts?.includeRechecks !== false
+      ? await countMonthlyRechecksUsed(ctx.db, ctx.workspace.id, sub?.plan)
+      : 0;
+  const enginesMonitored = enginesForEnt(ent);
+  const view = opts?.view ?? "all";
+
   const citationByBrand = new Map<string, { cited: number; total: number }>();
   const winLoseByBrand = new Map<string, { win: number; lose: number }>();
   const signalsByBrand = new Map<string, OpportunitySignalRow[]>();
@@ -107,41 +142,6 @@ export async function buildDashboardSnapshot(
     brandName: string;
     whoWon: string | null;
   }> = [];
-
-  const [signalRows, prevSignalRows] = await Promise.all([
-    runIds.length > 0
-      ? ctx.db
-      .select({
-        runId: runRows.runId,
-        promptId: runRows.promptId,
-        promptText: prompts.text,
-        mentioned: runRows.mentioned,
-        recommended: runRows.recommended,
-        whoWon: runRows.whoWon,
-        citedUrls: runRows.citedUrls,
-        citedBrandUrl: runRows.citedBrandUrl,
-        engine: runRows.engine,
-        brandId: runs.brandId,
-        status: runRows.status,
-      })
-      .from(runRows)
-      .innerJoin(runs, eq(runs.id, runRows.runId))
-      .innerJoin(prompts, eq(prompts.id, runRows.promptId))
-          .where(inArray(runRows.runId, runIds))
-      : Promise.resolve([]),
-    previousRunIds.length > 0
-      ? ctx.db
-          .select({
-            whoWon: runRows.whoWon,
-            brandId: runs.brandId,
-            brandName: brands.name,
-          })
-          .from(runRows)
-          .innerJoin(runs, eq(runs.id, runRows.runId))
-          .innerJoin(brands, eq(brands.id, runs.brandId))
-          .where(inArray(runRows.runId, previousRunIds))
-      : Promise.resolve([]),
-  ]);
 
   if (signalRows.length > 0) {
     const brandName = new Map(rows.map((row) => [row.brand.id, row.brand.name]));
