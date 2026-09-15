@@ -90,6 +90,7 @@ export function OnboardingFlow({
   const [approved, setApproved] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [retryQueued, setRetryQueued] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [showBrandUpgrade, setShowBrandUpgrade] = useState(false);
   const brandUpgrade = brandCapUpgradeFromError(status);
@@ -307,7 +308,10 @@ export function OnboardingFlow({
     poll(data.runId);
   }
 
+  const pollStartRef = useRef<number>(0);
   async function poll(id: string) {
+    if (!pollStartRef.current) pollStartRef.current = Date.now();
+    const elapsed = Date.now() - pollStartRef.current;
     const response = await fetch(`/api/runs/${id}`);
     const data = (await response.json()) as {
       status?: string;
@@ -328,12 +332,16 @@ export function OnboardingFlow({
     applyApproval(data.approvalState);
     if (data.status === "complete" || data.status === "partial") {
       setReportReady(true);
+      setRetryQueued(null);
       return;
     }
     if (data.status === "failed") {
+      setRetryQueued(null);
       return;
     }
-    window.setTimeout(() => void poll(id), 1200);
+    // ponytail: simple back-off; replace with exponential if runs routinely exceed 5 min
+    const delay = elapsed < 30_000 ? 1200 : elapsed < 120_000 ? 4000 : 10_000;
+    window.setTimeout(() => void poll(id), delay);
   }
   pollRef.current = poll;
 
@@ -366,7 +374,10 @@ export function OnboardingFlow({
       applyApproval(data.approvalState);
       setReportReady(data.status === "complete" || data.status === "partial");
       if (data.status !== "complete" && data.status !== "partial" && data.status !== "failed") {
+        setRetryQueued(engine);
         poll(runId);
+      } else {
+        setRetryQueued(null);
       }
     } finally {
       setRetrying(null);
@@ -423,7 +434,17 @@ export function OnboardingFlow({
       <div className="flex items-center justify-between">
         <Logo href="/app" />
         <div className="flex items-center gap-2">
-          <Link href="/app" className="text-sm text-cb-muted" onClick={() => finishOnboarding()}>
+          <Link
+            href="/app"
+            className="text-sm text-cb-muted"
+            onClick={(e) => {
+              if (brandId && !reportReady && !window.confirm("Leave setup? Your brand is saved and you can continue from Brands.")) {
+                e.preventDefault();
+                return;
+              }
+              finishOnboarding();
+            }}
+          >
             Cancel
           </Link>
           <SignOutButton />
@@ -462,7 +483,7 @@ export function OnboardingFlow({
 
       {step === 2 ? (
         <>
-          <h1 className="mt-6 text-2xl font-semibold tracking-tight">Confirm {promptCap} buyer questions</h1>
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight">Your {promptCap} buyer questions</h1>
           <p className="mt-2 text-sm text-cb-muted">
             {source === "llm"
               ? "Generated from the writer. Edit before you run."
@@ -470,12 +491,8 @@ export function OnboardingFlow({
           </p>
           {source === "template" ? (
             <p className="mt-3 rounded-cb-card border border-cb-line bg-cb-surface px-3 py-2 text-sm text-cb-ink">
-              Using the <strong>template pack</strong> (AI writer unavailable or timed out). You can still edit every
-              question before the run.
+              Your prompts are ready. Edit any question before you run.
             </p>
-          ) : null}
-          {source === "llm" ? (
-            <p className="mt-3 text-xs text-cb-muted">Source: AI writer (Workers AI).</p>
           ) : null}
           <div className="mt-6 flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(1)}>
@@ -533,9 +550,13 @@ export function OnboardingFlow({
               Named in {scoreMentioned} of {prompts.length || promptCap}
             </p>
           ) : null}
-          {runStatus === "partial" ? (
+          {retryQueued ? (
+            <p className="mt-3 text-sm text-cb-muted">
+              Retrying {retryQueued} — you can leave this page. The score will update automatically when it responds.
+            </p>
+          ) : runStatus === "partial" ? (
             <p className="mt-3 text-sm text-cb-pending">
-              The PDF still shipped. Use Retry on the failed source — it does not use a recheck.
+              One source didn&apos;t respond. The PDF still shipped. Retry is free — it doesn&apos;t use a recheck credit.
             </p>
           ) : null}
           <div className="mt-8 space-y-3">

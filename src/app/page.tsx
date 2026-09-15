@@ -92,10 +92,8 @@ export default function HomePage() {
               The Friday AI-search report your client actually reads.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-cb-muted">
-              Track buyer questions across ChatGPT, Gemini, Grok, and AI Overviews. Send a
-              white-label PDF with who won, where you were missing, and what to do next. On Agency,
-              the command center shows whether you are improving, who is beating you, what changed,
-              and what to do this week.
+              Your score, who is winning your shortlist queries, and one next action per gap —
+              delivered as a white-label Friday PDF you forward without editing.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <MarketingPrimaryCta signedOutLabel="Send a Friday report" size="lg" />

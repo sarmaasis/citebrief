@@ -620,11 +620,22 @@ export async function aiGatewayRequest(args: AiGatewayRequestArgs): Promise<AiGa
     headers["cf-aig-cache-ttl"] = "86400";
   }
 
-  const response = await fetch(url, {
+  // ponytail: one retry on 429; add exponential multi-retry when unified billing is the permanent path
+  let response = await fetch(url, {
     method: args.method || "POST",
     headers,
     body: args.body === undefined ? undefined : JSON.stringify(args.body),
   });
+
+  if (response.status === 429) {
+    const retryAfter = Number(response.headers.get("retry-after") || "6");
+    await new Promise((r) => setTimeout(r, Math.min(retryAfter, 10) * 1000));
+    response = await fetch(url, {
+      method: args.method || "POST",
+      headers,
+      body: args.body === undefined ? undefined : JSON.stringify(args.body),
+    });
+  }
 
   const rawText = await response.text();
   let data: unknown = null;
