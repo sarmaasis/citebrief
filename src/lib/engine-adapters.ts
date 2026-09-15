@@ -156,7 +156,7 @@ async function stubAnswer(input: EngineQueryInput): Promise<EngineQueryResult> {
 
 export const ENGINE_MODELS = {
   chatgpt: "gpt-5.4-mini",
-  gemini: "gemini-3.6-flash",
+  gemini: "gemini-2.5-flash",
   claude: "claude-sonnet-5",
   /** Chat-completions + live search. Newer Responses model IDs returned 0 tokens on this Gateway. */
   grok: "grok-4.3",
@@ -212,7 +212,7 @@ export function buildEngineSearchRequest(
           tools: [{ google_search: {} }],
           generationConfig: {
             maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
-            thinkingConfig: { thinkingLevel: "minimal" },
+            thinkingConfig: { thinkingBudget: 0 },
           },
         },
       };

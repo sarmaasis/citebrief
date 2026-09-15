@@ -6,7 +6,7 @@ import { CORE_ENGINES } from "@/lib/engines";
  * (search-backed where the model completed). Blended $0.076/call was Claude.
  *
  *   claude-sonnet-5     19 req  $3.65  → $0.192/req
- *   gemini-3.6-flash    12 req  $0.07  → $0.006/req
+ *   gemini-2.5-flash    12 req  $0.07  → $0.006/req (switched from 3.6-flash; same price tier)
  *   gpt-5.4-mini         8 req  $0.06  → $0.008/req
  *   grok-4.3            20 req  $0.01  → $0.001/req
  *   AIO is Browser Rendering, not Gateway — keep a small placeholder.
