@@ -342,39 +342,26 @@ export function ReportViewer({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <a href={`/api/reports/${reportId}/download?format=pdf`}>Download PDF</a>
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => void copyLink()}>
-            Copy client link
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={shareBusy || (!liveToken && !revoked)}
-            onClick={() => void manageShare(revoked ? "rotate" : "revoke")}
-          >
-            {shareBusy ? "Updating…" : revoked ? "New client link" : "Revoke link"}
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => void copySuggestedEmail()}>
-            Copy suggested email
-          </Button>
+          {/* Primary: send or upgrade CTA */}
           {allowSend ? (
             <Button
               type="button"
-              variant="outline"
               size="sm"
-              disabled={testBusy || needsApprove}
+              disabled={needsApprove || testBusy}
               onClick={() => void sendTest()}
             >
-              {testBusy ? "Sending…" : "Send test"}
+              {testBusy ? "Sending…" : sent ? "Resend" : "Send test"}
             </Button>
           ) : (
-            <Button type="button" variant="outline" size="sm" onClick={() => setSendUpgrade(true)}>
-              Email on Agency
+            <Button type="button" size="sm" onClick={() => setSendUpgrade(true)}>
+              Unlock email sending
             </Button>
           )}
+          {/* Secondary: copy client link */}
+          <Button type="button" variant="outline" size="sm" onClick={() => void copyLink()}>
+            Copy client link
+          </Button>
+          {/* CC client */}
           {allowSend ? (
             <Button
               type="button"
@@ -392,17 +379,28 @@ export function ReportViewer({
               CC client
             </Button>
           ) : allowClientCc ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setCcOpen(true)}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={() => setCcOpen(true)}>
               CC client (trial)
             </Button>
           ) : null}
+          {/* Tertiary: ghost actions */}
+          <Button asChild variant="ghost" size="sm">
+            <a href={`/api/reports/${reportId}/download?format=pdf`}>PDF</a>
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => void copySuggestedEmail()}>
+            Copy email
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={shareBusy || (!liveToken && !revoked)}
+            onClick={() => void manageShare(revoked ? "rotate" : "revoke")}
+          >
+            {shareBusy ? "…" : revoked ? "New link" : "Revoke link"}
+          </Button>
           {showSources ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => setSourcesOpen(true)}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setSourcesOpen(true)}>
               Sources
             </Button>
           ) : null}

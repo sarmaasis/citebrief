@@ -77,7 +77,7 @@ function primaryWhoWon(agg: PromptAgg): string {
       return row.whoWon;
     }
   }
-  return "Unknown";
+  return "";
 }
 
 function primaryAction(agg: PromptAgg, brand: string): string {
@@ -110,17 +110,23 @@ export function writeReport(args: {
   const scoreRecommended = sorted.filter(promptRecommended).length;
   const scoreTotal = sorted.length || 20;
   const hole = sorted.find((row) => !promptNamed(row));
-  const holeWinner = hole ? primaryWhoWon(hole) : args.competitors[0] || "a rival";
+  const holeWinner = hole ? (primaryWhoWon(hole) || args.competitors[0] || "a rival") : args.competitors[0] || "a rival";
   const summary = hole
-    ? `${args.brand} was named in ${scoreMentioned} of ${scoreTotal} buyer questions this week. The biggest hole is "${hole.promptText}", where ${holeWinner} still wins the shortlist.`
-    : `${args.brand} was named in ${scoreMentioned} of ${scoreTotal} buyer questions this week. Keep the comparison pages fresh so rivals do not reclaim the shortlist.`;
+    ? `${args.brand} was named in ${scoreMentioned} of ${scoreTotal} buyer questions this week. The biggest gap is "${hole.promptText}" — ${holeWinner} currently wins that shortlist.`
+    : `${args.brand} appeared in all ${scoreTotal} buyer questions this week. The priority now is defending that position — keep comparison content and case studies updated so rivals do not reclaim ground next week.`;
 
   const losses = sorted.filter((row) => !promptNamed(row)).slice(0, 3);
+  const WHY_LABELS = [
+    "Buyers shortlist from this question — not ranking here is costing pipeline.",
+    "Comparison questions drive 30–40% of final decisions — this is where rivals win.",
+    "Switching signals show buyers are already looking; they should find you first.",
+  ];
+  const OWNER_LABELS = ["Content team", "Website / landing page", "PR / thought leadership"];
   const priorities = (losses.length ? losses : sorted.slice(0, 3)).map((row, index) => ({
     question: row.promptText,
-    why: index === 0 ? "shortlist" : index === 1 ? "comparison" : "switch",
+    why: WHY_LABELS[index] ?? WHY_LABELS[0]!,
     action: primaryAction(row, args.brand),
-    owner: index === 2 ? "PR" : index === 1 ? "site" : "content",
+    owner: OWNER_LABELS[index] ?? OWNER_LABELS[0]!,
   }));
 
   const dateLabel = formatShortDate(new Date());
@@ -140,14 +146,14 @@ export function writeReport(args: {
         if (!cell || cell.status === "failed") {
           return `<span>${engine.label}: -</span>`;
         }
-        return `<span>${engine.label}: ${cell.mentioned ? "Named" : "Missing"}</span>`;
+        return `<span>${engine.label}: <span class="${cell.mentioned ? "named" : "missing"}">${cell.mentioned ? "Named" : "Missing"}</span></span>`;
       }).join(" · ");
       const urls = enginesForAgg(row).flatMap((engine) => row.byEngine[engine.id]?.citedUrls ?? []).slice(0, 2);
       return `<section class="prompt">
   <h3>${escapeHtml(row.promptText)}</h3>
   <p class="meta">${engines}</p>
-  <p><strong>Who won:</strong> ${escapeHtml(primaryWhoWon(row))}</p>
-  <p>${escapeHtml(Object.values(row.byEngine).find((v) => v?.sentence)?.sentence || "")}</p>
+  ${primaryWhoWon(row) ? `<p class="meta"><strong>Currently winning:</strong> ${escapeHtml(primaryWhoWon(row))}</p>` : ""}
+  ${Object.values(row.byEngine).find((v) => v?.sentence)?.sentence ? `<p>${escapeHtml(Object.values(row.byEngine).find((v) => v?.sentence)?.sentence ?? "")}</p>` : ""}
   <p><strong>Next action:</strong> ${escapeHtml(primaryAction(row, args.brand))}</p>
   ${urls.length ? `<p class="meta">Cited: ${urls.map(escapeHtml).join(" · ")}</p>` : ""}
 </section>`;
@@ -158,8 +164,9 @@ export function writeReport(args: {
     .map(
       (item, i) => `<li>
   <strong>${i + 1}. ${escapeHtml(item.question)}</strong>
-  <div class="meta">Why it matters: ${escapeHtml(item.why)} · Owner: ${escapeHtml(item.owner)}</div>
-  <div>${escapeHtml(item.action)}</div>
+  <div class="meta" style="margin:4px 0 2px;">${escapeHtml(item.why)}</div>
+  <div><strong>Action:</strong> ${escapeHtml(item.action)}</div>
+  <div class="meta">Owner: ${escapeHtml(item.owner)}</div>
 </li>`,
     )
     .join("\n");
@@ -179,9 +186,17 @@ export function writeReport(args: {
     .meta { color: #737373; font-size: 12px; }
     .prompt { border-top: 1px solid #E8E6E1; padding: 16px 0; }
     .prompt h3 { font-size: 14px; margin: 0 0 8px; font-weight: 600; }
+    .named { color: ${accent}; font-weight: 600; }
+    .missing { color: #B45309; font-weight: 600; }
     .banner { background: #f6ead4; color: #B45309; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
     ol { padding-left: 18px; }
     li { margin-bottom: 12px; }
+    @media print {
+      body { background: #fff; }
+      .page { padding: 0.5in; max-width: 100%; }
+      .prompt { page-break-inside: avoid; }
+      li { page-break-inside: avoid; }
+    }
   </style>
 </head>
 <body>

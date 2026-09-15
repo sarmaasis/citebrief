@@ -338,7 +338,7 @@ export function generatePromptPack(input: PromptPackInput, options?: PromptCount
     { mix: "job", text: `which ${category} tool can help ${buyerLabel} ${job}` },
     { mix: "job", text: `affordable ${category} software for ${buyerLabel} ${constraint}` },
     { mix: "job", text: `${category} tool for ${buyerLabel} that need to ${job}` },
-    { mix: "job", text: `${category} platform with Slack and Google Drive support` },
+    { mix: "job", text: `${category} tools for ${buyerLabel} that connect to existing workflows` },
     { mix: "switch", text: `is ${incumbent} still worth it for ${buyerLabel} in ${PROMPT_YEAR}` },
     { mix: "switch", text: `problems with ${incumbent} for ${buyerLabel}` },
     { mix: "switch", text: `when should ${buyerLabel} switch from ${incumbent}` },
