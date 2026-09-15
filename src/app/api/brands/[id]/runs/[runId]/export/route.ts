@@ -62,9 +62,8 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   const exportRows = rows.map((row) => {
-    const competitorsNamed = parseNamed(row.othersNamed);
-    const { othersNamed: _drop, ...rest } = row;
-    return { ...rest, competitorsNamed };
+    const { othersNamed, ...rest } = row;
+    return { ...rest, competitorsNamed: parseNamed(othersNamed) };
   });
 
   const url = new URL(request.url);

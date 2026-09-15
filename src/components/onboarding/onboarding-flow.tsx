@@ -99,10 +99,8 @@ export function OnboardingFlow({
   const brandUpgrade = brandCapUpgradeFromError(status);
   const pollRef = useRef<(id: string) => void>(() => undefined);
   const finishedRef = useRef(false);
-  const editDeadlineRef = useRef<number | null>(null);
-  const autoRunRef = useRef(false);
   const savePromptsRef = useRef<() => Promise<boolean>>(async () => false);
-  const [editSecondsLeft, setEditSecondsLeft] = useState<number | null>(null);
+  const [editLocked, setEditLocked] = useState(false);
   const EDIT_CAP_MS = 5 * 60 * 1000;
 
   function finishOnboarding() {
@@ -110,36 +108,25 @@ export function OnboardingFlow({
     clearOnboardingSnap();
   }
 
-  // Five-minute prompt edit window — then run (activation: edit 5 min, not 50).
+  // Keep latest savePrompts for the edit-cap timeout (no ref writes during render).
   useEffect(() => {
-    if (step !== 2 || prompts.length === 0) {
-      if (step !== 2) {
-        editDeadlineRef.current = null;
-        setEditSecondsLeft(null);
-        autoRunRef.current = false;
-      }
-      return;
-    }
-    if (editDeadlineRef.current == null) {
-      editDeadlineRef.current = Date.now() + EDIT_CAP_MS;
-    }
-    const tick = () => {
-      const deadline = editDeadlineRef.current;
-      if (deadline == null) return;
-      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setEditSecondsLeft(left);
-      if (left <= 0 && !autoRunRef.current && !pending) {
-        autoRunRef.current = true;
-        void savePromptsRef.current().then((ok) => {
-          if (!ok) autoRunRef.current = false;
-        });
-      }
+    savePromptsRef.current = () => savePrompts();
+  });
+
+  // Five-minute edit window, then run. ponytail: one timeout, no countdown tick.
+  useEffect(() => {
+    if (step !== 2 || prompts.length === 0) return;
+    const unlock = window.setTimeout(() => setEditLocked(false), 0);
+    const run = window.setTimeout(() => {
+      setEditLocked(true);
+      void savePromptsRef.current();
+    }, EDIT_CAP_MS);
+    return () => {
+      window.clearTimeout(unlock);
+      window.clearTimeout(run);
     };
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, prompts.length, pending]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- savePrompts via ref
+  }, [step, prompts.length]);
 
   function applyApproval(state?: string | null) {
     if (state === "approved") setApproved(true);
@@ -374,7 +361,6 @@ export function OnboardingFlow({
       setPending(false);
     }
   }
-  savePromptsRef.current = () => savePrompts();
 
   async function startRun(id: string) {
     const response = await fetch(`/api/brands/${id}/runs`, { method: "POST" });
@@ -536,13 +522,9 @@ export function OnboardingFlow({
               ? "Generated from the writer. Edit before you run."
               : `Template pack. ${promptSetHint(promptCap)} Edit before you run.`}
           </p>
-          {editSecondsLeft != null ? (
-            <p className="mt-2 text-xs text-cb-muted">
-              {editSecondsLeft > 0
-                ? `Edit window: ${Math.floor(editSecondsLeft / 60)}:${String(editSecondsLeft % 60).padStart(2, "0")} — then we run.`
-                : "Time’s up — starting the run…"}
-            </p>
-          ) : null}
+          <p className="mt-2 text-xs text-cb-muted">
+            {editLocked ? "Time’s up — starting the run…" : "Edit for up to 5 minutes — then we run."}
+          </p>
           {source === "template" ? (
             <p className="mt-3 rounded-cb-card border border-cb-line bg-cb-surface px-3 py-2 text-sm text-cb-ink">
               Your prompts are ready. Edit any question before you run.
@@ -579,7 +561,7 @@ export function OnboardingFlow({
                 brandName={fields.name}
                 mixTarget={promptCap < 20 ? 1 : 4}
                 onChange={setPrompts}
-                readOnly={editSecondsLeft === 0 || pending}
+                readOnly={editLocked || pending}
               />
             )}
           </div>
