@@ -32,6 +32,33 @@ import { workspaceEntitlements } from "@/lib/entitlements";
 import { getWorkspaceSubscription, refundFailedRunAttempt, settleBillableExtraRun, shouldSettleBillableExtra } from "@/lib/usage";
 import { hydrateGatewayRunBudget, resetGatewayRunBudget } from "@/lib/ai-gateway";
 
+/** Idempotency key for one Gateway cell. Never re-fetch when this is already complete. */
+export function runCellKey(promptId: string, engine: string) {
+  return `${promptId}|${engine}`;
+}
+
+export function completeRunCellKeys(
+  rows: Array<{ promptId: string; engine: string; status: string | null }>,
+): Set<string> {
+  const keys = new Set<string>();
+  for (const row of rows) {
+    if (row.status === "complete") keys.add(runCellKey(row.promptId, row.engine));
+  }
+  return keys;
+}
+
+/** Next engine still queued/running (for sequential queue fan-out). */
+export function nextPendingEngineId(
+  engineIds: EngineId[],
+  states: EngineStatusMap,
+): EngineId | null {
+  for (const id of engineIds) {
+    const state = states[id];
+    if (state === "queued" || state === "running") return id;
+  }
+  return null;
+}
+
 export type ProcessRunResult = {
   runId: string;
   status: "running" | "complete" | "partial" | "failed";
@@ -73,7 +100,11 @@ export async function processRun(
   db: Database,
   env: CloudflareEnv,
   runId: string,
-  options?: { notifyEmail?: string | null },
+  options?: {
+    notifyEmail?: string | null;
+    /** Queue worker: only this engine (≈20 Gateway calls), then chain or finalize. */
+    onlyEngine?: EngineId;
+  },
 ): Promise<ProcessRunResult> {
   const bundle = await loadRunBundle(db, runId);
   if (!bundle) {
@@ -156,15 +187,28 @@ export async function processRun(
   const maxGatewayRequests = ent.paid
     ? Math.max(20, promptRows.length * runEngines.length * 2)
     : TRIAL_MAX_GATEWAY_REQUESTS;
-  const engines = scheduledEngineStatus(runEngines.map((engine) => engine.id));
+
+  // Resume paid work: keep completed cells. Wiping them on reclaim was double-billing Gateway.
+  const priorRows = await db.select().from(runRows).where(eq(runRows.runId, runId));
+  const completeKeys = completeRunCellKeys(priorRows);
+
+  // Engine jobs must not reset sibling engine status (parallel/sequential queue safety).
+  const engines = options?.onlyEngine
+    ? parseEngineStatus(bundle.run.engineStates)
+    : scheduledEngineStatus(runEngines.map((engine) => engine.id));
+  for (const engine of runEngines) {
+    if (!engines[engine.id] || engines[engine.id] === "skipped") {
+      engines[engine.id] = "queued";
+    }
+    if (promptRows.every((prompt) => completeKeys.has(runCellKey(prompt.id, engine.id)))) {
+      engines[engine.id] = "complete";
+    }
+  }
 
   await db
     .update(runs)
     .set({ status: "running", engineStates: JSON.stringify(engines) })
     .where(eq(runs.id, runId));
-
-  // Clear prior rows if reprocessing.
-  await db.delete(runRows).where(eq(runRows.runId, runId));
 
   const [kit] = await db
     .select()
@@ -184,7 +228,36 @@ export async function processRun(
     });
   }
 
-  for (const engine of runEngines) {
+  // Rebuild report aggs from durable completes so a reclaim can finalize without re-calling Gateway.
+  for (const row of priorRows) {
+    if (row.status !== "complete") continue;
+    const engineId = row.engine as EngineId;
+    const agg = aggs.get(row.promptId);
+    if (!agg) continue;
+    let citedUrls: string[] = [];
+    try {
+      citedUrls = row.citedUrls ? (JSON.parse(row.citedUrls) as string[]) : [];
+    } catch {
+      citedUrls = [];
+    }
+    agg.byEngine[engineId] = {
+      mentioned: Boolean(row.mentioned),
+      recommended: Boolean(row.recommended),
+      whoWon: row.whoWon,
+      sentence: row.sentence,
+      nextAction: row.nextAction,
+      citedUrls,
+      status: "complete",
+    };
+  }
+
+  const enginesToRun = options?.onlyEngine
+    ? runEngines.filter((engine) => engine.id === options.onlyEngine)
+    : runEngines;
+
+  for (const engine of enginesToRun) {
+    if (engines[engine.id] === "complete") continue;
+
     engines[engine.id] = "running";
     await db
       .update(runs)
@@ -193,8 +266,10 @@ export async function processRun(
 
     try {
       for (const prompt of promptRows) {
-        // Metered full runs (Run now / Friday / recheck / extra) must not read D1
-        // engine_cache: soft-fail re-runs were debiting credits while serving cache hits.
+        const key = runCellKey(prompt.id, engine.id);
+        if (completeKeys.has(key)) continue;
+
+        // Metered full runs must not read D1 engine_cache (cache hits were still debiting).
         // Still write on success so free Retry can reuse a good answer if useful.
         const result = await queryEngine({
           engine: engine.id,
@@ -233,6 +308,18 @@ export async function processRun(
           extracted,
         });
 
+        // Drop a prior failed stub for this cell so we don't keep ghosts.
+        await db
+          .delete(runRows)
+          .where(
+            and(
+              eq(runRows.runId, runId),
+              eq(runRows.promptId, prompt.id),
+              eq(runRows.engine, engine.id),
+              eq(runRows.status, "failed"),
+            ),
+          );
+
         await db.insert(runRows).values({
           id: crypto.randomUUID(),
           runId,
@@ -254,6 +341,7 @@ export async function processRun(
           status: "complete",
           createdAt: new Date(),
         });
+        completeKeys.add(key);
 
         const agg = aggs.get(prompt.id)!;
         agg.byEngine[engine.id] = {
@@ -274,6 +362,8 @@ export async function processRun(
       );
       engines[engine.id] = "failed";
       for (const prompt of promptRows) {
+        const key = runCellKey(prompt.id, engine.id);
+        if (completeKeys.has(key)) continue;
         await db.insert(runRows).values({
           id: crypto.randomUUID(),
           runId,
@@ -301,6 +391,66 @@ export async function processRun(
       .update(runs)
       .set({ engineStates: JSON.stringify(engines) })
       .where(eq(runs.id, runId));
+  }
+
+  // Queue path: one engine per message — chain the next engine instead of finishing 80 calls here.
+  if (options?.onlyEngine && env.RUNS_QUEUE) {
+    const next = nextPendingEngineId(
+      runEngines.map((engine) => engine.id),
+      engines,
+    );
+    if (next) {
+      await env.RUNS_QUEUE.send({
+        runId,
+        engineId: next,
+        notifyEmail: options.notifyEmail ?? null,
+      });
+      return {
+        runId,
+        status: "running",
+        engines,
+        reportId: null,
+        scoreMentioned: null,
+      };
+    }
+    // Last engine done — rebuild aggs from all durable rows before PDF.
+    const allRows = await db.select().from(runRows).where(eq(runRows.runId, runId));
+    for (const prompt of promptRows) {
+      const agg = aggs.get(prompt.id)!;
+      agg.byEngine = {};
+    }
+    for (const row of allRows) {
+      const engineId = row.engine as EngineId;
+      const agg = aggs.get(row.promptId);
+      if (!agg) continue;
+      if (row.status === "complete") {
+        let citedUrls: string[] = [];
+        try {
+          citedUrls = row.citedUrls ? (JSON.parse(row.citedUrls) as string[]) : [];
+        } catch {
+          citedUrls = [];
+        }
+        agg.byEngine[engineId] = {
+          mentioned: Boolean(row.mentioned),
+          recommended: Boolean(row.recommended),
+          whoWon: row.whoWon,
+          sentence: row.sentence,
+          nextAction: row.nextAction,
+          citedUrls,
+          status: "complete",
+        };
+      } else if (row.status === "failed") {
+        agg.byEngine[engineId] = {
+          mentioned: false,
+          recommended: false,
+          whoWon: null,
+          sentence: null,
+          nextAction: null,
+          citedUrls: [],
+          status: "failed",
+        };
+      }
+    }
   }
 
   const scheduledIds = CORE_ENGINES.filter(
@@ -445,6 +595,125 @@ export async function processRun(
     reportId: existing?.id ?? reportId,
     scoreMentioned: written.scoreMentioned,
   };
+}
+
+/**
+ * Orchestrator queue message (no engineId): claim run, then enqueue the first pending engine.
+ * Redelivery resumes the chain without redoing completed Gateway cells.
+ */
+export async function startOrContinueRunQueue(
+  db: Database,
+  env: CloudflareEnv,
+  runId: string,
+  notifyEmail?: string | null,
+): Promise<ProcessRunResult> {
+  const bundle = await loadRunBundle(db, runId);
+  if (!bundle) throw new Error("Run not found.");
+
+  if (bundle.run.status === "complete" || bundle.run.status === "partial") {
+    const [existing] = await db.select().from(reports).where(eq(reports.runId, runId)).limit(1);
+    if (existing) {
+      await settleBillableExtraRun({ db, env, workspaceId: bundle.workspace.id, runId });
+    }
+    return {
+      runId,
+      status: bundle.run.status as "complete" | "partial",
+      engines: parseEngineStatus(bundle.run.engineStates),
+      reportId: existing?.id ?? null,
+      scoreMentioned: existing?.scoreMentioned ?? null,
+    };
+  }
+  if (bundle.run.status === "failed") {
+    return {
+      runId,
+      status: "failed",
+      engines: parseEngineStatus(bundle.run.engineStates),
+      reportId: null,
+      scoreMentioned: null,
+    };
+  }
+
+  const resolved = await resolveRunEngines({
+    db,
+    workspaceId: bundle.workspace.id,
+    defaultEngines: bundle.workspace.defaultEngines,
+    env,
+  });
+  const runEngines = resolved.engines;
+  const engineIds = runEngines.map((engine) => engine.id);
+
+  const claimed = await db
+    .update(runs)
+    .set({ status: "running" })
+    .where(and(eq(runs.id, runId), eq(runs.status, "queued")))
+    .returning({ id: runs.id });
+
+  if (claimed.length > 0) {
+    resetGatewayRunBudget(runId);
+    await hydrateGatewayRunBudget(db, runId);
+    const priorRows = await db.select().from(runRows).where(eq(runRows.runId, runId));
+    const completeKeys = completeRunCellKeys(priorRows);
+    const sub = await getWorkspaceSubscription(db, bundle.workspace.id);
+    const promptCap = workspaceEntitlements(sub).promptCap;
+    const capped = bundle.promptRows.slice(0, promptCap);
+    const engines = scheduledEngineStatus(engineIds);
+    for (const id of engineIds) {
+      if (capped.every((prompt) => completeKeys.has(runCellKey(prompt.id, id)))) {
+        engines[id] = "complete";
+      }
+    }
+    await db
+      .update(runs)
+      .set({ engineStates: JSON.stringify(engines) })
+      .where(eq(runs.id, runId));
+  }
+
+  const [row] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
+  const engines = parseEngineStatus(row?.engineStates);
+  const next = nextPendingEngineId(engineIds, engines);
+  if (!next) {
+    // All engines terminal — finalize via one engine job path (skips Gateway, writes PDF).
+    const any = engineIds[0];
+    if (!any) {
+      return {
+        runId,
+        status: "failed",
+        engines,
+        reportId: null,
+        scoreMentioned: null,
+      };
+    }
+    return processRun(db, env, runId, { notifyEmail, onlyEngine: any });
+  }
+  if (!env.RUNS_QUEUE) {
+    return processRun(db, env, runId, { notifyEmail });
+  }
+  await env.RUNS_QUEUE.send({
+    runId,
+    engineId: next,
+    notifyEmail: notifyEmail ?? null,
+  });
+  return {
+    runId,
+    status: "running",
+    engines,
+    reportId: null,
+    scoreMentioned: null,
+  };
+}
+
+/** One queued engine job (~promptCap Gateway calls). */
+export async function processRunEngineJob(
+  db: Database,
+  env: CloudflareEnv,
+  runId: string,
+  engineId: EngineId,
+  options?: { notifyEmail?: string | null },
+): Promise<ProcessRunResult> {
+  return processRun(db, env, runId, {
+    notifyEmail: options?.notifyEmail,
+    onlyEngine: engineId,
+  });
 }
 
 /** Soft-fail one engine for local testing of partial PDFs. */

@@ -3,7 +3,7 @@
 import { default as handler } from "./.open-next/worker.js";
 import { dbFromEnv } from "./src/db";
 import { runFridayCron } from "./src/lib/cron-friday";
-import { processRun } from "./src/lib/run-processor";
+import { handleRunQueueMessage, type RunQueueMessage } from "./src/lib/run-queue";
 import {
   canonicalRedirectLocation,
   isHealthPath,
@@ -14,13 +14,7 @@ import { applySecurityHeaders, canonicalRedirectResponse } from "./src/lib/secur
 
 let productionSecretGate: "ok" | "blocked" | null = null;
 
-export type RunQueueMessage = {
-  runId?: string;
-  brandId?: string;
-  workspaceId?: string;
-  notifyEmail?: string | null;
-  source?: string;
-};
+export type { RunQueueMessage };
 
 export default {
   async fetch(request, env, ctx) {
@@ -68,10 +62,10 @@ export default {
         continue;
       }
       try {
-        await processRun(db, env, body.runId, { notifyEmail: body.notifyEmail ?? undefined });
+        await handleRunQueueMessage(db, env, body);
         message.ack();
       } catch (error) {
-        console.error("[queue] processRun failed", body.runId, error);
+        console.error("[queue] run job failed", body.runId, body.engineId, error);
         message.retry();
       }
     }

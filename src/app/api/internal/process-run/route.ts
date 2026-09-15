@@ -1,13 +1,14 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getDb } from "@/db";
+import { isCoreEngine, type EngineId } from "@/lib/engines";
 import { guardInternalRoute } from "@/lib/internal-guard";
-import { processRun } from "@/lib/run-processor";
+import { handleRunQueueMessage } from "@/lib/run-queue";
 import { jsonError, jsonOk } from "@/server/json";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Queue consumer stand-in. POST { runId }.
+ * Queue consumer stand-in. POST { runId, engineId? }.
  * Protected by INTERNAL_PROCESS_SECRET (required outside development).
  */
 export async function POST(request: Request) {
@@ -17,19 +18,25 @@ export async function POST(request: Request) {
     return denied;
   }
 
-  let body: { runId?: string; notifyEmail?: string };
+  let body: { runId?: string; engineId?: string; notifyEmail?: string };
   try {
-    body = (await request.json()) as { runId?: string; notifyEmail?: string };
+    body = (await request.json()) as { runId?: string; engineId?: string; notifyEmail?: string };
   } catch {
     return jsonError("Invalid JSON body.");
   }
   if (!body.runId) {
     return jsonError("runId is required.");
   }
+  const engineId =
+    body.engineId && isCoreEngine(body.engineId) ? (body.engineId as EngineId) : undefined;
 
   try {
     const db = await getDb();
-    const result = await processRun(db, env, body.runId, { notifyEmail: body.notifyEmail });
+    const result = await handleRunQueueMessage(db, env, {
+      runId: body.runId,
+      engineId,
+      notifyEmail: body.notifyEmail,
+    });
     return jsonOk(result);
   } catch (error) {
     console.error("[internal/process-run]", error);

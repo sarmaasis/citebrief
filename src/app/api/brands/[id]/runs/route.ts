@@ -71,6 +71,7 @@ export async function POST(request: Request, context: RouteContext) {
     runId,
     brandId: id,
     workspaceId: ctx.workspace.id,
+    notifyEmail: ctx.user.email,
     queuedAt: now.toISOString(),
   };
 

@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { CORE_ENGINES, ENGINES, softFailMinCore, type EngineState } from "@/lib/engines";
 
+function isTerminal(status: string) {
+  return status === "complete" || status === "partial" || status === "failed";
+}
+
+function isInFlight(status: string) {
+  return status === "queued" || status === "running" || !status;
+}
+
 export function RunStatus({
   brandId,
   runId,
@@ -30,46 +38,34 @@ export function RunStatus({
   useEffect(() => {
     let cancelled = false;
     let attempt = 0;
-    const startedAt = Date.now();
-    const MAX_POLL_MS = 12 * 60 * 1000;
 
     async function tick() {
-      const response = await fetch(`/api/runs/${runId}`);
-      const data = (await response.json()) as {
-        status?: string;
-        engines?: Record<string, EngineState>;
-        reportId?: string | null;
-        scoreMentioned?: number | null;
-        error?: string;
-      };
-      if (cancelled) {
-        return;
-      }
-      if (!response.ok) {
-        setError(data.error ?? "Could not load run status.");
-        return;
-      }
-      if (data.status) {
-        setStatus(data.status);
-      }
-      if (data.engines) {
-        setEngines(data.engines);
-      }
-      if (data.reportId) {
-        setReportId(data.reportId);
-      }
-      if (typeof data.scoreMentioned === "number") {
-        setScoreMentioned(data.scoreMentioned);
-      }
-      const done = data.status === "complete" || data.status === "partial" || data.status === "failed";
-      if (done) return;
-      if (Date.now() - startedAt > MAX_POLL_MS) {
-        setError("This run is taking longer than expected. Refresh the page to check again.");
-        return;
+      try {
+        const response = await fetch(`/api/runs/${runId}`);
+        const data = (await response.json()) as {
+          status?: string;
+          engines?: Record<string, EngineState>;
+          reportId?: string | null;
+          scoreMentioned?: number | null;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!response.ok) {
+          // Stay calm — queue may still be working; don't flip to failed.
+          attempt += 1;
+          window.setTimeout(() => void tick(), Math.min(15_000, 2000 + attempt * 1000));
+          return;
+        }
+        if (data.status) setStatus(data.status);
+        if (data.engines) setEngines(data.engines);
+        if (data.reportId) setReportId(data.reportId);
+        if (typeof data.scoreMentioned === "number") setScoreMentioned(data.scoreMentioned);
+        if (isTerminal(data.status ?? "")) return;
+      } catch {
+        if (cancelled) return;
       }
       attempt += 1;
-      // 1s → 2s → 3s … cap 8s (was fixed ~0.8–3s forever).
-      const delay = Math.min(8000, 1000 + attempt * 500);
+      const delay = Math.min(12_000, 1500 + attempt * 500);
       window.setTimeout(() => void tick(), delay);
     }
     void tick();
@@ -109,6 +105,7 @@ export function RunStatus({
   }
 
   const done = status === "complete" || status === "partial";
+  const waiting = isInFlight(status);
   const visible = ENGINES.filter((engine) => {
     const state = engines[engine.id];
     return state && state !== "skipped";
@@ -118,16 +115,35 @@ export function RunStatus({
   const coreComplete = list.filter((engine) => engines[engine.id] === "complete").length;
   const failedEngines = list.filter((engine) => engines[engine.id] === "failed");
   const minShip = softFailMinCore(scheduled);
-  const canShip = done || coreComplete >= minShip;
+
+  if (waiting) {
+    return (
+      <div className="max-w-xl">
+        <h1 className="text-xl font-semibold tracking-tight">Building this week’s report</h1>
+        {focusPromptText ? (
+          <div className="mt-4 rounded-cb-card border border-cb-accent bg-cb-surface px-4 py-3">
+            <p className="text-xs text-cb-muted">Recheck focus</p>
+            <p className="mt-1 text-sm text-cb-text">{focusPromptText}</p>
+          </div>
+        ) : null}
+        <p className="mt-4 text-sm text-cb-text">
+          Sources are running in the background. You can leave this page — we’ll email you when the report is
+          ready.
+        </p>
+        <p className="mt-2 text-xs text-cb-muted">This page updates when the final result lands. No action needed.</p>
+        <div className="mt-8">
+          <Button asChild variant="outline">
+            <Link href={`/app/brands/${brandId}`}>Back to brand</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-xl">
       <h1 className="text-xl font-semibold tracking-tight">
-        {status === "failed"
-          ? "This week’s report did not ship."
-          : done
-            ? "This week’s report is ready."
-            : "Running this week's report"}
+        {status === "failed" ? "This week’s report did not ship." : "This week’s report is ready."}
       </h1>
       {focusPromptText ? (
         <div className="mt-4 rounded-cb-card border border-cb-accent bg-cb-surface px-4 py-3">
@@ -135,33 +151,27 @@ export function RunStatus({
           <p className="mt-1 text-sm text-cb-text">{focusPromptText}</p>
         </div>
       ) : null}
-      {canShip && status !== "failed" ? (
+      {done ? (
         <p className="mt-3 text-sm text-cb-text">
-          {status === "partial" || coreComplete === 3
+          {status === "partial" || coreComplete < scheduled
             ? failedEngines.length
-              ? "The PDF still ships. Use Retry on the failed source — it does not use a recheck. Run now starts a new metered run."
+              ? "The PDF still ships. Use Retry on a failed source — it does not use a recheck."
               : "The PDF still ships. One source did not return."
             : scoreMentioned != null
               ? `Named in ${scoreMentioned} buyer questions.`
-              : "The PDF can ship from the sources that returned."}
+              : "Open the report when you’re ready."}
         </p>
       ) : null}
-      <p className="mt-2 text-xs text-cb-muted">
-        {failedEngines.length
-          ? "Prefer Retry on a failed source (free). A full Run now / recheck meters a new run even if other sources look unchanged."
-          : "Retrying a failed source does not use another weekly run. The Friday report is included; extra full re-runs this week are $9."}
-      </p>
+      {status === "failed" || failedEngines.length ? (
+        <p className="mt-2 text-xs text-cb-muted">
+          Retry a failed source (free). Run now / recheck meters a new run.
+        </p>
+      ) : null}
       <div className="mt-6 space-y-3" aria-live="polite">
         {list.map((engine) => {
           const state = engines[engine.id] ?? "queued";
           const pill =
-            state === "complete"
-              ? "complete"
-              : state === "failed"
-                ? "failed"
-                : state === "running"
-                  ? "running"
-                  : "queued";
+            state === "complete" ? "complete" : state === "failed" ? "failed" : state === "running" ? "running" : "queued";
           return (
             <div
               key={engine.id}
@@ -203,13 +213,8 @@ export function RunStatus({
         <div className="mt-8 space-y-3">
           <p className="text-sm text-cb-danger">
             Fewer than {minShip} source{minShip === 1 ? "" : "s"} returned, so this PDF did not ship. Retry a
-            failed source first (free) — Run again meters a new run.
+            failed source first (free).
           </p>
-          {failedEngines.length ? (
-            <p className="text-xs text-cb-muted">
-              Failed: {failedEngines.map((engine) => engine.label).join(", ")}. Retry does not meter a new run.
-            </p>
-          ) : null}
           <Button asChild variant="outline">
             <Link href={`/app/brands/${brandId}`}>Brand home</Link>
           </Button>

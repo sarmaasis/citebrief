@@ -10,6 +10,11 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+/**
+ * Poll is read-only when the Queue owns the work.
+ * Never run processRun on GET in production — Agency sync in the request times out,
+ * UI shows failed, while the consumer keeps spending Gateway $.
+ */
 export async function GET(_request: Request, context: RouteContext) {
   const ctx = await getAppContext();
   if (!ctx) {
@@ -38,16 +43,17 @@ export async function GET(_request: Request, context: RouteContext) {
   let scoreRecommended: number | null = null;
   let approvalState: string | null = null;
 
-  if (status === "queued") {
+  const { env } = await getCloudflareContext({ async: true });
+  // Local `next dev` has no RUNS_QUEUE — only then process inline.
+  if (status === "queued" && !env.RUNS_QUEUE) {
     try {
-      const { env } = await getCloudflareContext({ async: true });
       const result = await processRun(ctx.db, env, id, { notifyEmail: ctx.user.email });
       status = result.status;
       engines = result.engines;
       reportId = result.reportId;
       scoreMentioned = result.scoreMentioned;
     } catch (error) {
-      console.error("[api/runs] process failed", error);
+      console.error("[api/runs] local process failed", error);
       return jsonError("Could not process this run.", 500);
     }
   } else {
