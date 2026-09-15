@@ -380,3 +380,19 @@ export async function recommendedCountsForRuns(ctx: AppContext, runIds: string[]
   }
   return counts;
 }
+
+/** Brands with an unsent report (Briefs sidebar badge). */
+export async function countReportsReady(ctx: AppContext): Promise<number> {
+  const rows = await ctx.db
+    .select({ brandId: reports.brandId })
+    .from(reports)
+    .innerJoin(brands, eq(brands.id, reports.brandId))
+    .where(
+      and(
+        eq(brands.workspaceId, ctx.workspace.id),
+        isNull(brands.archivedAt),
+        isNull(reports.sentAt),
+      ),
+    );
+  return new Set(rows.map((row) => row.brandId)).size;
+}

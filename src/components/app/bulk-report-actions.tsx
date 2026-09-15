@@ -148,16 +148,17 @@ export function ReportsQueue({
                   />
                 </th>
               ) : null}
-              <th className="px-4 font-medium">Brand</th>
+              <th className="px-4 font-medium">Client</th>
               <th className="px-4 font-medium">Pipeline</th>
               <th className="px-4 font-medium">Next</th>
+              {allowsEmailSend && !allowsBulkSend ? <th className="px-4 font-medium">Send</th> : null}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr className="h-12">
-                <td className="px-4 text-cb-muted" colSpan={allowsBulkSend ? 4 : 3}>
-                  No brands in this filter.
+                <td className="px-4 text-cb-muted" colSpan={allowsBulkSend ? 4 : allowsEmailSend ? 4 : 3}>
+                  No clients in this filter.
                 </td>
               </tr>
             ) : (
@@ -188,6 +189,20 @@ export function ReportsQueue({
                         {row.actionVerb}
                       </Link>
                     </td>
+                    {allowsEmailSend && !allowsBulkSend ? (
+                      <td className="px-4">
+                        {row.reportId && row.pipeline === "ready_to_send" ? (
+                          <Link
+                            href={`/app/brands/${row.brandId}/reports/${row.reportId}`}
+                            className="text-cb-accent"
+                          >
+                            Send
+                          </Link>
+                        ) : (
+                          <span className="text-cb-muted">—</span>
+                        )}
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })

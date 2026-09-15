@@ -4,7 +4,7 @@ import { PageSkeleton } from "@/components/app/page-skeleton";
 import { workspaceEntitlements } from "@/lib/entitlements";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
-import { listWorkspaceBrandNav } from "@/server/workspace-data";
+import { countReportsReady, listWorkspaceBrandNav } from "@/server/workspace-data";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getAppContext();
@@ -27,9 +27,10 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   const role = ctx.impersonating ? "owner" : ctx.role;
   // Keep layout thin: brands for switcher + sub for trial/paid flag only.
   // Recheck remaining counts hit several D1 queries — TopBar loads those client-side.
-  const [brands, sub] = await Promise.all([
+  const [brands, sub, briefsReady] = await Promise.all([
     listWorkspaceBrandNav(ctx),
     getWorkspaceSubscription(ctx.db, ctx.workspace.id),
+    countReportsReady(ctx),
   ]);
   const ent = workspaceEntitlements(sub);
   const loadRecheckHint = ent.paid || ent.trialing;
@@ -47,6 +48,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
       brands={brands}
       recheckHint={trialHint}
       loadRecheckHint={loadRecheckHint && !trialHint}
+      briefsReady={briefsReady}
     >
       <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
     </WorkspaceChrome>

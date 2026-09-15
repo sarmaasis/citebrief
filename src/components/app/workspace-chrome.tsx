@@ -15,6 +15,7 @@ export function WorkspaceChrome({
   brands,
   recheckHint,
   loadRecheckHint = false,
+  briefsReady = 0,
 }: {
   children: React.ReactNode;
   workspaceName: string;
@@ -26,6 +27,7 @@ export function WorkspaceChrome({
   recheckHint?: string | null;
   /** When true, TopBar fetches remaining rechecks once (not on every RSC nav). */
   loadRecheckHint?: boolean;
+  briefsReady?: number;
 }) {
   const pathname = usePathname();
   const [navState, setNavState] = useState({ open: false, pathname });
@@ -70,6 +72,7 @@ export function WorkspaceChrome({
           userLabel={userLabel}
           roleLabel={roleLabel}
           impersonating={impersonating}
+          briefsReady={briefsReady}
         />
       </div>
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">

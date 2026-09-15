@@ -102,10 +102,10 @@ Auth is **single-domain first-party auth** on `getcitebrief.com`. Do not impleme
 | Product | Amount | Interval | Notes |
 |---|---|---|---|
 | CiteBrief Starter | $79 | month | Public card |
-| CiteBrief Growth | $249 | month | Public card, recommended; stored as plan id `agency` |
-| CiteBrief Agency | $599 | month | Public card; stored as plan id `studio` |
+| CiteBrief Teams | $249 | month | Public card, recommended; stored as plan id `agency` |
+| CiteBrief Scale | $499 | month | Public card; stored as plan id `studio` |
 | CiteBrief Enterprise | $1,499+ | month or annual contract | No public checkout card |
-| Extra brand | $29 | month addon | Growth / Agency / Enterprise only |
+| Extra brand | $29 | month addon | Teams / Scale / Enterprise only |
 | Extra seat | $15 | month addon | After plan seat cap |
 | Extra run | $9 | one-time / usage meter | List price in code (not a $9–$15 range) |
 | Premium engine pack | $99 | month addon | Listed at the low end until a dedicated Dodo product is confirmed |
@@ -271,7 +271,6 @@ The rich dashboard is not the cost problem. The cost problem is report generatio
 |---|---|---|---|---|
 | Starter | $99 | ~$5–$15 (monthly, 2 brands, no Claude) | ~$5 | positive |
 | Agency | $249 | **~$45–$50** Friday-only, no Claude | ~$12 | **~$185–$190 (~74%)** |
-| Agency | $599 | **~$45–$80** Friday-only without Claude (Grok included); Claude paused | ~$27 | healthy without Claude |
 | Enterprise | $1,499+ | usage-based | contract | Claude paused with other plans |
 
 100 Agency customers at $249: **$24.9k MRR**. Keep Claude off Agency default — one 20-prompt Claude pass is ~$3.80 by itself.
@@ -309,13 +308,13 @@ Cost controls **Shipped** in code:
 | Plan | Price | Brands | Prompts / brand | Tracked question capacity | Seats | Cadence | Email send | Command Center |
 |---|---|---|---|---|---|---|---|---|
 | Starter | $79/mo | 2 | 25 | 50 | 1 | Monthly (first Friday 06:00 local) | No | No (lighter Home) |
-| **Growth** | **$249/mo** | **5** | 30 | **150** | **3** | **Weekly** | Yes, approve-before-send | Yes |
-| Agency | $599/mo | 20 | 25 | 500 | 10 | Weekly | Yes, bulk approve/send | Yes + export |
+| **Teams** | **$249/mo** | **8** | 30 | **240** | **5** | **Weekly** | Yes, approve-before-send | Yes |
+| Scale | $499/mo | 15 | 40 | 600 | 8 | Weekly | Yes, bulk approve/send | Yes + export |
 | Enterprise | $1,499+/mo | Contract (code floor 75/30/10 until extras stored) | Custom | Custom | Custom | Weekly/custom | Yes | Yes |
 
-Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three cards** plus an Enterprise contract note. Feature Growth at $249 as the main team plan. Do not ship a $29 personal plan.
+Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three cards** plus an Enterprise contract note. Feature Teams at $249 as the main team plan. Do not ship a $29 personal plan.
 
-### Trial (not paid Growth/Agency)
+### Trial (not paid Teams/Scale)
 
 | | Value |
 |---|---|
@@ -332,11 +331,11 @@ Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three card
 
 ### Permission matrix (paid `active` only)
 
-| Capability | Starter | Growth | Agency | Enterprise |
+| Capability | Starter | Teams | Scale | Enterprise |
 |---|---|---|---|---|
-| Brands included | 2 | 5 | 20 | 75 floor |
-| Tracked question capacity | 50 | 150 | 500 | Custom |
-| Seats included | 1 (owner) | 3 | 10 | 10 floor |
+| Brands included | 2 | 8 | 15 | 75 floor |
+| Tracked question capacity | 50 | 240 | 600 | Custom |
+| Seats included | 1 (owner) | 5 | 8 | 10 floor |
 | Extra brands $29 | No | Yes | Yes | Yes |
 | Extra seats $15 | No | Yes | Yes | Yes |
 | Extra run $9 | Yes (paid) | Yes | Yes | Yes |
@@ -360,16 +359,16 @@ Annual = 10 months prepaid (2 months free). Public `/pricing` shows **three card
 
 **Starter:** 2 brands, 25 prompts per brand (50 tracked question capacity), 1 seat, monthly cadence, CiteBrief sender, PDF download and private client link, basic recommended actions. No weekly automation, no email sending to clients, no portfolio Command Center.
 
-**Growth:** 5 brands/projects, 30 prompts per brand (150 tracked question capacity), 3 seats, weekly Friday reports, 10 monthly re-check credits, executive PDF, private share links, email sending, report approval before sending, suggested email, month-over-month history, source evidence / raw output audit, recommended next actions, content fixes, risk flags, Command Center, report pipeline, Slack webhook, extra brands $29.
+**Teams:** 8 brands/projects, 30 prompts per brand (240 tracked question capacity), 5 seats, weekly Friday reports, 10 monthly re-check credits, executive PDF, private share links, email sending, report approval before sending, suggested email, month-over-month history, source evidence / raw output audit, recommended next actions, content fixes, risk flags, Command Center, report pipeline, Slack webhook, extra brands $29.
 
-**Agency:** 20 client brands, 25 prompts per brand (500 tracked question capacity), 10 seats, everything in Growth, 100 monthly re-check credits, white-label PDF (logo, color, footer), agency-branded client links with expiry and revoke, client CC, custom sender name/domain, bulk approve and send, advanced portfolio filters + CSV export, Grok included (with ChatGPT / Gemini / AI Overviews), Perplexity included, premium pack available. Public `/pricing` lists client portal archive, priority processing, Looker/API exports as **Coming soon** (do not treat as Shipped). Pitch audits, cited pages, bulk send, custom sender, and extra brands are **Shipped**.
+**Scale:** 15 client brands, 40 prompts per brand (600 tracked question capacity), 8 seats, everything in Teams, 100 monthly re-check credits, white-label PDF (logo, color, footer), agency-branded client links with expiry and revoke, client CC, custom sender name/domain, bulk approve and send, advanced portfolio filters + CSV export, Grok included (with ChatGPT / Gemini / AI Overviews), premium pack available. Public `/pricing` lists client portal archive, priority processing, Looker/API exports as **Coming soon** (do not treat as Shipped). Pitch audits, cited pages, bulk send, custom sender, and extra brands are **Shipped**.
 
 **Enterprise:** starts at $1,499/mo or annual contract. Custom limits, dedicated onboarding, higher premium-engine allocation, SSO/security review **when required** (**Later** in-app SSO). No self-serve Enterprise checkout on `/pricing`.
 
 **Pricing psychology**
 - Starter is for freelancers and solo consultants testing the workflow.
-- Growth is the main plan for in-house marketing, SaaS, ecommerce, and GEO teams: 150 tracked questions at $249/month.
-- Agency is for agencies already reselling AI-search reporting across a client book: 500 tracked questions plus white-label delivery.
+- Teams is the main plan for in-house marketing, SaaS, ecommerce, and GEO teams: 240 tracked questions at $249/month.
+- Scale is for agencies already reselling AI-search reporting across a client book: 600 tracked questions plus white-label delivery.
 - Enterprise is high-volume/custom usage on a contract.
 - No free forever plan.
 

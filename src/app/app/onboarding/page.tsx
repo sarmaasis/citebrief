@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
+import { PitchDomainForm } from "@/components/brands/pitch-domain-form";
 import { UpgradePrompt } from "@/components/billing/upgrade-prompt";
 import { UPGRADE_COPY } from "@/lib/upgrade-copy";
 import { upgradeHintForBrandCap, workspaceEntitlements } from "@/lib/entitlements";
@@ -27,11 +28,40 @@ function domainSeed(raw?: string) {
 export default async function OnboardingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ brandId?: string; new?: string; siteUrl?: string; competitors?: string; market?: string }>;
+  searchParams: Promise<{
+    brandId?: string;
+    new?: string;
+    siteUrl?: string;
+    competitors?: string;
+    market?: string;
+    kind?: string;
+  }>;
 }) {
   const params = await searchParams;
   const ctx = await getAppContext();
   if (!ctx) redirect("/login");
+
+  if (params.kind === "pitch") {
+    return (
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-12">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">48h pitch audit</h1>
+          <p className="mt-2 text-sm text-cb-muted">
+            One-shot prospect PDF. Does not use a client slot. Convert on win to keep tracking.
+          </p>
+        </div>
+        <div className="rounded-cb-card border border-cb-line bg-cb-surface p-5">
+          <PitchDomainForm />
+        </div>
+        <p className="text-sm text-cb-muted">
+          <Link href="/app" className="text-cb-accent">
+            Back to This week
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const ent = workspaceEntitlements(sub);
   const startFresh = params.new === "1";
@@ -48,11 +78,11 @@ export default async function OnboardingPage({
             : UPGRADE_COPY.extraBrandAgency;
       return (
         <div className="mx-auto max-w-lg space-y-6 px-4 py-12">
-          <h1 className="text-xl font-semibold tracking-tight">Brand limit reached</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Client limit reached</h1>
           <UpgradePrompt title={upgrade.title} body={upgradeHintForBrandCap(ent)} cta={upgrade.cta} />
           <p className="text-sm text-cb-muted">
             <Link href="/app/brands" className="text-cb-accent">
-              Back to brands
+              Back to clients
             </Link>
           </p>
         </div>

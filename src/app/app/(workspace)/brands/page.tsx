@@ -129,7 +129,7 @@ export default async function BrandsPage({
               </Button>
             )}
             <Button asChild variant="outline">
-              <Link href="/app?pitch=1">Pitch a domain</Link>
+              <Link href="/app/onboarding?kind=pitch">48h pitch audit</Link>
             </Button>
           </>
         }
@@ -188,13 +188,22 @@ export default async function BrandsPage({
       </p>
 
       {workspaceEmpty ? (
-        <EmptyState
-          title="No brands yet"
-          line="Scorecards appear after you add a brand and run a report. Start with onboarding — one brand is enough to prove the workflow."
-          cta="Add a brand"
-          href="/app/onboarding"
-          steps={["Add a brand", "Generate prompts", "Run the first Friday report"]}
-        />
+        <div>
+          <EmptyState
+            title="No clients yet"
+            line="Scorecards appear after you add a client and run a brief. Start with onboarding — one client is enough to prove the workflow."
+            cta="Add client"
+            href="/app/onboarding"
+            steps={["Add a client", "Generate questions", "Run the first Friday brief"]}
+          />
+          <div className="mt-8 max-w-md rounded-cb-card border border-cb-line bg-cb-surface p-5">
+            <p className="mb-3 text-sm font-medium">48h pitch audit</p>
+            <p className="mb-3 text-sm text-cb-muted">Prospect PDF without using a client slot.</p>
+            <Link href="/app/onboarding?kind=pitch" className="text-sm text-cb-accent">
+              Pitch a domain →
+            </Link>
+          </div>
+        </div>
       ) : !tableView && !includeArchived ? (
         filteredScorecards.length === 0 ? (
           <p className="text-sm text-cb-muted">No brands in this saved view.</p>

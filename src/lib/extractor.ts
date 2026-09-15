@@ -87,6 +87,30 @@ export function brandSiteLabel(siteUrl: string | null | undefined, brand: string
   return `the ${brand} site`;
 }
 
+/**
+ * Parse position from numbered/bulleted list in real engine prose.
+ * Returns 1-based position, or 0 when brand is not found.
+ * Handles: "1. Brand …", "1) Brand …", "**1. Brand**", "- Brand (…)".
+ */
+function parsePositionFromNumberedList(rawAnswer: string, brand: string): number {
+  const brandRe = new RegExp(`\\b${escapeRegExp(brand)}\\b`, "i");
+  let pos = 0;
+  for (const line of rawAnswer.split("\n")) {
+    const numbered = line.match(/^\s*(?:\*{1,2})?(\d+)[.)]\s+(.+)/);
+    if (numbered) {
+      pos = parseInt(numbered[1]!, 10);
+      if (brandRe.test(numbered[2]!)) return pos;
+      continue;
+    }
+    const bulleted = line.match(/^\s*[-*]\s+(.+)/);
+    if (bulleted) {
+      pos += 1;
+      if (brandRe.test(bulleted[1]!)) return pos;
+    }
+  }
+  return 0;
+}
+
 const NEXT_ACTIONS = [
   (brand: string, incumbent: string) => `Write a comparison page for ${incumbent} vs ${brand}`,
   (brand: string, _incumbent: string, category: string) =>
@@ -138,11 +162,13 @@ export function extractFromAnswer(args: {
     whoWon = args.brand;
   }
 
-  const shortlistMatch = rawAnswer.match(/Shortlist:\s*([^.]+)/i);
+  const shortlistMatch = rawAnswer.match(/Shortlist:\s*([^.\n]+)/i);
   const shortlist = shortlistMatch
     ? shortlistMatch[1]!.split(",").map((part) => part.trim()).filter(Boolean)
     : [];
-  const rank = shortlist.findIndex((name) => name.toLowerCase() === args.brand.toLowerCase());
+  const rank = shortlist.length
+    ? shortlist.findIndex((name) => new RegExp(`\\b${escapeRegExp(args.brand)}\\b`, "i").test(name))
+    : parsePositionFromNumberedList(rawAnswer, args.brand) - 1;
   const recommended = mentioned && (rank === 0 || whoWon.toLowerCase() === args.brand.toLowerCase());
   const sentiment = answerSentiment({ mentioned, recommended, brand: args.brand, rawAnswer });
 

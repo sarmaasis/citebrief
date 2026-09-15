@@ -41,6 +41,7 @@ const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
     "Slack webhook",
     "Cited pages on every report",
     "Prospect pitch audits (48h)",
+    "Coming soon: Looker Studio/API exports and deeper source monitoring",
   ],
   studio: [
     `${PLANS.studio.brands} client brands`,
@@ -50,7 +51,7 @@ const PLAN_VALUE: Record<(typeof PUBLIC_PLAN_IDS)[number], string[]> = {
     "ChatGPT, Gemini, Grok, and AI Overviews",
     `${PLANS.studio.seats} seats`,
     "Cited pages and prospect pitch audits",
-    "Coming soon: portal archive, API/Looker exports",
+    "Coming soon: client portal archive, Looker Studio/API exports, priority processing",
   ],
 };
 

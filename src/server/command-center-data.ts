@@ -50,6 +50,7 @@ export function serializeCommandRow(
       id: row.brand.id,
       name: row.brand.name,
       clientOwner: row.brand.clientOwner,
+      kind: row.brand.kind ?? null,
     },
     promptCount: row.promptCount,
     mentionedDelta: row.mentionedDelta,
@@ -58,7 +59,13 @@ export function serializeCommandRow(
     competitorLeader: row.competitorLeader,
     sendOverdue: row.sendOverdue,
     missingSources: row.missingSources,
-    latestRun: row.latestRun ? { id: row.latestRun.id, status: row.latestRun.status } : null,
+    latestRun: row.latestRun
+      ? {
+          id: row.latestRun.id,
+          status: row.latestRun.status,
+          engineStates: row.latestRun.engineStates ?? null,
+        }
+      : null,
     latestReport: row.latestReport
       ? {
           id: row.latestReport.id,
@@ -68,6 +75,7 @@ export function serializeCommandRow(
           scoreRecommended: row.latestReport.scoreRecommended,
           scoreTotal: row.latestReport.scoreTotal,
           approvalState: row.latestReport.approvalState,
+          shareToken: row.latestReport.shareToken ?? null,
         }
       : null,
     risk: clientRisk(row),
@@ -86,7 +94,7 @@ export async function buildCommandCenterSnapshot(
   filters: CommandCenterFilters = {},
   opts?: { view?: AgencySavedView; includeAllRows?: boolean },
 ) {
-  const { rows, minutesSavedPerReport, planned } = await loadCommandRows(ctx, ent.allowsWeeklyCadence);
+  const { rows, minutesSavedPerReport, planned, timezone } = await loadCommandRows(ctx, ent.allowsWeeklyCadence);
   const view = opts?.view ?? "all";
   const filtered = filterCommandRows(rows, filters).filter((row) => commandRowMatchesSavedView(row, view));
   const opportunities = filtered
@@ -114,6 +122,7 @@ export async function buildCommandCenterSnapshot(
       export: ent.allowsPortfolioExport,
     },
     minutesSavedPerReport,
+    timezone,
     view,
     unfilteredCount: rows.length,
     kpis: {

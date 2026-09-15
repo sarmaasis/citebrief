@@ -28,11 +28,13 @@ export function AppSidebar({
   userLabel,
   roleLabel,
   impersonating = false,
+  briefsReady = 0,
 }: {
   workspaceName: string;
   userLabel: string;
   roleLabel?: string | null;
   impersonating?: boolean;
+  briefsReady?: number;
 }) {
   const pathname = usePathname();
 
@@ -45,6 +47,7 @@ export function AppSidebar({
         {nav.map((item) => {
           const Icon = item.icon;
           const active = item.match(pathname);
+          const showBadge = item.label === "Briefs" && briefsReady > 0;
           return (
             <Link
               key={item.label}
@@ -56,7 +59,12 @@ export function AppSidebar({
               )}
             >
               <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {showBadge ? (
+                <span className="rounded-cb-control bg-cb-pending-subtle px-1.5 font-mono text-[11px] tabular-nums text-cb-pending">
+                  {briefsReady}
+                </span>
+              ) : null}
             </Link>
           );
         })}

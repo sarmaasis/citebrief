@@ -393,6 +393,8 @@ export function writeReport(args: {
     brand: args.brand,
     period: args.period,
     market,
+    nPrompts: scoreTotal,
+    nEngines: nEngines,
     scoreLine: `Named in ${scoreMentioned} of ${scoreTotal} scored buyer questions this week.`,
     recommendedLine: `Recommended in ${scoreRecommended} of ${scoreTotal}. ${deltaLine}`,
     summary,
@@ -400,6 +402,35 @@ export function writeReport(args: {
       (row) =>
         `${row.label}: mention ${row.mentionedPct == null ? "—" : `${row.mentionedPct}%`}, cite ${row.citedPct == null ? "—" : `${row.citedPct}%`}, won by ${row.topSub}`,
     ),
+    lostQuestions: scored
+      .filter((row) => !promptNamed(row))
+      .slice(0, 12)
+      .map((row) => ({
+        question: row.promptText,
+        whoWon: primaryWhoWon(row),
+        citedUrl: primaryCited(row).urls[0] ?? "",
+      })),
+    verbatimRows: scored
+      .slice(0, 8)
+      .map((row) => ({ question: row.promptText, verbatim: primaryVerbatim(row) }))
+      .filter((row) => row.verbatim),
+    competitorWins: Object.entries(
+      scored
+        .filter((row) => !promptNamed(row) && primaryWhoWon(row))
+        .reduce<Record<string, number>>((acc, row) => {
+          const name = primaryWhoWon(row);
+          acc[name] = (acc[name] || 0) + 1;
+          return acc;
+        }, {}),
+    )
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name, count]) => ({ name, count })),
+    methodPrompts: sorted.map((row) => ({
+      text: row.promptText,
+      intent: row.intent || "discovery",
+      branded: Boolean(row.branded),
+    })),
     priorities: priorities.map((p) => `${p.action} (${p.owner})`),
     disclaimer: GSC_DISCLAIMER,
     dateLabel,
@@ -426,17 +457,23 @@ function buildSimplePdf(args: {
   brand: string;
   period: string;
   market: string;
+  nPrompts: number;
+  nEngines: number;
   scoreLine: string;
   recommendedLine?: string;
   summary: string;
   engineLines: string[];
+  lostQuestions: Array<{ question: string; whoWon: string; citedUrl: string }>;
+  verbatimRows: Array<{ question: string; verbatim: string }>;
+  competitorWins: Array<{ name: string; count: number }>;
+  methodPrompts: Array<{ text: string; intent: string; branded: boolean }>;
   priorities: string[];
   disclaimer: string;
   dateLabel: string;
 }): Uint8Array {
-  const lines = [
+  const lines: string[] = [
     args.agency,
-    `${args.brand} · Week of ${args.period} · ${args.market}`,
+    `${args.brand} · Week of ${args.period} · ${args.market} · n=${args.nPrompts} prompts × ${args.nEngines} engines`,
     "Presence / Prominence / Portrayal",
     args.scoreLine,
     args.recommendedLine || "",
@@ -445,8 +482,31 @@ function buildSimplePdf(args: {
     "Per engine:",
     ...args.engineLines,
     "",
+    "Lost buyer questions:",
+    ...(args.lostQuestions.length
+      ? args.lostQuestions.map(
+          (row) => `  ${row.question}  |  won by: ${row.whoWon || "—"}  |  ${row.citedUrl || "—"}`,
+        )
+      : ["  None — named in all scored questions."]),
+    "",
+    "Short verbatim:",
+    ...(args.verbatimRows.length
+      ? args.verbatimRows.map((row) => `  "${row.verbatim}"  [${row.question.slice(0, 60)}]`)
+      : ["  No verbatim stored."]),
+    "",
+    "Competitors who took the slot:",
+    ...(args.competitorWins.length
+      ? args.competitorWins.map((row) => `  ${row.name} — ${row.count} question${row.count === 1 ? "" : "s"}`)
+      : ["  No competitor took a scored slot."]),
+    "",
     "Five actions:",
     ...args.priorities.map((line, i) => `${i + 1}. ${line}`),
+    "",
+    "Method appendix:",
+    `  Engines: ${args.engineLines.map((l) => l.split(":")[0]).join(", ")}. Prepared ${args.dateLabel}.`,
+    ...args.methodPrompts.map(
+      (p) => `  [${p.intent}${p.branded ? ", branded" : ""}] ${p.text}`,
+    ),
     "",
     args.disclaimer,
     `Prepared by ${args.agency} · ${args.dateLabel}`,
