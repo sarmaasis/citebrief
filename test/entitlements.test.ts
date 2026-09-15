@@ -20,6 +20,7 @@ import {
 import { UPGRADE_COPY, brandCapUpgradeFromError, extraRunUpgradeFromError } from "@/lib/upgrade-copy";
 import {
   commandCenterDenial,
+  expiredPaidStatus,
   isPaidActive,
   isTrialing,
   pdfRetentionExpired,
@@ -52,6 +53,19 @@ const trial = {
 };
 assert.equal(isTrialing(trial), true);
 assert.equal(isPaidActive(trial), false);
+
+// Active status but period already ended (missed webhook) → not paid.
+const lapsedActive = {
+  plan: "agency",
+  status: "active",
+  trialEndsAt: null,
+  currentPeriodEnd: new Date(Date.now() - 60_000),
+  cancelAtPeriodEnd: false,
+};
+assert.equal(isPaidActive(lapsedActive), false);
+assert.equal(expiredPaidStatus(lapsedActive), "cancelled");
+assert.equal(subscriptionEndedAt(lapsedActive)?.getTime(), lapsedActive.currentPeriodEnd.getTime());
+assert.equal(workspaceEntitlements(lapsedActive).paid, false);
 assert.equal(workspaceEntitlements(trial).promptCap, 5);
 assert.equal(workspaceEntitlements(trial).brandLimit, 1);
 assert.equal(workspaceEntitlements(trial).trialRunCap, 1);

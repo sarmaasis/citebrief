@@ -452,9 +452,13 @@ R2: `reports/{workspace}/{brand}/{yyyy-mm-dd}.pdf` and `.html`
 | 0010 | Share revoke, `audit_logs` |
 | 0011 | Premium engine pack, report approval + suggested email |
 | 0012 | `minutes_saved_per_report`, `opportunity_plans` |
+| 0016 | `prompts.archived_at` — soft-archive on replace (preserves `run_rows`) |
 | 0017 | `subscriptions.plan_metering_since` — mid-period plan-change metering window |
 | 0018 | `subscriptions.trial_client_cc_used` — one CiteBrief-branded trial client CC |
 | 0019 | Sender domain verification checklist (`spf`/`dkim`/`dmarc`/`cf` + `verified_at`) |
+| 0020 | `runs.gateway_calls` — durable AI Gateway budget across Worker restarts |
+
+Failed runs (no PDF) do not consume weekly soft-cap / monthly rechecks, and `runsUsed` is refunded when a run ends `failed`. Active subscriptions past `currentPeriodEnd` are treated as ended even if status was never flipped by webhook (lazy reconcile to `cancelled`).
 
 ---
 

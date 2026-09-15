@@ -29,6 +29,10 @@ export function RunStatus({
 
   useEffect(() => {
     let cancelled = false;
+    let attempt = 0;
+    const startedAt = Date.now();
+    const MAX_POLL_MS = 12 * 60 * 1000;
+
     async function tick() {
       const response = await fetch(`/api/runs/${runId}`);
       const data = (await response.json()) as {
@@ -57,9 +61,16 @@ export function RunStatus({
       if (typeof data.scoreMentioned === "number") {
         setScoreMentioned(data.scoreMentioned);
       }
-      if (data.status !== "complete" && data.status !== "partial" && data.status !== "failed") {
-        window.setTimeout(() => void tick(), 800);
+      const done = data.status === "complete" || data.status === "partial" || data.status === "failed";
+      if (done) return;
+      if (Date.now() - startedAt > MAX_POLL_MS) {
+        setError("This run is taking longer than expected. Refresh the page to check again.");
+        return;
       }
+      attempt += 1;
+      // 1s → 2s → 3s … cap 8s (was fixed ~0.8–3s forever).
+      const delay = Math.min(8000, 1000 + attempt * 500);
+      window.setTimeout(() => void tick(), delay);
     }
     void tick();
     return () => {

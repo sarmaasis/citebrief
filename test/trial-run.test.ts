@@ -113,15 +113,18 @@ assert.equal(agencyStates.grok, "queued");
 const trialCalls = 5 * trial.length;
 assert.ok(trialCalls <= TRIAL_MAX_GATEWAY_REQUESTS);
 
-resetGatewayRunBudget("trial-cap");
-for (let i = 0; i < TRIAL_MAX_GATEWAY_REQUESTS; i += 1) {
-  assertGatewayRunBudget("trial-cap", TRIAL_MAX_GATEWAY_REQUESTS);
+async function assertTrialGatewayBudget() {
+  resetGatewayRunBudget("trial-cap");
+  for (let i = 0; i < TRIAL_MAX_GATEWAY_REQUESTS; i += 1) {
+    await assertGatewayRunBudget("trial-cap", TRIAL_MAX_GATEWAY_REQUESTS);
+  }
+  assert.equal(gatewayRunCallCount("trial-cap"), TRIAL_MAX_GATEWAY_REQUESTS);
+  await assert.rejects(
+    () => assertGatewayRunBudget("trial-cap", TRIAL_MAX_GATEWAY_REQUESTS),
+    (error: unknown) => error instanceof AiGatewayError && error.status === 429,
+  );
+  assert.equal(gatewayRunCallCount("trial-cap"), TRIAL_MAX_GATEWAY_REQUESTS);
+  console.log("trial-run.test.ts ok");
 }
-assert.equal(gatewayRunCallCount("trial-cap"), TRIAL_MAX_GATEWAY_REQUESTS);
-assert.throws(
-  () => assertGatewayRunBudget("trial-cap", TRIAL_MAX_GATEWAY_REQUESTS),
-  (error: unknown) => error instanceof AiGatewayError && error.status === 429,
-);
-assert.equal(gatewayRunCallCount("trial-cap"), TRIAL_MAX_GATEWAY_REQUESTS);
 
-console.log("trial-run.test.ts ok");
+void assertTrialGatewayBudget();

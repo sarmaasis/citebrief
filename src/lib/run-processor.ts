@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "@/db";
 import {
   brandKits,
@@ -29,8 +29,8 @@ import { sendTransactionalEmail } from "@/lib/email";
 import { resolveRunEngines } from "@/lib/plan-engines";
 import { postSlackIncomingWebhook } from "@/lib/slack";
 import { workspaceEntitlements } from "@/lib/entitlements";
-import { getWorkspaceSubscription, settleBillableExtraRun, shouldSettleBillableExtra } from "@/lib/usage";
-import { resetGatewayRunBudget } from "@/lib/ai-gateway";
+import { getWorkspaceSubscription, refundFailedRunAttempt, settleBillableExtraRun, shouldSettleBillableExtra } from "@/lib/usage";
+import { hydrateGatewayRunBudget, resetGatewayRunBudget } from "@/lib/ai-gateway";
 
 export type ProcessRunResult = {
   runId: string;
@@ -104,20 +104,12 @@ export async function processRun(
     };
   }
 
-  if (bundle.run.status === "running") {
-    return {
-      runId,
-      status: "running",
-      engines: parseEngineStatus(bundle.run.engineStates),
-      reportId: null,
-      scoreMentioned: null,
-    };
-  }
-
+  // Claim queued → running. Also reclaim `running` after isolate crash / queue redelivery
+  // so work continues instead of leaving the run stuck forever.
   const claimed = await db
     .update(runs)
     .set({ status: "running" })
-    .where(and(eq(runs.id, runId), eq(runs.status, "queued")))
+    .where(and(eq(runs.id, runId), inArray(runs.status, ["queued", "running"])))
     .returning({ id: runs.id });
   if (claimed.length === 0) {
     const [again] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
@@ -125,6 +117,9 @@ export async function processRun(
     const status = (again?.status || "running") as ProcessRunResult["status"];
     if (status === "complete" || status === "partial") {
       const [existing] = await db.select().from(reports).where(eq(reports.runId, runId)).limit(1);
+      if (existing) {
+        await settleBillableExtraRun({ db, env, workspaceId: bundle.workspace.id, runId });
+      }
       return {
         runId,
         status,
@@ -142,7 +137,9 @@ export async function processRun(
     };
   }
 
+  // Keep durable gateway count across reclaims; only clear the in-memory map key first.
   resetGatewayRunBudget(runId);
+  await hydrateGatewayRunBudget(db, runId);
 
   const resolved = await resolveRunEngines({
     db,
@@ -206,6 +203,7 @@ export async function processRun(
           competitors: competitorNames,
           buyer: bundle.brand.buyer,
           env,
+          db,
           metadata: {
             workspace_id: bundle.workspace.id,
             brand_id: bundle.brand.id,
@@ -317,6 +315,8 @@ export async function processRun(
         completedAt: new Date(),
       })
       .where(eq(runs.id, runId));
+    // Soft-cap already ignores failed rows; also undo enqueue-time runsUsed bump.
+    await refundFailedRunAttempt(db, bundle.workspace.id);
     return {
       runId,
       status: "failed",
@@ -504,6 +504,7 @@ export async function retryFailedEngine(
           competitors: competitorNames,
           buyer: bundle.brand.buyer,
           env,
+          db,
           metadata: {
             workspace_id: bundle.workspace.id,
             brand_id: bundle.brand.id,

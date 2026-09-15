@@ -51,22 +51,33 @@ export function isTrialing(sub: SubscriptionLike, now = Date.now()): boolean {
   return true;
 }
 
-/** Paid access still in the current period (including cancel-at-period-end). */
+/**
+ * Paid access still in the current period (including cancel-at-period-end).
+ * If `currentPeriodEnd` has passed, access ends even when status is still `active`
+ * (missed webhook / lapsed renewal). Callers should reconcile DB status lazily.
+ */
 export function isPaidActive(sub: SubscriptionLike, now = Date.now()): boolean {
   if (!sub) return false;
   if (sub.status !== "active") return false;
-  if (sub.cancelAtPeriodEnd && sub.currentPeriodEnd && sub.currentPeriodEnd.getTime() < now) {
+  if (sub.currentPeriodEnd && sub.currentPeriodEnd.getTime() < now) {
     return false;
   }
   return true;
 }
 
+/** Status to persist when an active row's billing period has ended. */
+export function expiredPaidStatus(sub: SubscriptionLike, now = Date.now()): "cancelled" | null {
+  if (!sub || sub.status !== "active") return null;
+  if (!sub.currentPeriodEnd || sub.currentPeriodEnd.getTime() >= now) return null;
+  return "cancelled";
+}
+
 export function subscriptionEndedAt(sub: SubscriptionLike, now = Date.now()): Date | null {
   if (!sub) return null;
   if (isPaidActive(sub, now) || isTrialing(sub, now)) return null;
+  // Prefer period end (covers active-but-lapsed rows before DB reconcile).
   if (sub.currentPeriodEnd) return sub.currentPeriodEnd;
-  // Cancelled / past_due paid: never use trialEndsAt (stale trial date would
-  // make pdfRetentionExpired true immediately). Start the 90-day window at now.
+  // Cancelled / past_due paid without period end: never use trialEndsAt.
   if (sub.status === "cancelled" || sub.status === "canceled" || sub.status === "past_due") {
     return new Date(now);
   }

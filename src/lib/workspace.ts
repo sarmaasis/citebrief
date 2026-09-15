@@ -45,13 +45,26 @@ export async function acceptInviteForUser(
         error: `Seat cap reached (${members.length}/${cap}). Ask the owner to add a seat or upgrade.`,
       };
     }
+    const memberId = crypto.randomUUID();
     await db.insert(workspaceMembers).values({
-      id: crypto.randomUUID(),
+      id: memberId,
       workspaceId: invite.workspaceId,
       userId: user.id,
       role,
       createdAt: new Date(),
     });
+    // Close race: two accepts past members.length === cap-1.
+    const membersAfter = await db
+      .select({ id: workspaceMembers.id })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.workspaceId, invite.workspaceId));
+    if (membersAfter.length > cap) {
+      await db.delete(workspaceMembers).where(eq(workspaceMembers.id, memberId));
+      return {
+        ok: false,
+        error: `Seat cap reached (${cap}/${cap}). Ask the owner to add a seat or upgrade.`,
+      };
+    }
   }
 
   await db

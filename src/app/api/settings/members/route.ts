@@ -110,9 +110,10 @@ export async function POST(request: Request) {
   const role = body.role === "admin" ? "admin" : "member";
   const token = crypto.randomUUID().replaceAll("-", "");
   const createdAt = new Date();
+  const inviteId = crypto.randomUUID();
 
   await ctx.db.insert(workspaceInvites).values({
-    id: crypto.randomUUID(),
+    id: inviteId,
     workspaceId: ctx.workspace.id,
     email,
     role,
@@ -121,6 +122,13 @@ export async function POST(request: Request) {
     expiresAt: new Date(createdAt.getTime() + 14 * 24 * 60 * 60 * 1000),
     createdAt,
   });
+
+  // Post-insert seat check closes the concurrent-invite race.
+  const seatsAfter = await countOccupiedSeats(ctx.db, ctx.workspace.id);
+  if (seatsAfter.occupied > ent.seatCap) {
+    await ctx.db.delete(workspaceInvites).where(eq(workspaceInvites.id, inviteId));
+    return jsonError(upgradeHintForSeatCap(ent), 403);
+  }
 
   const link = `${(env.BETTER_AUTH_URL || "").replace(/\/$/, "")}/invite/${token}`;
   const mail = inviteEmail({ workspaceName: ctx.workspace.name, role, acceptUrl: link });
@@ -143,7 +151,7 @@ export async function POST(request: Request) {
     metadata: { role },
   });
 
-  return jsonOk({ ok: true, token, link, seatCap: ent.seatCap, seatsUsed: seats.occupied + 1, role }, 201);
+  return jsonOk({ ok: true, token, link, seatCap: ent.seatCap, seatsUsed: seatsAfter.occupied, role }, 201);
 }
 
 export async function DELETE(request: Request) {

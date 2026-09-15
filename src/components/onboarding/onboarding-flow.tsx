@@ -468,6 +468,15 @@ export function OnboardingFlow({
               ? "Generated from the writer. Edit before you run."
               : `Template pack. ${promptSetHint(promptCap)} Edit before you run.`}
           </p>
+          {source === "template" ? (
+            <p className="mt-3 rounded-cb-card border border-cb-line bg-cb-surface px-3 py-2 text-sm text-cb-ink">
+              Using the <strong>template pack</strong> (AI writer unavailable or timed out). You can still edit every
+              question before the run.
+            </p>
+          ) : null}
+          {source === "llm" ? (
+            <p className="mt-3 text-xs text-cb-muted">Source: AI writer (Workers AI).</p>
+          ) : null}
           <div className="mt-6 flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(1)}>
               Back

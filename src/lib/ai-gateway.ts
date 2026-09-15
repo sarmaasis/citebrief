@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import type { Database } from "@/db";
+import { runs } from "@/db/schema";
 import { isStubSecret } from "@/lib/billing";
 
 export type AiGatewayProvider = "openai" | "google" | "anthropic" | "xai" | "workers-ai";
@@ -17,6 +20,8 @@ export type AiGatewayMetadata = {
 
 export type AiGatewayRequestArgs = {
   env?: CloudflareEnv;
+  /** Optional DB for durable per-run gateway budget across isolate restarts. */
+  db?: Database;
   provider: AiGatewayProvider;
   /** Path after the provider segment, e.g. `/chat/completions` or `/responses`. */
   path: string;
@@ -92,17 +97,36 @@ export function resetGatewayRunBudget(runId: string) {
   gatewayCallsByRun.delete(runId);
 }
 
+/** Load durable count from D1 so a restarted queue consumer keeps the same budget. */
+export async function hydrateGatewayRunBudget(db: Database, runId: string) {
+  const [row] = await db
+    .select({ gatewayCalls: runs.gatewayCalls })
+    .from(runs)
+    .where(eq(runs.id, runId))
+    .limit(1);
+  const n = Number(row?.gatewayCalls ?? 0);
+  if (n > 0) gatewayCallsByRun.set(runId, n);
+  else gatewayCallsByRun.delete(runId);
+}
+
 export function gatewayRunCallCount(runId: string): number {
   return gatewayCallsByRun.get(runId) || 0;
 }
 
-export function assertGatewayRunBudget(runId: string | undefined, cap: number | undefined) {
+export async function assertGatewayRunBudget(
+  runId: string | undefined,
+  cap: number | undefined,
+  db?: Database,
+) {
   if (!runId || !cap || cap <= 0) return;
   const next = (gatewayCallsByRun.get(runId) || 0) + 1;
   if (next > cap) {
     throw new AiGatewayError(`AI Gateway run budget exceeded (${cap} requests)`, { status: 429, softFail: true });
   }
   gatewayCallsByRun.set(runId, next);
+  if (db) {
+    await db.update(runs).set({ gatewayCalls: next }).where(eq(runs.id, runId));
+  }
   if (next === 1 || next === cap || next % 5 === 0) {
     console.info(`[ai-gateway] run ${runId} ${next}/${cap}`);
   }
@@ -572,7 +596,7 @@ export async function aiGatewayRequest(args: AiGatewayRequestArgs): Promise<AiGa
   const url = `${gatewayBaseUrl(accountId, gatewayId, args.provider)}${path}`;
 
   const meta = args.metadata || {};
-  assertGatewayRunBudget(meta.run_id, meta.max_gateway_requests);
+  await assertGatewayRunBudget(meta.run_id, meta.max_gateway_requests, args.db);
 
   const cachePolicy = meta.cache_policy || "fresh";
   const headers: Record<string, string> = {

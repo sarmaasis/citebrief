@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { PromptsPage } from "@/components/prompts/prompts-page";
 import { workspaceEntitlements } from "@/lib/entitlements";
-import { topUpWorkspaceBrandPrompts } from "@/lib/prompt-topup";
+import { topUpBrandPrompts } from "@/lib/prompt-topup";
 import { normalizePromptDrafts, type PromptDraft, type PromptMix } from "@/lib/prompts";
 import { getAppContext } from "@/lib/session";
 import { getWorkspaceSubscription } from "@/lib/usage";
@@ -21,9 +21,9 @@ export default async function BrandPromptsPage({ params }: { params: Promise<{ i
   const sub = await getWorkspaceSubscription(ctx.db, ctx.workspace.id);
   const promptCap = workspaceEntitlements(sub).promptCap;
 
-  // Recover brands still on a trial-sized set after promptCap rose (missed webhook top-up).
+  // Recover this brand only (not the whole workspace) if still under the plan cap.
   if (bundle.prompts.length > 0 && bundle.prompts.length < promptCap) {
-    await topUpWorkspaceBrandPrompts(ctx.db, ctx.workspace.id, promptCap);
+    await topUpBrandPrompts(ctx.db, bundle.brand.id, promptCap);
     bundle = (await getBrandBundle(ctx, id)) ?? bundle;
   }
 

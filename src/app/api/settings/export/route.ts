@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import {
   brandKits,
@@ -51,59 +51,54 @@ export async function GET(request: Request) {
     .where(eq(workspaceInvites.workspaceId, ctx.workspace.id));
   const brandRows = await ctx.db.select().from(brands).where(eq(brands.workspaceId, ctx.workspace.id));
   const brandIds = brandRows.map((brand) => brand.id);
-  const competitorRows = [];
-  const promptRows = [];
-  const runRows = [];
-  const reportRows = [];
-  for (const brandId of brandIds) {
-    competitorRows.push(...(await ctx.db.select().from(competitors).where(eq(competitors.brandId, brandId))));
-    promptRows.push(
-      ...(await ctx.db
-        .select({
-          id: prompts.id,
-          brandId: prompts.brandId,
-          text: prompts.text,
-          mix: prompts.mix,
-          sortOrder: prompts.sortOrder,
-          archivedAt: prompts.archivedAt,
-        })
-        .from(prompts)
-        .where(eq(prompts.brandId, brandId))),
-    );
-    runRows.push(
-      ...(await ctx.db
-        .select({
-          id: runs.id,
-          brandId: runs.brandId,
-          status: runs.status,
-          periodStart: runs.periodStart,
-          periodEnd: runs.periodEnd,
-          extraRun: runs.extraRun,
-          createdAt: runs.createdAt,
-          completedAt: runs.completedAt,
-        })
-        .from(runs)
-        .where(eq(runs.brandId, brandId))),
-    );
-    reportRows.push(
-      ...(await ctx.db
-        .select({
-          id: reports.id,
-          brandId: reports.brandId,
-          runId: reports.runId,
-          summary: reports.summary,
-          scoreMentioned: reports.scoreMentioned,
-          scoreRecommended: reports.scoreRecommended,
-          scoreTotal: reports.scoreTotal,
-          shareExpiresAt: reports.shareExpiresAt,
-          shareRevokedAt: reports.shareRevokedAt,
-          sentAt: reports.sentAt,
-          createdAt: reports.createdAt,
-        })
-        .from(reports)
-        .where(eq(reports.brandId, brandId))),
-    );
-  }
+
+  const [competitorRows, promptRows, runRows, reportRows] =
+    brandIds.length === 0
+      ? [[], [], [], []]
+      : await Promise.all([
+          ctx.db.select().from(competitors).where(inArray(competitors.brandId, brandIds)),
+          ctx.db
+            .select({
+              id: prompts.id,
+              brandId: prompts.brandId,
+              text: prompts.text,
+              mix: prompts.mix,
+              sortOrder: prompts.sortOrder,
+              archivedAt: prompts.archivedAt,
+            })
+            .from(prompts)
+            .where(inArray(prompts.brandId, brandIds)),
+          ctx.db
+            .select({
+              id: runs.id,
+              brandId: runs.brandId,
+              status: runs.status,
+              periodStart: runs.periodStart,
+              periodEnd: runs.periodEnd,
+              extraRun: runs.extraRun,
+              createdAt: runs.createdAt,
+              completedAt: runs.completedAt,
+            })
+            .from(runs)
+            .where(inArray(runs.brandId, brandIds)),
+          ctx.db
+            .select({
+              id: reports.id,
+              brandId: reports.brandId,
+              runId: reports.runId,
+              summary: reports.summary,
+              scoreMentioned: reports.scoreMentioned,
+              scoreRecommended: reports.scoreRecommended,
+              scoreTotal: reports.scoreTotal,
+              shareExpiresAt: reports.shareExpiresAt,
+              shareRevokedAt: reports.shareRevokedAt,
+              sentAt: reports.sentAt,
+              createdAt: reports.createdAt,
+            })
+            .from(reports)
+            .where(inArray(reports.brandId, brandIds)),
+        ]);
+
   const [kit] = await ctx.db.select().from(brandKits).where(eq(brandKits.workspaceId, ctx.workspace.id)).limit(1);
   const [sub] = await ctx.db
     .select({

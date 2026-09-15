@@ -11,6 +11,7 @@ import {
 } from "@/lib/billing";
 import { recordDodoExtraRunUsage } from "@/lib/dodo";
 import {
+  expiredPaidStatus,
   isPaidActive,
   isTrialing,
   pdfRetentionExpired,
@@ -200,7 +201,18 @@ export function decidePaidRunCap(args: {
 
 export async function getWorkspaceSubscription(db: Database, workspaceId: string) {
   const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1);
-  return sub ?? null;
+  if (!sub) return null;
+  // Lazy reconcile: period ended but webhook never flipped status off `active`.
+  const nextStatus = expiredPaidStatus(sub);
+  if (nextStatus && nextStatus !== sub.status) {
+    const now = new Date();
+    await db
+      .update(subscriptions)
+      .set({ status: nextStatus, updatedAt: now })
+      .where(and(eq(subscriptions.id, sub.id), eq(subscriptions.status, "active")));
+    return { ...sub, status: nextStatus, updatedAt: now };
+  }
+  return sub;
 }
 
 export async function countActiveBrands(db: Database, workspaceId: string) {
@@ -302,7 +314,7 @@ export async function assertRunCap(db: Database, workspaceId: string, brandId: s
     };
   }
 
-  if (sub?.cancelAtPeriodEnd && sub.currentPeriodEnd && sub.currentPeriodEnd.getTime() < Date.now()) {
+  if (sub?.currentPeriodEnd && sub.currentPeriodEnd.getTime() < Date.now()) {
     const err = new Error("Subscription ended. PDFs stay available for 90 days. Reactivate to run again.") as Error & {
       code: CapDenial["code"];
     };
@@ -347,6 +359,23 @@ export async function bumpRunsUsed(db: Database, workspaceId: string, extraRun =
     .set({
       runsUsed: (sub.runsUsed || 0) + 1,
       extraRuns: extraRun ? (sub.extraRuns || 0) + 1 : sub.extraRuns || 0,
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptions.id, sub.id));
+}
+
+/**
+ * When a run ends with no report (`failed`), undo the enqueue-time runsUsed bump
+ * so engine outages do not burn monthly attempt display / trust.
+ * Soft-cap / recheck math already excludes failed rows via `ne(status, failed)`.
+ */
+export async function refundFailedRunAttempt(db: Database, workspaceId: string) {
+  const sub = await getWorkspaceSubscription(db, workspaceId);
+  if (!sub || (sub.runsUsed || 0) <= 0) return;
+  await db
+    .update(subscriptions)
+    .set({
+      runsUsed: Math.max(0, (sub.runsUsed || 0) - 1),
       updatedAt: new Date(),
     })
     .where(eq(subscriptions.id, sub.id));

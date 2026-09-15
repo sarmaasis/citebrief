@@ -137,6 +137,8 @@ export const runs = sqliteTable(
     consumeCredit: integer("consume_credit", { mode: "boolean" }).notNull().default(false),
     /** Set when extra-run meter / credit settlement completed (idempotent). */
     billedAt: integer("billed_at", { mode: "timestamp_ms" }),
+    /** AI Gateway calls for this run (durable across Worker isolate restarts). */
+    gatewayCalls: integer("gateway_calls").notNull().default(0),
     createdAt: createdAt(),
     completedAt: integer("completed_at", { mode: "timestamp_ms" }),
   },

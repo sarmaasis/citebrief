@@ -15,6 +15,7 @@ export type EngineQueryInput = {
   competitors: string[];
   buyer?: string | null;
   env?: CloudflareEnv;
+  db?: import("@/db").Database;
   metadata?: {
     workspace_id?: string;
     brand_id?: string;
@@ -253,6 +254,7 @@ async function queryViaGateway(
 ): Promise<{ text: string; gatewayRequestId: string | null }> {
   const result = await aiGatewayRequest({
     env: input.env,
+    db: input.db,
     provider: request.provider,
     path: request.path,
     body: request.body,
